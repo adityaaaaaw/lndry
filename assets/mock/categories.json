@@ -1,0 +1,62 @@
+[
+  {
+    "id": "cat_wash",
+    "name": "Wash & Fold",
+    "description": "Machine wash, tumble dry, and neatly folded",
+    "icon": "washer",
+    "color": "#4F6AF5",
+    "imageUrl": "",
+    "isActive": true,
+    "sortOrder": 1
+  },
+  {
+    "id": "cat_iron",
+    "name": "Iron Only",
+    "description": "Crisp ironing for your clothes",
+    "icon": "iron",
+    "color": "#00C2CB",
+    "imageUrl": "",
+    "isActive": true,
+    "sortOrder": 2
+  },
+  {
+    "id": "cat_wash_iron",
+    "name": "Wash & Iron",
+    "description": "Complete wash, dry, and iron service",
+    "icon": "laundry",
+    "color": "#1DB954",
+    "imageUrl": "",
+    "isActive": true,
+    "sortOrder": 3
+  },
+  {
+    "id": "cat_dry_clean",
+    "name": "Dry Clean",
+    "description": "Professional dry cleaning for delicate fabrics",
+    "icon": "dry",
+    "color": "#F5A623",
+    "imageUrl": "",
+    "isActive": true,
+    "sortOrder": 4
+  },
+  {
+    "id": "cat_premium",
+    "name": "Premium Care",
+    "description": "Luxury garment care for designer wear",
+    "icon": "star",
+    "color": "#E53935",
+    "imageUrl": "",
+    "isActive": true,
+    "sortOrder": 5
+  },
+  {
+    "id": "cat_shoe",
+    "name": "Shoe Cleaning",
+    "description": "Deep clean and polish for all shoe types",
+    "icon": "tag",
+    "color": "#8B5CF6",
+    "imageUrl": "",
+    "isActive": true,
+    "sortOrder": 6
+  }
+]

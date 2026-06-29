@@ -1,0 +1,111 @@
+[
+  {
+    "id": "ord_001",
+    "customerId": "usr_demo",
+    "vendorId": "vndr_001",
+    "deliveryPartnerId": null,
+    "items": [
+      {
+        "serviceId": "svc_003",
+        "serviceName": "Wash & Iron (per kg)",
+        "quantity": 3,
+        "unitPrice": 79.0,
+        "totalPrice": 237.0
+      }
+    ],
+    "status": "delivered",
+    "subtotal": 237.0,
+    "platformFee": 11.85,
+    "gstAmount": 44.73,
+    "total": 293.58,
+    "paymentMethod": "upi",
+    "isPaid": true,
+    "pickupAddressId": "addr_1",
+    "deliveryAddressId": "addr_1",
+    "scheduledPickupAt": "2026-06-20T09:00:00.000Z",
+    "estimatedDeliveryAt": "2026-06-21T18:00:00.000Z",
+    "pickedUpAt": "2026-06-20T09:30:00.000Z",
+    "deliveredAt": "2026-06-21T17:45:00.000Z",
+    "cancellationReason": null,
+    "customerNotes": "Please use fragrance-free detergent",
+    "customerRating": 5.0,
+    "customerReview": "Absolutely spotless! Will order again.",
+    "createdAt": "2026-06-19T21:00:00.000Z",
+    "updatedAt": "2026-06-21T17:45:00.000Z"
+  },
+  {
+    "id": "ord_002",
+    "customerId": "usr_demo",
+    "vendorId": "vndr_002",
+    "deliveryPartnerId": "dlv_001",
+    "items": [
+      {
+        "serviceId": "svc_004",
+        "serviceName": "Express Wash & Fold",
+        "quantity": 2,
+        "unitPrice": 69.0,
+        "totalPrice": 138.0
+      }
+    ],
+    "status": "out_for_delivery",
+    "subtotal": 138.0,
+    "platformFee": 6.9,
+    "gstAmount": 26.06,
+    "total": 170.96,
+    "paymentMethod": "cash",
+    "isPaid": false,
+    "pickupAddressId": "addr_1",
+    "deliveryAddressId": "addr_1",
+    "scheduledPickupAt": "2026-06-27T10:00:00.000Z",
+    "estimatedDeliveryAt": "2026-06-27T19:00:00.000Z",
+    "pickedUpAt": "2026-06-27T10:15:00.000Z",
+    "deliveredAt": null,
+    "cancellationReason": null,
+    "customerNotes": null,
+    "customerRating": null,
+    "customerReview": null,
+    "createdAt": "2026-06-27T08:00:00.000Z",
+    "updatedAt": "2026-06-27T15:30:00.000Z"
+  },
+  {
+    "id": "ord_003",
+    "customerId": "usr_demo",
+    "vendorId": "vndr_003",
+    "deliveryPartnerId": null,
+    "items": [
+      {
+        "serviceId": "svc_005",
+        "serviceName": "Suit Dry Clean",
+        "quantity": 1,
+        "unitPrice": 349.0,
+        "totalPrice": 349.0
+      },
+      {
+        "serviceId": "svc_006",
+        "serviceName": "Saree Dry Clean",
+        "quantity": 2,
+        "unitPrice": 249.0,
+        "totalPrice": 498.0
+      }
+    ],
+    "status": "confirmed",
+    "subtotal": 847.0,
+    "platformFee": 42.35,
+    "gstAmount": 160.09,
+    "total": 1049.44,
+    "paymentMethod": "card",
+    "isPaid": true,
+    "pickupAddressId": "addr_1",
+    "deliveryAddressId": "addr_1",
+    "scheduledPickupAt": "2026-06-28T11:00:00.000Z",
+    "estimatedDeliveryAt": "2026-06-30T18:00:00.000Z",
+    "pickedUpAt": null,
+    "deliveredAt": null,
+    "cancellationReason": null,
+    "customerNotes": "Handle the sarees with extra care",
+    "customerRating": null,
+    "customerReview": null,
+    "createdAt": "2026-06-27T20:00:00.000Z",
+    "updatedAt": "2026-06-27T20:05:00.000Z"
+  }
+]
