@@ -1,3 +1,5 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../../../../core/design/design_system.dart';
 import '../../../../core/widgets/widgets.dart';
 import '../../../../core/extensions/extensions.dart';
@@ -7,10 +9,17 @@ class OrderConfirmationPage extends StatelessWidget {
   const OrderConfirmationPage({super.key, required this.orderId});
   final String orderId;
 
+  /// Safe short ID — last 8 chars if available, otherwise full id.
+  String get _shortId {
+    if (orderId.isEmpty) return 'NEW';
+    return orderId.length > 8
+        ? orderId.substring(orderId.length - 8).toUpperCase()
+        : orderId.toUpperCase();
+  }
+
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
       backgroundColor: isDark ? AppColors.darkBackground : AppColors.background,
@@ -26,7 +35,7 @@ class OrderConfirmationPage extends StatelessWidget {
             children: [
               const Spacer(),
 
-              // Success Checkmark Illustration
+              // Success icon
               Center(
                 child: Container(
                   width: 140.r,
@@ -35,52 +44,65 @@ class OrderConfirmationPage extends StatelessWidget {
                     color: AppColors.success.withOpacity(0.1),
                     shape: BoxShape.circle,
                   ),
-                  child: Icon(
-                    AppIcons.success,
-                    size: 80.r,
-                    color: AppColors.success,
-                  ),
+                  child: Icon(AppIcons.success, size: 80.r, color: AppColors.success),
                 ),
               ),
               const Gap(32),
 
-              // Headers
               Text(
-                'Order Confirmed!',
+                'Payment Successful!',
                 style: AppTypography.headlineLarge,
                 textAlign: TextAlign.center,
               ),
-              const Gap(12),
+              const Gap(16),
+
+              // Spec §12 exact confirmation copy
               Text(
-                'Your laundry pickup has been scheduled successfully. Our delivery partner will contact you shortly.',
+                'Your payment has been verified and the order has been sent to '
+                'the selected laundry partner.',
                 style: AppTypography.bodyMedium.copyWith(
                   color: AppColors.onSurfaceVariant,
                   height: 1.6,
                 ),
                 textAlign: TextAlign.center,
               ),
-              const Gap(40),
+              const Gap(24),
 
-              // Order details summary box
+              // Status card
               AppCard.outlined(
-                backgroundColor: isDark ? AppColors.darkSurfaceContainer : AppColors.surface,
+                backgroundColor: isDark
+                    ? AppColors.darkSurfaceContainer
+                    : AppColors.primaryContainer.withOpacity(0.4),
+                borderColor: AppColors.primary.withOpacity(0.3),
                 padding: EdgeInsets.all(AppSpacing.md.r),
                 child: Column(
                   children: [
-                    _DetailRow(
-                      label: 'Order ID',
-                      value: '#${orderId.substring(orderId.length - 8).toUpperCase()}',
+                    // Canonical status label per spec §12
+                    Center(
+                      child: Container(
+                        padding: EdgeInsets.symmetric(
+                            horizontal: 14.w, vertical: 7.h),
+                        decoration: BoxDecoration(
+                          color: AppColors.primary.withOpacity(0.12),
+                          borderRadius:
+                              BorderRadius.circular(AppRadius.full.r),
+                        ),
+                        child: Text(
+                          'Waiting for Vendor Confirmation',
+                          style: AppTypography.labelMedium.copyWith(
+                            color: AppColors.primary,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
                     ),
-                    const Gap(10),
-                    const _DetailRow(
-                      label: 'Estimated Delivery',
-                      value: '24 - 48 Hours',
-                    ),
-                    const Gap(10),
-                    const _DetailRow(
-                      label: 'Status',
-                      value: 'Pending Pickup',
-                      valueColor: AppColors.primary,
+                    const Gap(16),
+                    _Row(label: 'Order ID', value: '#$_shortId'),
+                    const Gap(8),
+                    _Row(
+                      label: 'Next step',
+                      value:
+                          'You will be notified when the vendor accepts or rejects.',
                     ),
                   ],
                 ),
@@ -88,10 +110,15 @@ class OrderConfirmationPage extends StatelessWidget {
 
               const Spacer(),
 
-              // Action buttons
               AppButton(
                 label: 'Track Order',
-                onPressed: () => context.go('/orders/details/$orderId'),
+                onPressed: () {
+                  if (orderId.isNotEmpty) {
+                    context.go('/orders/details/$orderId');
+                  } else {
+                    context.go(AppRoutes.orders);
+                  }
+                },
               ),
               const Gap(16),
               AppButton.text(
@@ -106,8 +133,8 @@ class OrderConfirmationPage extends StatelessWidget {
   }
 }
 
-class _DetailRow extends StatelessWidget {
-  const _DetailRow({required this.label, required this.value, this.valueColor});
+class _Row extends StatelessWidget {
+  const _Row({required this.label, required this.value, this.valueColor});
   final String label;
   final String value;
   final Color? valueColor;
@@ -115,17 +142,20 @@ class _DetailRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          label,
-          style: AppTypography.bodyMedium.copyWith(color: AppColors.onSurfaceVariant),
+          '$label: ',
+          style: AppTypography.bodySmall
+              .copyWith(color: AppColors.onSurfaceVariant),
         ),
-        Text(
-          value,
-          style: AppTypography.labelLarge.copyWith(
-            color: valueColor ?? context.theme.colorScheme.onSurface,
-            fontWeight: FontWeight.bold,
+        Expanded(
+          child: Text(
+            value,
+            style: AppTypography.bodySmall.copyWith(
+              color: valueColor ?? AppColors.textBlack,
+              fontWeight: FontWeight.w600,
+            ),
           ),
         ),
       ],

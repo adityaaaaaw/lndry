@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../design/design_system.dart';
-import '../constants/app_constants.dart';
+import '../../config/env.dart';
 
 /// Floating Developer Preview mode helper overlay.
 /// Allows rapid screen-by-screen navigation during UI review and testing.
@@ -22,7 +22,7 @@ class _DevPreviewOverlayState extends State<DevPreviewOverlay> {
 
   @override
   Widget build(BuildContext context) {
-    if (!AppConstants.kDeveloperPreview) return const SizedBox.shrink();
+    if (!Env.showDevPreviewOverlay) return const SizedBox.shrink();
 
     return Material(
       type: MaterialType.transparency,

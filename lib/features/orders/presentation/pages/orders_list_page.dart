@@ -1,11 +1,14 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gap/gap.dart';
 import 'package:go_router/go_router.dart';
-import '../../../../core/theme/theme.dart';
+import '../../../../core/design/design_system.dart';
 import '../../../../core/widgets/widgets.dart';
 import '../../../../core/extensions/extensions.dart';
+import '../../../../core/router/app_routes.dart';
 import '../../../../shared/widgets/shared_widgets.dart';
 import '../../../../models/models.dart';
 import '../../../../repositories/repositories.dart';
@@ -149,12 +152,90 @@ class _OrdersListPageState extends ConsumerState<OrdersListPage>
   }
 }
 
-class _ActiveOrderTile extends StatelessWidget {
+class _ActiveOrderTile extends ConsumerStatefulWidget {
   const _ActiveOrderTile({required this.order});
   final OrderModel order;
 
   @override
+  ConsumerState<_ActiveOrderTile> createState() => _ActiveOrderTileState();
+}
+
+class _ActiveOrderTileState extends ConsumerState<_ActiveOrderTile> {
+  bool _isCancelling = false;
+
+  static const List<String> _cancelReasons = [
+    'I need to reschedule',
+    'Picked a different vendor',
+    'Changed my mind',
+    'Estimated cost too high',
+    'Other',
+  ];
+
+  Future<void> _showCancelSheet() async {
+    String? selectedReason;
+
+    await AppBottomSheet.show<String>(
+      context: context,
+      title: 'Cancel Order',
+      primaryActionLabel: 'Confirm Cancellation',
+      onPrimaryAction: () {
+        if (selectedReason != null && selectedReason!.isNotEmpty) {
+          Navigator.of(context).pop(selectedReason);
+        }
+      },
+      child: StatefulBuilder(
+        builder: (ctx, setModalState) => Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              'Please select a reason for cancelling:',
+              style: AppTypography.bodyMedium.copyWith(
+                color: AppColors.textSecondary,
+              ),
+            ),
+            const Gap(16),
+            ..._cancelReasons.map((r) => Padding(
+                  padding: EdgeInsets.only(bottom: 8.h),
+                  child: AppCard.outlined(
+                    borderColor: selectedReason == r
+                        ? AppColors.error
+                        : AppColors.outline,
+                    backgroundColor: selectedReason == r
+                        ? AppColors.error.withOpacity(0.08)
+                        : AppColors.transparent,
+                    onTap: () => setModalState(() => selectedReason = r),
+                    child: Text(r, style: AppTypography.bodyMedium),
+                  ),
+                )),
+          ],
+        ),
+      ),
+    ).then((reason) {
+      if (reason != null && reason.isNotEmpty && mounted) {
+        setState(() => _isCancelling = true);
+        ref.read(customerRepositoryProvider)
+            .cancelOrder(widget.order.id, reason: reason)
+            .then((_) {
+              if (mounted) {
+                AppSnackBar.showSuccess(context, 'Order cancelled successfully');
+                ref.invalidate(activeOrdersProvider);
+                ref.invalidate(pastOrdersProvider);
+              }
+            }).catchError((e) {
+              if (mounted) {
+                AppSnackBar.showError(context, 'Failed to cancel: ${e.toString()}');
+              }
+            }).whenComplete(() {
+              if (mounted) setState(() => _isCancelling = false);
+            });
+      }
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final order = widget.order;
     return AppCard.outlined(
       borderColor: AppColors.primary.withOpacity(0.3),
       backgroundColor: AppColors.primaryContainer.withOpacity(0.12),
@@ -196,8 +277,32 @@ class _ActiveOrderTile extends StatelessWidget {
               ),
               Row(
                 children: [
+                  // Cancel button (only when cancellable)
+                  if (order.status.isCancellable && !_isCancelling)
+                    GestureDetector(
+                      onTap: _showCancelSheet,
+                      child: Text(
+                        'Cancel',
+                        style: AppTypography.labelMedium.copyWith(
+                          color: AppColors.error,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  if (order.status.isCancellable && !_isCancelling)
+                    const Gap(12),
+                  if (_isCancelling)
+                    SizedBox(
+                      width: 16.r,
+                      height: 16.r,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2.r,
+                        color: AppColors.error,
+                      ),
+                    ),
+                  if (_isCancelling) const Gap(8),
                   Text(
-                    'Track Order',
+                    'Track',
                     style: AppTypography.labelMedium.copyWith(
                       color: AppColors.primary,
                       fontWeight: FontWeight.bold,
@@ -215,12 +320,43 @@ class _ActiveOrderTile extends StatelessWidget {
   }
 }
 
-class _PastOrderTile extends StatelessWidget {
+class _PastOrderTile extends ConsumerStatefulWidget {
   const _PastOrderTile({required this.order});
   final OrderModel order;
 
   @override
+  ConsumerState<_PastOrderTile> createState() => _PastOrderTileState();
+}
+
+class _PastOrderTileState extends ConsumerState<_PastOrderTile> {
+  bool _isReordering = false;
+
+  Future<void> _handleReorder() async {
+    setState(() => _isReordering = true);
+    try {
+      final repo = ref.read(customerRepositoryProvider);
+      final newOrder = await repo.reorder(widget.order.id);
+      if (mounted) {
+        AppSnackBar.showSuccess(
+          context,
+          'Reorder placed! Order #${newOrder.id.length >= 8 ? newOrder.id.substring(newOrder.id.length - 8).toUpperCase() : newOrder.id.toUpperCase()}',
+        );
+        ref.invalidate(activeOrdersProvider);
+        ref.invalidate(pastOrdersProvider);
+        context.go('/orders/details/${newOrder.id}');
+      }
+    } catch (e) {
+      if (mounted) {
+        AppSnackBar.showError(context, 'Reorder failed: ${e.toString()}');
+      }
+    } finally {
+      if (mounted) setState(() => _isReordering = false);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final order = widget.order;
     final isDelivered = order.status == OrderStatus.delivered;
 
     return AppCard.outlined(
@@ -262,6 +398,27 @@ class _PastOrderTile extends StatelessWidget {
               ),
               Row(
                 children: [
+                  // Reorder button (show for any terminal order)
+                  if (order.status.isTerminal && !_isReordering)
+                    GestureDetector(
+                      onTap: _handleReorder,
+                      child: Text(
+                        'Reorder',
+                        style: AppTypography.labelMedium.copyWith(
+                          color: AppColors.primary,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  if (order.status.isTerminal && !_isReordering)
+                    const Gap(8),
+                  if (_isReordering)
+                    SizedBox(
+                      width: 16.r,
+                      height: 16.r,
+                      child: CircularProgressIndicator(strokeWidth: 2.r),
+                    ),
+                  if (_isReordering) const Gap(8),
                   Text(
                     'View Details',
                     style: AppTypography.labelMedium.copyWith(

@@ -32,43 +32,31 @@ class _ProfileSetupPageState extends ConsumerState<ProfileSetupPage> {
     super.dispose();
   }
 
-  void _onSave() async {
-    if (_formKey.currentState!.validate()) {
-      setState(() => _isLoading = true);
-      try {
-        final name = _nameController.text.trim();
-        final email = _emailController.text.trim();
-
-        await ref.read(authProvider.notifier).completeProfile(
-              name: name,
-              email: email,
-            );
-
-        if (mounted) {
-          context.go(AppRoutes.locationPermission);
-        }
-      } catch (e) {
-        if (mounted) {
-          AppSnackBar.showError(context, e.toString());
-        }
-      } finally {
-        if (mounted) {
-          setState(() => _isLoading = false);
-        }
-      }
+  Future<void> _onSave() async {
+    if (!_formKey.currentState!.validate()) return;
+    setState(() => _isLoading = true);
+    try {
+      await ref.read(authProvider.notifier).completeProfile(
+            name: _nameController.text.trim(),
+            email: _emailController.text.trim(),
+          );
+      // Navigation is handled by GoRouter redirect watching authProvider state.
+    } catch (e) {
+      if (mounted) AppSnackBar.showError(context, e.toString());
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
       backgroundColor: isDark ? AppColors.darkBackground : AppColors.background,
       body: SafeArea(
         child: _isLoading
-            ? const AppLoadingPage(message: 'Saving profile details...')
+            ? const AppLoadingPage(message: 'Saving profile...')
             : SingleChildScrollView(
                 padding: EdgeInsets.symmetric(
                   horizontal: AppSpacing.pagePaddingH.w,
@@ -80,13 +68,11 @@ class _ProfileSetupPageState extends ConsumerState<ProfileSetupPage> {
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       const Gap(20),
-                      Text(
-                        'Setup Your Profile',
-                        style: AppTypography.headlineLarge,
-                      ),
+                      Text('Setup Your Profile',
+                          style: AppTypography.headlineLarge),
                       const Gap(12),
                       Text(
-                        'Please tell us a bit more about yourself to personalize your laundry service.',
+                        'Tell us a bit about yourself to personalise your experience.',
                         style: AppTypography.bodyMedium.copyWith(
                           color: AppColors.onSurfaceVariant,
                           height: 1.5,
@@ -94,32 +80,35 @@ class _ProfileSetupPageState extends ConsumerState<ProfileSetupPage> {
                       ),
                       const Gap(40),
 
-                      // Mock Avatar Picker
+                      // Avatar with tappable camera icon
                       Center(
                         child: Stack(
                           children: [
                             CircleAvatar(
                               radius: 56.r,
                               backgroundColor: AppColors.primaryContainer,
-                              child: Icon(
-                                AppIcons.profile,
-                                size: 48.r,
-                                color: AppColors.primary,
-                              ),
+                              child: Icon(AppIcons.profile,
+                                  size: 48.r, color: AppColors.primary),
                             ),
                             Positioned(
                               bottom: 0,
                               right: 0,
-                              child: Container(
-                                padding: EdgeInsets.all(8.r),
-                                decoration: const BoxDecoration(
-                                  color: AppColors.primary,
-                                  shape: BoxShape.circle,
-                                ),
-                                child: Icon(
-                                  AppIcons.camera,
-                                  color: AppColors.white,
-                                  size: 16.r,
+                              child: GestureDetector(
+                                onTap: () {
+                                  // TODO(backend): wire image_picker + upload
+                                  AppSnackBar.showInfo(
+                                    context,
+                                    'Photo upload available after backend integration.',
+                                  );
+                                },
+                                child: Container(
+                                  padding: EdgeInsets.all(8.r),
+                                  decoration: const BoxDecoration(
+                                    color: AppColors.primary,
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: Icon(AppIcons.camera,
+                                      color: AppColors.white, size: 16.r),
                                 ),
                               ),
                             ),
@@ -128,7 +117,6 @@ class _ProfileSetupPageState extends ConsumerState<ProfileSetupPage> {
                       ),
                       const Gap(48),
 
-                      // Name Input
                       AppTextField(
                         label: 'Full Name',
                         hint: 'Enter your full name',
@@ -139,19 +127,15 @@ class _ProfileSetupPageState extends ConsumerState<ProfileSetupPage> {
                         textCapitalization: TextCapitalization.words,
                       ),
                       const Gap(24),
-
-                      // Email Input
                       AppTextField(
                         label: 'Email Address',
-                        hint: 'Enter your email address',
+                        hint: 'Enter your email (optional)',
                         controller: _emailController,
                         keyboardType: TextInputType.emailAddress,
                         prefixIcon: const Icon(AppIcons.email),
-                        validator: Validators.email,
+                        validator: Validators.emailOptional,
                       ),
                       const Gap(48),
-
-                      // Submit Button
                       AppButton(
                         label: 'Save & Continue',
                         onPressed: _onSave,

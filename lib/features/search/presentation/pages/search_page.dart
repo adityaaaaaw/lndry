@@ -24,60 +24,12 @@ class _SearchPageState extends ConsumerState<SearchPage> {
   bool _isLoading = false;
   List<VendorModel> _vendors = [];
 
-  final List<Map<String, dynamic>> _gridServices = [
-    {
-      'id': 'cat_wash',
-      'name': 'Wash & Fold',
-      'price': 'From ₹99/kg',
-      'image': 'https://images.unsplash.com/photo-1582735689369-4fe89db7114c?fit=crop&w=100&q=80',
-    },
-    {
-      'id': 'cat_wash_iron',
-      'name': 'Wash & Iron',
-      'price': 'From ₹129/kg',
-      'image': 'https://images.unsplash.com/photo-1489274495757-95c7c837b101?fit=crop&w=100&q=80',
-    },
-    {
-      'id': 'cat_dry_clean',
-      'name': 'Dry Cleaning',
-      'price': 'From ₹149/item',
-      'image': 'https://images.unsplash.com/photo-1545180856-f6d2e61df3fa?fit=crop&w=100&q=80',
-    },
-    {
-      'id': 'cat_iron',
-      'name': 'Steam Press',
-      'price': '48 hrs', // Rendered as custom blue chip
-      'image': 'https://images.unsplash.com/photo-1524805444758-089113d48a6d?fit=crop&w=100&q=80',
-    },
-    {
-      'id': 'cat_shoe',
-      'name': 'Shoe Care',
-      'price': 'From ₹299',
-      'image': 'https://images.unsplash.com/photo-1549298916-b41d501d3772?fit=crop&w=100&q=80',
-    },
-    {
-      'id': 'cat_premium',
-      'name': 'Bag Care',
-      'price': 'From ₹349',
-      'image': 'https://images.unsplash.com/photo-1584917865442-de89df76abe3?fit=crop&w=100&q=80',
-    },
-    {
-      'id': 'cat_premium',
-      'name': 'Premium Care',
-      'price': 'Express', // Rendered as custom teal chip
-      'image': 'https://images.unsplash.com/photo-1507679799987-c73779587ccf?fit=crop&w=100&q=80',
-    },
-    {
-      'id': 'cat_premium',
-      'name': 'Tailoring',
-      'price': 'From ₹199',
-      'image': 'https://images.unsplash.com/photo-1552374196-1ab2a1c593e8?fit=crop&w=100&q=80',
-    },
-  ];
+  List<CategoryModel> _categories = [];
 
   @override
   void initState() {
     super.initState();
+    _loadCategories();
     _loadVendors();
   }
 
@@ -85,6 +37,14 @@ class _SearchPageState extends ConsumerState<SearchPage> {
   void dispose() {
     _searchController.dispose();
     super.dispose();
+  }
+
+  void _loadCategories() async {
+    try {
+      final repo = ref.read(customerRepositoryProvider);
+      final cats = await repo.getCategories();
+      if (mounted) setState(() => _categories = cats);
+    } catch (_) {}
   }
 
   void _loadVendors() async {
@@ -103,7 +63,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
     } else if (_activeFilter == 'available') {
       list = list.where((v) => v.isOpen).toList();
     } else if (_activeFilter == 'express') {
-      list = list.where((v) => v.estimatedTurnaroundHours <= 24).toList();
+      list = list.where((v) => (v.estimatedTurnaroundHours) <= 24).toList();
     } else if (_activeFilter == 'price') {
       list = list.where((v) => v.minOrderAmount <= 100).toList();
     }
@@ -253,7 +213,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                                     mainAxisAlignment: MainAxisAlignment.center,
                                     children: [
                                       Text(
-                                        'Koramangala, Bengaluru',
+                                        'Select address',
                                         style: AppTypography.bodySmall.copyWith(
                                           color: AppColors.textSecondary,
                                           fontSize: 12.sp,
@@ -363,106 +323,83 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                   ),
                   const Gap(16),
 
-                  // ── 3. Grid of Service Cards (2 columns, rounded) ────────────
-                  GridView.builder(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 2,
-                      crossAxisSpacing: 12.w,
-                      mainAxisSpacing: 12.h,
-                      childAspectRatio: 2.1,
-                    ),
-                    itemCount: _gridServices.length,
-                    itemBuilder: (context, idx) {
-                      final item = _gridServices[idx];
-                      final name = item['name'] as String;
-                      final price = item['price'] as String;
-                      final id = item['id'] as String;
+                  // ── 3. Category Grid (loaded from backend) ────────────────────
+                  if (_categories.isEmpty)
+                    Padding(
+                      padding: EdgeInsets.symmetric(vertical: 24.h),
+                      child: Center(child: CircularProgressIndicator()),
+                    )
+                  else
+                    GridView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 2,
+                        crossAxisSpacing: 12.w,
+                        mainAxisSpacing: 12.h,
+                        childAspectRatio: 2.1,
+                      ),
+                      itemCount: _categories.length,
+                      itemBuilder: (context, idx) {
+                        final cat = _categories[idx];
 
-                      return GestureDetector(
-                        onTap: () => context.go('/category/$id'),
-                        child: Container(
-                          padding: EdgeInsets.all(8.r),
-                          decoration: BoxDecoration(
-                            color: AppColors.surface,
-                            borderRadius: BorderRadius.circular(AppRadius.compactCard.r),
-                            boxShadow: AppElevation.low,
-                            border: Border.all(color: AppColors.outline.withOpacity(0.5)),
-                          ),
-                          child: Row(
-                            children: [
-                              // Graphic
-                              ClipRRect(
-                                borderRadius: BorderRadius.circular(8.r),
-                                child: Container(
-                                  color: AppColors.primaryContainer.withOpacity(0.3),
-                                  child: Image.network(
-                                    item['image'] as String,
+                        return GestureDetector(
+                          onTap: () => context.go('/category/${cat.id}'),
+                          child: Container(
+                            padding: EdgeInsets.all(8.r),
+                            decoration: BoxDecoration(
+                              color: AppColors.surface,
+                              borderRadius: BorderRadius.circular(AppRadius.compactCard.r),
+                              boxShadow: AppElevation.low,
+                              border: Border.all(color: AppColors.outline.withOpacity(0.5)),
+                            ),
+                            child: Row(
+                              children: [
+                                // Graphic
+                                ClipRRect(
+                                  borderRadius: BorderRadius.circular(8.r),
+                                  child: Container(
                                     width: 44.r,
                                     height: 44.r,
-                                    fit: BoxFit.cover,
-                                    errorBuilder: (_, __, ___) => Icon(
-                                      AppIcons.laundry,
-                                      color: AppColors.primary.withOpacity(0.15),
-                                      size: 24.r,
-                                    ),
+                                    color: AppColors.primaryContainer.withOpacity(0.3),
+                                    child: cat.imageUrl != null && cat.imageUrl!.isNotEmpty
+                                        ? Image.network(
+                                            cat.imageUrl!,
+                                            width: 44.r,
+                                            height: 44.r,
+                                            fit: BoxFit.cover,
+                                            errorBuilder: (_, __, ___) => Icon(
+                                              AppIcons.laundry,
+                                              color: AppColors.primary.withOpacity(0.15),
+                                              size: 24.r,
+                                            ),
+                                          )
+                                        : Icon(
+                                            AppIcons.laundry,
+                                            color: AppColors.primary.withOpacity(0.15),
+                                            size: 24.r,
+                                          ),
                                   ),
                                 ),
-                              ),
-                              const Gap(8),
-                              // Details Column
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Text(
-                                      name,
-                                      style: AppTypography.labelSmall.copyWith(
-                                        fontWeight: FontWeight.bold,
-                                        color: AppColors.textBlack,
-                                      ),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                    const Gap(2),
-                                    // Dynamic pricing badges
-                                    if (name == 'Steam Press')
-                                      Container(
-                                        padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 2.h),
-                                        decoration: BoxDecoration(
-                                          color: AppColors.primaryContainer,
-                                          borderRadius: BorderRadius.circular(4.r),
-                                        ),
-                                        child: Text(
-                                          price,
-                                          style: TextStyle(
-                                            color: AppColors.primary,
-                                            fontSize: 8.sp,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                      )
-                                    else if (name == 'Premium Care')
-                                      Container(
-                                        padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 2.h),
-                                        decoration: BoxDecoration(
-                                          color: AppColors.secondaryLight,
-                                          borderRadius: BorderRadius.circular(4.r),
-                                        ),
-                                        child: Text(
-                                          price,
-                                          style: TextStyle(
-                                            color: AppColors.secondary,
-                                            fontSize: 8.sp,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                      )
-                                    else
+                                const Gap(8),
+                                // Details Column
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
                                       Text(
-                                        price,
+                                        cat.name,
+                                        style: AppTypography.labelSmall.copyWith(
+                                          fontWeight: FontWeight.bold,
+                                          color: AppColors.textBlack,
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                      const Gap(2),
+                                      Text(
+                                        cat.description,
                                         style: AppTypography.caption.copyWith(
                                           color: AppColors.textSecondary,
                                           fontSize: 10.sp,
@@ -470,24 +407,24 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                                         maxLines: 1,
                                         overflow: TextOverflow.ellipsis,
                                       ),
-                                  ],
+                                    ],
+                                  ),
                                 ),
-                              ),
-                              // Action circle button
-                              Container(
-                                padding: EdgeInsets.all(4.r),
-                                decoration: const BoxDecoration(
-                                  color: AppColors.primaryContainer,
-                                  shape: BoxShape.circle,
+                                // Action circle button
+                                Container(
+                                  padding: EdgeInsets.all(4.r),
+                                  decoration: const BoxDecoration(
+                                    color: AppColors.primaryContainer,
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: Icon(AppIcons.forward, color: AppColors.primary, size: 8.r),
                                 ),
-                                child: Icon(AppIcons.forward, color: AppColors.primary, size: 8.r),
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
-                        ),
-                      );
-                    },
-                  ),
+                        );
+                      },
+                    ),
                   const Gap(24),
 
                   // ── 4. Horizontal Quick Filter Chips ─────────────────────────
@@ -674,7 +611,7 @@ class _ListVendorCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final double mockDistance = ((vendor.id.hashCode.abs() % 20) + 5) / 10;
+    final double displayDistance = vendor.distanceKm ?? ((vendor.id.hashCode.abs() % 20) + 5) / 10;
     final isLuxe = vendor.name == 'Luxe Fabric Care';
 
     return AppCard.outlined(
@@ -765,7 +702,7 @@ class _ListVendorCard extends StatelessWidget {
                     Icon(AppIcons.star, color: Colors.amber, size: 12.r),
                     const Gap(2),
                     Text(
-                      '${vendor.averageRating ?? 4.8} (312)  •  ${mockDistance.toStringAsFixed(1)} km',
+                      '${vendor.averageRating ?? 4.8}  •  ${displayDistance.toStringAsFixed(1)} km',
                       style: AppTypography.caption.copyWith(
                         color: AppColors.textSecondary,
                         fontSize: 10.sp,

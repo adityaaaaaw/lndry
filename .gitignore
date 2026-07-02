@@ -60,3 +60,6 @@ coverage/
 .env.*
 google-services.json
 GoogleService-Info.plist
+
+# Large backend design/media export; backend runtime source remains tracked.
+backend/LNDRY-frontend/

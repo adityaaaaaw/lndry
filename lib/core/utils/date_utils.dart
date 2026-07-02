@@ -1,8 +1,8 @@
 import 'package:intl/intl.dart';
 
 /// LNDRY Date & Time formatting utilities
-abstract final class DateUtils {
-  DateUtils._();
+abstract final class AppDateUtils {
+  AppDateUtils._();
 
   // ── Formatters ────────────────────────────────────────────────────────────
   static final _dateFormatter = DateFormat('dd MMM yyyy');

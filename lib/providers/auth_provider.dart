@@ -1,10 +1,9 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:firebase_core/firebase_core.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:google_sign_in/google_sign_in.dart';
 import '../models/models.dart';
 import '../core/services/storage_service.dart';
 import '../core/constants/app_constants.dart';
+import '../core/network/network.dart';
+import '../repositories/repositories.dart';
 
 // ── Auth State ────────────────────────────────────────────────────────────────
 
@@ -12,48 +11,63 @@ sealed class AuthState {
   const AuthState();
 }
 
+/// App just launched; determining session state.
 class AuthInitial extends AuthState {
   const AuthInitial();
 }
 
+/// Any async auth operation is in progress.
 class AuthLoading extends AuthState {
   const AuthLoading();
 }
 
-/// OTP code has been sent, waiting for user input
+/// OTP sent; waiting for user to enter code.
 class AuthOtpSent extends AuthState {
-  const AuthOtpSent({required this.phone, required this.mockCode});
+  const AuthOtpSent({
+    required this.phone,
+    required this.challengeId,
+    this.devOtp,
+  });
+
   final String phone;
-  final String mockCode;
+
+  /// Backend challenge ID for this OTP session.
+  final String challengeId;
+
+  /// Dev-only OTP value (populated in mock/dev mode; null in production).
+  final String? devOtp;
 }
 
-/// User is authenticated but hasn't set up their profile (name, email, etc.)
+/// OTP verified; new customer must complete profile.
 class AuthNeedsProfileSetup extends AuthState {
   const AuthNeedsProfileSetup({required this.phone});
   final String phone;
 }
 
-/// Profile is set up but needs location permission
+/// Profile complete; needs location permission before address selection.
 class AuthNeedsLocationPermission extends AuthState {
   const AuthNeedsLocationPermission({required this.user});
   final UserModel user;
 }
 
-/// Location is set up but needs default address map selection
+/// Location granted; needs default address selection.
 class AuthNeedsAddressSelection extends AuthState {
   const AuthNeedsAddressSelection({required this.user});
   final UserModel user;
 }
 
+/// Fully authenticated and onboarded.
 class AuthAuthenticated extends AuthState {
   const AuthAuthenticated(this.user);
   final UserModel user;
 }
 
+/// Not signed in; needs login.
 class AuthUnauthenticated extends AuthState {
   const AuthUnauthenticated();
 }
 
+/// An auth operation failed; [message] is safe to display.
 class AuthError extends AuthState {
   const AuthError(this.message);
   final String message;
@@ -62,293 +76,286 @@ class AuthError extends AuthState {
 // ── Auth Notifier ─────────────────────────────────────────────────────────────
 
 class AuthNotifier extends StateNotifier<AuthState> {
-  AuthNotifier(this._storage) : super(const AuthInitial()) {
+  AuthNotifier(this._repo, this._storage) : super(const AuthInitial()) {
     _init();
   }
 
+  final CustomerRepository _repo;
   final StorageService _storage;
-  FirebaseAuth? get _auth {
-    try {
-      return FirebaseAuth.instance;
-    } catch (_) {
-      return null;
-    }
-  }
-  final GoogleSignIn _googleSignIn = GoogleSignIn();
+
+  // ── Initialisation (session restore via stored tokens) ──────────────────────
 
   Future<void> _init() async {
     state = const AuthLoading();
 
-    // Force a one-time clear of old developer bypass sessions for UI review
-    final resetDone = _storage.getBool('fresh_install_reset_done_v2') ?? false;
+    // One-time session reset for fresh installs (clears stale dev data).
+    final resetDone = _storage.getBool('fresh_install_reset_done_v3') ?? false;
     if (!resetDone) {
       await _storage.clearSession();
-      await _storage.remove('user_name');
-      await _storage.remove('user_email');
-      await _storage.remove('user_phone');
-      await _storage.remove('user_has_address');
-      await _storage.remove('user_default_address_id');
-      await _storage.saveBool('fresh_install_reset_done_v2', value: true);
+      await _clearUserPrefs();
+      await _storage.saveBool('fresh_install_reset_done_v3', value: true);
     }
-    
-    // Check local storage and Firebase Auth state
-    final firebaseUser = _auth?.currentUser;
-    final userId = _storage.getString(AppConstants.keyUserId) ?? firebaseUser?.uid;
-    final userPhone = _storage.getString('user_phone') ?? firebaseUser?.phoneNumber;
+
+    // Try reading stored tokens from secure storage.
+    final accessToken = await _storage.getSecure(AppConstants.keyAccessToken);
+    final refreshToken = await _storage.getSecure(AppConstants.keyRefreshToken);
+
+    if (accessToken == null && refreshToken == null) {
+      state = const AuthUnauthenticated();
+      return;
+    }
+
+    // Attempt to restore session by refreshing the token pair.
     final hasAddress = _storage.getBool('user_has_address') ?? false;
 
-    if (userId != null) {
-      final name = _storage.getString('user_name') ?? firebaseUser?.displayName;
-      final email = _storage.getString('user_email') ?? firebaseUser?.email;
-      final phone = userPhone ?? 'google_auth';
+    try {
+      final pair = await _repo.refreshTokens();
 
-      if (name == null || name.isEmpty) {
-        state = AuthNeedsProfileSetup(phone: phone);
-      } else {
-        final user = UserModel(
-          id: userId,
-          name: name,
-          phone: phone,
-          email: email,
-          role: UserRole.customer,
-          isVerified: true,
-        );
+      // Store refreshed tokens
+      await _storage.saveSecure(AppConstants.keyAccessToken, pair.accessToken);
+      await _storage.saveSecure(
+          AppConstants.keyRefreshToken, pair.refreshToken);
 
-        if (!hasAddress) {
-          state = AuthNeedsAddressSelection(user: user);
-        } else {
-          state = AuthAuthenticated(user);
-        }
+      // Fetch user profile
+      final user = await _repo.getProfile();
+      await _saveUserPrefs(user);
+
+      // Handle server-side profile deletion edge case
+      if (_needsProfileSetup(user)) {
+        state = AuthNeedsProfileSetup(phone: user.phone);
+        return;
       }
-    } else {
+
+      _routeAfterAuth(user: user, hasAddress: hasAddress);
+    } catch (_) {
+      // Token refresh failed — clear everything and go to login.
+      await _storage.clearSession();
+      await _clearUserPrefs();
       state = const AuthUnauthenticated();
     }
   }
 
-  /// Simulates sending an OTP to a phone number.
+  // ── OTP flow ───────────────────────────────────────────────────────────────
+
+  /// Requests an OTP for [phone] via the active repository.
   Future<void> sendOtp(String phone) async {
     state = const AuthLoading();
-    await Future.delayed(const Duration(milliseconds: 800));
-
-    // Generate a fixed mock code for testing ease: "1234"
-    state = AuthOtpSent(phone: phone, mockCode: '1234');
-  }
-
-  /// Verifies mock OTP code
-  Future<void> verifyOtp(String code) async {
-    final currentState = state;
-    if (currentState is! AuthOtpSent) return;
-
-    state = const AuthLoading();
-    await Future.delayed(const Duration(milliseconds: 600));
-
-    if (code == currentState.mockCode) {
-      final phone = currentState.phone;
-
-      // Mock DB check: does user exist?
-      final savedName = _storage.getString('user_name');
-
-      if (savedName == null || savedName.isEmpty) {
-        // New user: must setup profile
-        state = AuthNeedsProfileSetup(phone: phone);
-      } else {
-        // Existing user
-        final userId = 'usr_${phone.hashCode}';
-        await _storage.saveString(AppConstants.keyUserId, userId);
-        await _storage.saveString('user_phone', phone);
-        await _storage.saveSecure(AppConstants.keyAccessToken, 'mock_access_token');
-
-        final user = UserModel(
-          id: userId,
-          name: savedName,
-          phone: phone,
-          email: _storage.getString('user_email'),
-          role: UserRole.customer,
-          isVerified: true,
-        );
-
-        final hasAddress = _storage.getBool('user_has_address') ?? false;
-        if (!hasAddress) {
-          state = AuthNeedsAddressSelection(user: user);
-        } else {
-          state = AuthAuthenticated(user);
-        }
-      }
-    } else {
-      state = const AuthError('Invalid OTP code. Please enter 1234.');
-      // Revert to OTP screen state
-      state = AuthOtpSent(phone: currentState.phone, mockCode: currentState.mockCode);
+    try {
+      final result = await _repo.sendOtp(phone);
+      state = AuthOtpSent(
+        phone: phone,
+        challengeId: result.challengeId,
+        devOtp: result.devOtp,
+      );
+    } catch (e) {
+      state = AuthError(
+        e is ApiException ? e.message : 'Failed to send OTP. Please try again.',
+      );
     }
   }
 
-  /// Submits profile details
+  /// Verifies OTP [code] against the active challenge.
+  Future<void> verifyOtp(String code) async {
+    final prev = state;
+    if (prev is! AuthOtpSent) return;
+
+    state = const AuthLoading();
+    try {
+      final result = await _repo.verifyOtp(
+        phone: prev.phone,
+        otp: code,
+        challengeId: prev.challengeId,
+      );
+
+      // Persist tokens
+      await _storage.saveSecure(
+          AppConstants.keyAccessToken, result.accessToken);
+      await _storage.saveSecure(
+          AppConstants.keyRefreshToken, result.refreshToken);
+      await _saveUserPrefs(result.user);
+
+      if (result.isNewUser || _needsProfileSetup(result.user)) {
+        state = AuthNeedsProfileSetup(phone: result.user.phone);
+      } else {
+        // Check if address setup is needed
+        final hasAddress = _storage.getBool('user_has_address') ?? false;
+        _routeAfterAuth(user: result.user, hasAddress: hasAddress);
+      }
+    } on ApiException catch (e) {
+      state = AuthError(e.message);
+    } catch (e) {
+      state = AuthError('Verification failed. Please try again.');
+    }
+  }
+
+  /// Restores [AuthOtpSent] for the previous phone after an error.
+  void restoreOtpState(String phone, String challengeId, {String? devOtp}) {
+    state = AuthOtpSent(phone: phone, challengeId: challengeId, devOtp: devOtp);
+  }
+
+  /// Clears a transient error back to unauthenticated.
+  void clearError() {
+    if (state is AuthError) {
+      state = const AuthUnauthenticated();
+    }
+  }
+
+  // ── Profile completion ─────────────────────────────────────────────────────
+
+  /// Saves new customer profile and advances to location-permission.
   Future<void> completeProfile({
     required String name,
     required String email,
   }) async {
-    final currentState = state;
-    String? phone;
-    if (currentState is AuthNeedsProfileSetup) {
-      phone = currentState.phone;
-    } else if (currentState is AuthAuthenticated) {
-      phone = currentState.user.phone;
+    final prev = state;
+    final String? phone;
+    if (prev is AuthNeedsProfileSetup) {
+      phone = prev.phone;
+    } else {
+      return;
     }
 
-    if (phone == null) return;
-
-    state = const AuthLoading();
-    await Future.delayed(const Duration(milliseconds: 800));
-
-    final userId = 'usr_${phone.hashCode}';
-    await _storage.saveString(AppConstants.keyUserId, userId);
-    await _storage.saveString('user_name', name);
-    await _storage.saveString('user_email', email);
-    await _storage.saveString('user_phone', phone);
-    await _storage.saveSecure(AppConstants.keyAccessToken, 'mock_access_token');
-
-    final user = UserModel(
-      id: userId,
-      name: name,
-      phone: phone,
-      email: email,
-      role: UserRole.customer,
-      isVerified: true,
-    );
-
-    // Profile complete, proceed to Location Permission screen
-    state = AuthNeedsLocationPermission(user: user);
-  }
-
-  /// Marks location permissions or selections complete
-  Future<void> completeLocationSetup() async {
-    final currentState = state;
-    UserModel? user;
-    if (currentState is AuthNeedsLocationPermission) {
-      user = currentState.user;
-    }
-
-    if (user == null) return;
-
-    // Proceed to map address selection screen
-    state = AuthNeedsAddressSelection(user: user);
-  }
-
-  /// Saves selected default address
-  Future<void> completeAddressSelection(AddressModel address) async {
-    final currentState = state;
-    UserModel? user;
-    if (currentState is AuthNeedsAddressSelection) {
-      user = currentState.user;
-    }
-
-    if (user == null) return;
-
-    state = const AuthLoading();
-    await Future.delayed(const Duration(milliseconds: 600));
-
-    await _storage.saveBool('user_has_address', value: true);
-    await _storage.saveString('user_default_address_id', address.id);
-
-    state = AuthAuthenticated(user);
-  }
-
-  /// Authenticates user using Firebase and Google Account Picker
-  Future<void> signInWithGoogle() async {
     state = const AuthLoading();
     try {
-      final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
-      if (googleUser == null) {
-        // User cancelled account selection
-        state = const AuthUnauthenticated();
-        return;
-      }
+      // Update profile on backend
+      await _repo.updateProfile(UpdateProfileRequest(name: name, email: email));
 
-      final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
-      final AuthCredential credential = GoogleAuthProvider.credential(
-        accessToken: googleAuth.accessToken,
-        idToken: googleAuth.idToken,
+      final user = UserModel(
+        id: '',
+        name: name,
+        phone: phone,
+        email: email,
+        role: UserRole.customer,
+        isVerified: true,
       );
-      final authInstance = _auth;
-      if (authInstance == null) {
-        state = const AuthError('Firebase Auth is not available.');
-        return;
+
+      // Fetch profile from backend to get the real user object
+      UserModel persisted;
+      try {
+        persisted = await _repo.getProfile();
+      } catch (_) {
+        persisted = user;
       }
-      final UserCredential userCredential = await authInstance.signInWithCredential(credential);
-      final User? firebaseUser = userCredential.user;
 
-      if (firebaseUser != null) {
-        final phone = firebaseUser.phoneNumber ?? '';
-        final name = firebaseUser.displayName ?? '';
-        final email = firebaseUser.email ?? '';
-        final userId = firebaseUser.uid;
-
-        // Persist session details
-        await _storage.saveString(AppConstants.keyUserId, userId);
-        await _storage.saveString('user_name', name);
-        if (email.isNotEmpty) {
-          await _storage.saveString('user_email', email);
-        }
-        if (phone.isNotEmpty) {
-          await _storage.saveString('user_phone', phone);
-        }
-        await _storage.saveSecure(AppConstants.keyAccessToken, googleAuth.accessToken ?? 'firebase_google_token');
-
-        final user = UserModel(
-          id: userId,
-          name: name,
-          phone: phone.isNotEmpty ? phone : 'google_auth',
-          email: email,
-          role: UserRole.customer,
-          isVerified: true,
-        );
-
-        if (name.isEmpty) {
-          state = AuthNeedsProfileSetup(phone: phone.isNotEmpty ? phone : 'google_auth');
-        } else {
-          final hasAddress = _storage.getBool('user_has_address') ?? false;
-          if (!hasAddress) {
-            state = AuthNeedsAddressSelection(user: user);
-          } else {
-            state = AuthAuthenticated(user);
-          }
-        }
-      } else {
-        state = const AuthError('Google account mapping in Firebase failed.');
-      }
+      await _saveUserPrefs(persisted);
+      state = AuthNeedsLocationPermission(user: persisted);
     } catch (e) {
-      state = AuthError('Google Sign-In Error: ${e.toString()}');
-      state = const AuthUnauthenticated();
+      state = AuthError('Failed to save profile. Please try again.');
     }
   }
+
+  // ── Location / Address flow ────────────────────────────────────────────────
+
+  Future<void> completeLocationSetup() async {
+    final prev = state;
+    if (prev is! AuthNeedsLocationPermission) return;
+    state = AuthNeedsAddressSelection(user: prev.user);
+  }
+
+  Future<void> completeAddressSelection(AddressModel address) async {
+    final prev = state;
+    if (prev is! AuthNeedsAddressSelection) return;
+
+    state = const AuthLoading();
+    try {
+      final savedAddress = await _repo.addAddress(address);
+      await _repo.setDefaultAddress(savedAddress.id);
+      await _storage.saveBool('user_has_address', value: true);
+      await _storage.saveString('user_default_address_id', savedAddress.id);
+      state = AuthAuthenticated(prev.user);
+    } catch (e) {
+      state = AuthError('Failed to save address. Please try again.');
+    }
+  }
+
+  // ── Profile update (for authenticated users) ───────────────────────────────
+
+  Future<void> updateAuthenticatedUser({
+    required String name,
+    required String email,
+  }) async {
+    final prev = state;
+    if (prev is! AuthAuthenticated) return;
+
+    try {
+      final updated = await _repo.updateProfile(
+        UpdateProfileRequest(name: name, email: email),
+      );
+      await _saveUserPrefs(updated);
+      state = AuthAuthenticated(updated);
+    } catch (e) {
+      // Fallback: update locally if API fails
+      final updated = prev.user.copyWith(name: name, email: email);
+      await _storage.saveString('user_name', name);
+      await _storage.saveString('user_email', email);
+      state = AuthAuthenticated(updated);
+    }
+  }
+
+  // ── Logout ────────────────────────────────────────────────────────────────
 
   Future<void> logout() async {
     try {
-      await _auth?.signOut();
-      await _googleSignIn.signOut();
-    } catch (_) {}
+      await _repo.logout();
+    } catch (_) {
+      // Best-effort server-side invalidation
+    }
     await _storage.clearSession();
-    await _storage.remove('user_name');
-    await _storage.remove('user_email');
-    await _storage.remove('user_phone');
-    await _storage.remove('user_has_address');
-    await _storage.remove('user_default_address_id');
+    await _clearUserPrefs();
     state = const AuthUnauthenticated();
+  }
+
+  // ── Helpers ───────────────────────────────────────────────────────────────
+
+  void _routeAfterAuth({
+    required UserModel user,
+    required bool hasAddress,
+  }) {
+    if (!hasAddress) {
+      state = AuthNeedsAddressSelection(user: user);
+    } else {
+      state = AuthAuthenticated(user);
+    }
+  }
+
+  bool _needsProfileSetup(UserModel user) =>
+      user.name.isEmpty && user.email == null;
+
+  Future<void> _saveUserPrefs(UserModel user) async {
+    await Future.wait([
+      _storage.saveString(AppConstants.keyUserId, user.id),
+      _storage.saveString('user_name', user.name),
+      _storage.saveString('user_email', user.email ?? ''),
+      _storage.saveString('user_phone', user.phone),
+    ]);
+  }
+
+  Future<void> _clearUserPrefs() async {
+    await Future.wait([
+      _storage.remove('user_name'),
+      _storage.remove('user_email'),
+      _storage.remove('user_phone'),
+      _storage.remove('user_has_address'),
+      _storage.remove('user_default_address_id'),
+    ]);
   }
 }
 
-final authProvider =
-    StateNotifierProvider<AuthNotifier, AuthState>((ref) {
+// ── Providers ─────────────────────────────────────────────────────────────────
+
+final authProvider = StateNotifierProvider<AuthNotifier, AuthState>((ref) {
+  final repo = ref.watch(customerRepositoryProvider);
   final storage = ref.watch(storageServiceProvider);
-  return AuthNotifier(storage);
+  return AuthNotifier(repo, storage);
 });
 
+/// Convenience provider: returns the current authenticated user, or null.
 final currentUserProvider = Provider<UserModel?>((ref) {
-  final authState = ref.watch(authProvider);
-  return authState is AuthAuthenticated
-      ? authState.user
-      : authState is AuthNeedsLocationPermission
-          ? authState.user
-          : authState is AuthNeedsAddressSelection
-              ? authState.user
-              : null;
+  final s = ref.watch(authProvider);
+  return switch (s) {
+    AuthAuthenticated(:final user) => user,
+    AuthNeedsLocationPermission(:final user) => user,
+    AuthNeedsAddressSelection(:final user) => user,
+    _ => null,
+  };
 });

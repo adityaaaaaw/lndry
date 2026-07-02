@@ -1,22 +1,36 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../../config/env.dart';
 import '../../../../models/models.dart';
 import '../../../../repositories/repositories.dart';
+import '../../../../shared/repositories/base_repository.dart';
+
+// ── Cart State ────────────────────────────────────────────────────────────────
 
 class CartState {
   const CartState({
     required this.cart,
     required this.services,
+    this.isInitialised = false,
   });
 
   final CartModel cart;
   final List<ServiceModel> services;
+  final bool isInitialised;
 
   double get subtotal {
+    if (!Env.useMocksForVisualTestsOnly) return 0.0;
     double total = 0.0;
     for (final item in cart.items) {
       final svc = services.firstWhere(
         (s) => s.id == item.serviceId,
-        orElse: () => const ServiceModel(id: '', vendorId: '', name: '', description: '', category: ServiceCategory.wash, minWeightKg: 0),
+        orElse: () => const ServiceModel(
+          id: '',
+          vendorId: '',
+          name: '',
+          description: '',
+          category: ServiceCategory.wash,
+          minWeightKg: 0,
+        ),
       );
       if (svc.id.isNotEmpty) {
         final price = svc.pricePerKg ?? svc.pricePerPiece ?? 0.0;
@@ -26,72 +40,93 @@ class CartState {
     return total;
   }
 
-  double get platformFee => subtotal * 0.05; // 5% platform fee
-  double get gstAmount => subtotal * 0.18;   // 18% GST
+  // NOTE: These mock-phase calculations will be removed when the backend
+  // delivers server-side quote amounts (spec §6 / §11).
+  double get platformFee => subtotal * 0.05;
+  double get gstAmount => subtotal * 0.18;
   double get total => subtotal + platformFee + gstAmount;
 
   int get totalQuantity => cart.itemCount;
+
+  CartState copyWith({
+    CartModel? cart,
+    List<ServiceModel>? services,
+    bool? isInitialised,
+  }) =>
+      CartState(
+        cart: cart ?? this.cart,
+        services: services ?? this.services,
+        isInitialised: isInitialised ?? this.isInitialised,
+      );
 }
 
+// ── Cart Notifier ─────────────────────────────────────────────────────────────
+
 class CartNotifier extends StateNotifier<CartState> {
-  CartNotifier(this._repo) : super(const CartState(cart: CartModel(items: []), services: []));
+  CartNotifier(this._repo)
+      : super(CartState(cart: CartModel(items: const []), services: const []));
 
   final CustomerRepository _repo;
 
-  Future<void> init() async {
+  /// Loads cart from repository.  Safe to call multiple times;
+  /// skips the fetch if already initialised unless [force] = true.
+  Future<void> init({bool force = false}) async {
+    if (state.isInitialised && !force) return;
+
     final cart = await _repo.getCart();
-    final services = <ServiceModel>[];
-
-    // Fetch details for all services currently in cart
-    for (final item in cart.items) {
-      // Find matching vendor and service details
-      final svc = await _findService(item.serviceId);
-      if (svc != null) {
-        services.add(svc);
-      }
-    }
-
-    state = CartState(cart: cart, services: services);
+    final services = await _resolveAllServices();
+    state = CartState(cart: cart, services: services, isInitialised: true);
   }
 
-  Future<ServiceModel?> _findService(String serviceId) async {
+  /// Force-refreshes cart + services.  Called by VendorDetailsPage after
+  /// adding items so the Cart tab is up-to-date without requiring a tab switch.
+  Future<void> refresh() => init(force: true);
+
+  Future<List<ServiceModel>> _resolveAllServices() async {
+    final services = <ServiceModel>[];
     try {
-      // Direct mock search
-      final vendors = await _repo.getVendors();
+      final vendors =
+          await _repo.getVendors(params: PaginationParams(pageSize: 50));
       for (final v in vendors.items) {
         final list = await _repo.getServicesByVendor(v.id);
-        final found = list.where((s) => s.id == serviceId);
-        if (found.isNotEmpty) return found.first;
+        services.addAll(list);
       }
     } catch (_) {}
-    return null;
+    // Deduplicate by id.
+    final seen = <String>{};
+    return services.where((s) => seen.add(s.id)).toList();
   }
 
-  void updateQuantity(String serviceId, int newQty) async {
+  Future<void> updateQuantity(String serviceId, int newQty) async {
     final item = state.cart.items.firstWhere(
       (i) => i.serviceId == serviceId,
-      orElse: () => const CartItem(id: '', serviceId: '', quantity: 0),
+      orElse: () => CartItem(id: '', serviceId: '', quantity: 0),
     );
-
     if (item.id.isEmpty) return;
 
+    final CartModel updated;
     if (newQty <= 0) {
-      final updatedCart = await _repo.removeFromCart(item.id);
-      state = CartState(cart: updatedCart, services: state.services);
+      updated = await _repo.removeFromCart(item.id);
     } else {
-      final updatedCart = await _repo.updateCartItem(cartItemId: item.id, quantity: newQty);
-      state = CartState(cart: updatedCart, services: state.services);
+      updated =
+          await _repo.updateCartItem(cartItemId: item.id, quantity: newQty);
     }
+    state = state.copyWith(cart: updated);
   }
 
-  void clear() async {
+  Future<void> clear() async {
     await _repo.clearCart();
-    state = const CartState(cart: CartModel(items: []), services: []);
+    state = const CartState(
+        cart: CartModel(items: []), services: [], isInitialised: true);
   }
 }
 
-final cartStateProvider =
-    StateNotifierProvider.autoDispose<CartNotifier, CartState>((ref) {
+// ── Provider ──────────────────────────────────────────────────────────────────
+
+/// NOT autoDispose — cart state persists across tab switches.
+/// Call cartStateProvider.notifier.refresh() after adding items from
+/// vendor details page.
+final cartStateProvider = StateNotifierProvider<CartNotifier, CartState>((ref) {
   final repo = ref.watch(customerRepositoryProvider);
   return CartNotifier(repo);
 });

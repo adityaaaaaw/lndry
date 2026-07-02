@@ -21,6 +21,15 @@ abstract final class Validators {
     return null;
   }
 
+  /// Email is optional — only validates format when a value is present.
+  static String? emailOptional(String? value) {
+    if (value == null || value.trim().isEmpty) return null;
+    if (!RegExp(r'^[\w.+-]+@[\w-]+\.[\w.]{2,}$').hasMatch(value.trim())) {
+      return 'Enter a valid email address';
+    }
+    return null;
+  }
+
   // ── Name ──────────────────────────────────────────────────────────────────
   static String? name(String? value) {
     if (value == null || value.trim().isEmpty) return 'Name is required';

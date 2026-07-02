@@ -27,7 +27,7 @@ class _SavedAddressesPageState extends ConsumerState<SavedAddressesPage> {
     _loadAddresses();
   }
 
-  void _loadAddresses() async {
+  Future<void> _loadAddresses() async {
     setState(() => _isLoading = true);
     final repo = ref.read(customerRepositoryProvider);
     try {
@@ -43,11 +43,23 @@ class _SavedAddressesPageState extends ConsumerState<SavedAddressesPage> {
     }
   }
 
-  void _onDeleteAddress(AddressModel address) async {
+  Future<void> _onSetDefault(AddressModel address) async {
+    setState(() => _isLoading = true);
+    final repo = ref.read(customerRepositoryProvider);
+    try {
+      await repo.setDefaultAddress(address.id);
+      await _loadAddresses();
+    } catch (_) {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _onDeleteAddress(AddressModel address) async {
     final confirm = await AppDialog.show(
       context,
       title: 'Remove Address?',
-      message: 'Are you sure you want to delete this address from LNDRY details?',
+      message:
+          'Are you sure you want to delete this address from LNDRY details?',
       confirmLabel: 'Delete',
       isDestructive: true,
     );
@@ -57,11 +69,63 @@ class _SavedAddressesPageState extends ConsumerState<SavedAddressesPage> {
       final repo = ref.read(customerRepositoryProvider);
       try {
         await repo.deleteAddress(address.id);
-        _loadAddresses();
+        await _loadAddresses();
       } catch (_) {
         if (mounted) setState(() => _isLoading = false);
       }
     }
+  }
+
+  Future<void> _onEditAddress(AddressModel address) async {
+    final line1Controller = TextEditingController(text: address.line1);
+    final cityController = TextEditingController(text: address.city);
+
+    await AppBottomSheet.show(
+      context: context,
+      title: 'Edit Address',
+      isScrollControlled: true,
+      primaryActionLabel: 'Save',
+      onPrimaryAction: () async {
+        final newLine1 = line1Controller.text.trim();
+        final newCity = cityController.text.trim();
+
+        if (newLine1.isEmpty || newCity.isEmpty) return;
+
+        Navigator.of(context).pop();
+
+        setState(() => _isLoading = true);
+        final repo = ref.read(customerRepositoryProvider);
+        try {
+          await repo.updateAddress(
+            address.copyWith(line1: newLine1, city: newCity),
+          );
+          await _loadAddresses();
+        } catch (_) {
+          if (mounted) setState(() => _isLoading = false);
+        }
+      },
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          AppTextField(
+            label: 'Address Line 1',
+            hint: 'Flat / building / street',
+            controller: line1Controller,
+            textCapitalization: TextCapitalization.words,
+          ),
+          Gap(16.h),
+          AppTextField(
+            label: 'City',
+            hint: 'City',
+            controller: cityController,
+            textCapitalization: TextCapitalization.words,
+          ),
+        ],
+      ),
+    );
+
+    line1Controller.dispose();
+    cityController.dispose();
   }
 
   @override
@@ -74,9 +138,10 @@ class _SavedAddressesPageState extends ConsumerState<SavedAddressesPage> {
       appBar: AppBar(
         title: Text('Saved Addresses', style: AppTypography.titleLarge),
         centerTitle: true,
+        // FIX 1: use pop() — this page is pushed onto the stack.
         leading: IconButton(
           icon: const Icon(AppIcons.back),
-          onPressed: () => context.go(AppRoutes.profile),
+          onPressed: () => context.pop(),
         ),
         backgroundColor: isDark ? AppColors.darkSurface : AppColors.surface,
         elevation: 0,
@@ -88,16 +153,20 @@ class _SavedAddressesPageState extends ConsumerState<SavedAddressesPage> {
                 ? AppEmptyState(
                     icon: AppIcons.locationOutlined,
                     title: 'No Saved Addresses',
-                    subtitle: 'Save your flat or office details to order laundry collections instantly.',
+                    subtitle:
+                        'Save your flat or office details to order laundry'
+                        ' collections instantly.',
                     actionLabel: 'Pin New Address',
+                    // FIX 2: correct — push mapAddress for authenticated user.
                     onAction: () => context.push(AppRoutes.mapAddress),
                   )
                 : Column(
                     children: [
-                      // List items
+                      // ── Address list ─────────────────────────────────────
                       Expanded(
                         child: ListView.separated(
-                          padding: EdgeInsets.all(AppSpacing.pagePaddingH.w),
+                          padding:
+                              EdgeInsets.all(AppSpacing.pagePaddingH.w),
                           itemCount: _addresses.length,
                           separatorBuilder: (_, __) => const Gap(12),
                           itemBuilder: (context, idx) {
@@ -106,7 +175,9 @@ class _SavedAddressesPageState extends ConsumerState<SavedAddressesPage> {
                             return AppCard.outlined(
                               padding: EdgeInsets.all(AppSpacing.md.r),
                               child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.center,
                                 children: [
+                                  // Address type icon
                                   Icon(
                                     addr.type == AddressType.home
                                         ? AppIcons.homeOutlined
@@ -115,49 +186,86 @@ class _SavedAddressesPageState extends ConsumerState<SavedAddressesPage> {
                                     size: 24.r,
                                   ),
                                   const Gap(16),
+
+                                  // FIX 5: tappable title/detail area → edit sheet
                                   Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Row(
-                                          children: [
-                                            Text(addr.type.label, style: AppTypography.labelLarge),
-                                            if (addr.isDefault) ...[
-                                              const Gap(8),
-                                              Container(
-                                                padding: EdgeInsets.symmetric(
-                                                  horizontal: 6.w,
-                                                  vertical: 2.h,
-                                                ),
-                                                decoration: BoxDecoration(
-                                                  color: AppColors.primaryContainer,
-                                                  borderRadius: BorderRadius.circular(AppRadius.tag.r),
-                                                ),
-                                                child: Text(
-                                                  'DEFAULT',
-                                                  style: AppTypography.badge.copyWith(
-                                                    color: AppColors.primary,
-                                                    fontWeight: FontWeight.bold,
+                                    child: GestureDetector(
+                                      onTap: () => _onEditAddress(addr),
+                                      behavior: HitTestBehavior.opaque,
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Row(
+                                            children: [
+                                              Text(
+                                                addr.type.label,
+                                                style:
+                                                    AppTypography.labelLarge,
+                                              ),
+                                              if (addr.isDefault) ...[
+                                                const Gap(8),
+                                                Container(
+                                                  padding:
+                                                      EdgeInsets.symmetric(
+                                                    horizontal: 6.w,
+                                                    vertical: 2.h,
+                                                  ),
+                                                  decoration: BoxDecoration(
+                                                    color: AppColors
+                                                        .primaryContainer,
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                      AppRadius.tag.r,
+                                                    ),
+                                                  ),
+                                                  child: Text(
+                                                    'DEFAULT',
+                                                    style: AppTypography.badge
+                                                        .copyWith(
+                                                      color: AppColors.primary,
+                                                      fontWeight:
+                                                          FontWeight.bold,
+                                                    ),
                                                   ),
                                                 ),
-                                              ),
+                                              ],
                                             ],
-                                          ],
-                                        ),
-                                        const Gap(4),
-                                        Text(
-                                          '${addr.line1}, ${addr.city}',
-                                          style: AppTypography.bodySmall,
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                      ],
+                                          ),
+                                          const Gap(4),
+                                          Text(
+                                            '${addr.line1}, ${addr.city}',
+                                            style: AppTypography.bodySmall,
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ],
+                                      ),
                                     ),
                                   ),
-                                  const Gap(16),
+
+                                  // FIX 3: Set-as-default button (only when not default)
+                                  if (!addr.isDefault)
+                                    IconButton(
+                                      icon: Icon(
+                                        Icons.star_outline_rounded,
+                                        color: AppColors.primary,
+                                        size: 22.r,
+                                      ),
+                                      tooltip: 'Set as default',
+                                      onPressed: () => _onSetDefault(addr),
+                                    ),
+
+                                  // FIX 3 & 4: Delete button
                                   IconButton(
-                                    icon: const Icon(AppIcons.delete, color: AppColors.error),
-                                    onPressed: () => _onDeleteAddress(addr),
+                                    icon: Icon(
+                                      AppIcons.delete,
+                                      color: AppColors.error,
+                                      size: 22.r,
+                                    ),
+                                    tooltip: 'Delete address',
+                                    onPressed: () =>
+                                        _onDeleteAddress(addr),
                                   ),
                                 ],
                               ),
@@ -166,12 +274,15 @@ class _SavedAddressesPageState extends ConsumerState<SavedAddressesPage> {
                         ),
                       ),
 
-                      // Add address CTA button
+                      // ── Add address CTA ──────────────────────────────────
                       Padding(
-                        padding: EdgeInsets.all(AppSpacing.pagePaddingH.w),
+                        padding:
+                            EdgeInsets.all(AppSpacing.pagePaddingH.w),
                         child: AppButton(
                           label: 'Pin New Address',
-                          onPressed: () => context.push(AppRoutes.mapAddress),
+                          // FIX 2: correct — push for authenticated add.
+                          onPressed: () =>
+                              context.push(AppRoutes.mapAddress),
                         ),
                       ),
                     ],

@@ -7,7 +7,7 @@ plugins {
 
 android {
     namespace = "com.example.lndry"
-    compileSdk = flutter.compileSdkVersion
+    compileSdk = 36
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
@@ -24,6 +24,8 @@ android {
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+        manifestPlaceholders["GOOGLE_MAPS_API_KEY"] =
+            System.getenv("GOOGLE_MAPS_API_KEY") ?: ""
     }
 
     buildTypes {

@@ -10,19 +10,19 @@ import 'core/theme/app_colors.dart';
 import 'core/theme/tokens/breakpoints.dart';
 import 'core/services/storage_service.dart';
 import 'core/widgets/widgets.dart';
-import 'core/constants/app_constants.dart';
 import 'providers/theme_provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Initialize SharedPreferences and Firebase Core asynchronously before runApp
   final prefs = await SharedPreferences.getInstance();
-  
+
+  // Firebase initialisation is best-effort; the app runs without it in
+  // offline/mock mode (FCM, auth still wired when backend is delivered).
   try {
     await Firebase.initializeApp();
   } catch (e) {
-    debugPrint('Firebase initialization failed: $e');
+    debugPrint('[LNDRY] Firebase init skipped: $e');
   }
 
   runApp(
@@ -44,16 +44,18 @@ class LndryApp extends ConsumerWidget {
     final router = ref.watch(appRouterProvider);
     final themeMode = ref.watch(themeModeProvider);
 
-    // Resolve system preference if themeMode is set to system
-    final systemIsDark = MediaQuery.platformBrightnessOf(context) == Brightness.dark;
-    AppColors.isDarkMode = themeMode == ThemeMode.dark || 
+    // Keep the static flag in sync with the resolved theme so
+    // AppColors dynamic getters return the correct value.
+    final systemIsDark =
+        MediaQuery.platformBrightnessOf(context) == Brightness.dark;
+    AppColors.isDarkMode = themeMode == ThemeMode.dark ||
         (themeMode == ThemeMode.system && systemIsDark);
 
     return ScreenUtilInit(
       designSize: const Size(
         AppBreakpoints.designWidth,
         AppBreakpoints.designHeight,
-      ), // iPhone 14 Pro baseline
+      ),
       minTextAdapt: true,
       splitScreenMode: true,
       builder: (context, child) {
@@ -66,10 +68,13 @@ class LndryApp extends ConsumerWidget {
           themeMode: themeMode,
           routerConfig: router,
           builder: (context, child) {
+            // DevPreviewOverlay is only shown in debug builds and only
+            // when Env.showDevPreviewOverlay is true. It is never shown
+            // in profile or release builds.
             return Stack(
               children: [
                 if (child != null) child,
-                const DevPreviewOverlay(),
+                if (Env.showDevPreviewOverlay) const DevPreviewOverlay(),
               ],
             );
           },

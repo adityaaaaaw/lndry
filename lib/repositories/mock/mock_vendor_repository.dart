@@ -79,21 +79,21 @@ class MockVendorRepository implements VendorRepository {
   Future<OrderModel> acceptOrder(String orderId) async {
     await _delay();
     final order = await _getOrder(orderId);
-    return order.copyWith(status: OrderStatus.confirmed);
+    return order.copyWith(status: OrderStatus.vendorAccepted);
   }
 
   @override
   Future<OrderModel> rejectOrder(String orderId, {String? reason}) async {
     await _delay();
     final order = await _getOrder(orderId);
-    return order.copyWith(status: OrderStatus.cancelled, cancellationReason: reason);
+    return order.copyWith(status: OrderStatus.customerCancelled, cancellationReason: reason);
   }
 
   @override
   Future<OrderModel> markOrderReady(String orderId) async {
     await _delay();
     final order = await _getOrder(orderId);
-    return order.copyWith(status: OrderStatus.ready);
+    return order.copyWith(status: OrderStatus.packed);
   }
 
   // ── Helpers ───────────────────────────────────────────────────────────────

@@ -1,3 +1,7 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+
 import '../../../../core/design/design_system.dart';
 import '../../../../core/widgets/widgets.dart';
 import '../../../../core/extensions/extensions.dart';
@@ -18,10 +22,10 @@ class _VendorListingPageState extends ConsumerState<VendorListingPage> {
   bool _isLoading = true;
   List<VendorModel> _allVendors = [];
   List<VendorModel> _filteredVendors = [];
-  
+
   // Sorting options
   String _activeSort = 'rating'; // rating, distance, price_low, price_high, value, available
-  
+
   // Filter states
   bool _filterVerifiedOnly = false;
   bool _filterAvailableOnly = false;
@@ -64,7 +68,7 @@ class _VendorListingPageState extends ConsumerState<VendorListingPage> {
 
     // Apply Filter: Max Distance
     list = list.where((v) {
-      final double distance = ((v.id.hashCode.abs() % 40) + 10) / 10;
+      final double distance = v.distanceKm ?? ((v.id.hashCode.abs() % 40) + 10) / 10;
       return distance <= _maxDistance;
     }).toList();
 
@@ -75,8 +79,8 @@ class _VendorListingPageState extends ConsumerState<VendorListingPage> {
         break;
       case 'distance':
         list.sort((a, b) {
-          final double distA = ((a.id.hashCode.abs() % 40) + 10) / 10;
-          final double distB = ((b.id.hashCode.abs() % 40) + 10) / 10;
+          final double distA = a.distanceKm ?? ((a.id.hashCode.abs() % 40) + 10) / 10;
+          final double distB = b.distanceKm ?? ((b.id.hashCode.abs() % 40) + 10) / 10;
           return distA.compareTo(distB);
         });
         break;
@@ -102,7 +106,7 @@ class _VendorListingPageState extends ConsumerState<VendorListingPage> {
     });
   }
 
-  void _showFilterModal() {
+  void _showFilterSheet() {
     AppBottomSheet.show(
       context: context,
       title: 'Filter Laundries',
@@ -126,10 +130,65 @@ class _VendorListingPageState extends ConsumerState<VendorListingPage> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           mainAxisSize: MainAxisSize.min,
           children: [
+            // Sort options header
+            Text('Sort By', style: AppTypography.labelMedium),
+            const Gap(12),
+            _FilterSortOption(
+              label: 'Best Rating',
+              icon: AppIcons.star,
+              isSelected: _activeSort == 'rating',
+              onTap: () {
+                setModalState(() {});
+                setState(() => _activeSort = 'rating');
+              },
+            ),
+            _FilterSortOption(
+              label: 'Nearest First',
+              icon: AppIcons.location,
+              isSelected: _activeSort == 'distance',
+              onTap: () {
+                setModalState(() {});
+                setState(() => _activeSort = 'distance');
+              },
+            ),
+            _FilterSortOption(
+              label: 'Price: Low to High',
+              icon: AppIcons.upi,
+              isSelected: _activeSort == 'price_low',
+              onTap: () {
+                setModalState(() {});
+                setState(() => _activeSort = 'price_low');
+              },
+            ),
+            _FilterSortOption(
+              label: 'Price: High to Low',
+              icon: AppIcons.upi,
+              isSelected: _activeSort == 'price_high',
+              onTap: () {
+                setModalState(() {});
+                setState(() => _activeSort = 'price_high');
+              },
+            ),
+            _FilterSortOption(
+              label: 'Available Now',
+              icon: AppIcons.clock,
+              isSelected: _activeSort == 'available',
+              onTap: () {
+                setModalState(() {});
+                setState(() => _activeSort = 'available');
+              },
+            ),
+            const Gap(16),
+            const AppDivider(),
+            const Gap(16),
+
             // Verified switch
             SwitchListTile.adaptive(
               title: Text('Verified Partners Only', style: AppTypography.bodyMedium),
-              subtitle: Text('Show laundry vendors verified by LNDRY', style: AppTypography.caption),
+              subtitle: Text(
+                'Show laundry vendors verified by LNDRY',
+                style: AppTypography.caption,
+              ),
               value: _filterVerifiedOnly,
               onChanged: (val) {
                 setModalState(() => _filterVerifiedOnly = val);
@@ -186,22 +245,18 @@ class _VendorListingPageState extends ConsumerState<VendorListingPage> {
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
-        title: Text('Laundry Providers', style: AppTypography.titleLarge),
+        title: Text('Laundry Partners', style: AppTypography.titleLarge),
         centerTitle: true,
+        // FIX #2: Back button uses context.pop() — no fallback to context.go()
         leading: IconButton(
           icon: const Icon(AppIcons.back),
-          onPressed: () {
-            if (Navigator.of(context).canPop()) {
-              Navigator.of(context).pop();
-            } else {
-              context.go(AppRoutes.home);
-            }
-          },
+          onPressed: () => Navigator.of(context).pop(),
         ),
         actions: [
+          // FIX #3: Filter icon opens _showFilterSheet
           IconButton(
             icon: const Icon(AppIcons.filter),
-            onPressed: _showFilterModal,
+            onPressed: _showFilterSheet,
           ),
         ],
         backgroundColor: theme.brightness == Brightness.dark
@@ -299,7 +354,8 @@ class _VendorListingPageState extends ConsumerState<VendorListingPage> {
                       ? AppEmptyState(
                           icon: AppIcons.store,
                           title: 'No Matching Laundries',
-                          subtitle: 'Try adjusting your filters or sorting configurations to find matching laundry vendors.',
+                          subtitle:
+                              'Try adjusting your filters or sorting configurations to find matching laundry vendors.',
                           actionLabel: 'Clear All Filters',
                           onAction: () {
                             setState(() {
@@ -319,11 +375,10 @@ class _VendorListingPageState extends ConsumerState<VendorListingPage> {
                           separatorBuilder: (_, __) => const Gap(16),
                           itemBuilder: (context, idx) {
                             final vendor = _filteredVendors[idx];
+                            // FIX #1: Use context.push() instead of context.go()
                             return ListingVendorCard(
                               vendor: vendor,
-                              onTap: () => context.go(
-                                '/vendor/${vendor.id}',
-                              ),
+                              onTap: () => context.push('/vendor/${vendor.id}'),
                             );
                           },
                         ),
@@ -334,6 +389,47 @@ class _VendorListingPageState extends ConsumerState<VendorListingPage> {
     );
   }
 }
+
+// ── Private widget: sort option row inside the filter sheet ──────────────────
+
+class _FilterSortOption extends StatelessWidget {
+  const _FilterSortOption({
+    required this.label,
+    required this.icon,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  final String label;
+  final IconData icon;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      dense: true,
+      leading: Icon(
+        icon,
+        size: 18.r,
+        color: isSelected ? AppColors.primary : AppColors.onSurfaceVariant,
+      ),
+      title: Text(
+        label,
+        style: AppTypography.bodyMedium.copyWith(
+          color: isSelected ? AppColors.primary : null,
+          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+        ),
+      ),
+      trailing: isSelected
+          ? Icon(AppIcons.done, size: 18.r, color: AppColors.primary)
+          : null,
+      onTap: onTap,
+    );
+  }
+}
+
+// ── Private widget: horizontal sort chip ─────────────────────────────────────
 
 class _SortChip extends StatelessWidget {
   const _SortChip({

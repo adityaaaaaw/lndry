@@ -19,8 +19,8 @@ class ListingVendorCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = context.theme;
 
-    // Simulate mock distance under delivery radius (e.g., hash based mock)
-    final double mockDistance = ((vendor.id.hashCode.abs() % 40) + 10) / 10; // 1.0 to 5.0 km
+    // Use distance from backend (discovery API), or fallback for mock mode
+    final double displayDistance = vendor.distanceKm ?? ((vendor.id.hashCode.abs() % 40) + 10) / 10;
     
     // Simulate pickup & delivery availability
     final bool hasPickup = vendor.id.hashCode % 2 == 0;
@@ -143,7 +143,7 @@ class ListingVendorCard extends StatelessWidget {
                   children: [
                     _InfoBadge(
                       icon: AppIcons.location,
-                      label: '${mockDistance.toStringAsFixed(1)} km',
+                      label: '${displayDistance.toStringAsFixed(1)} km',
                       tooltip: 'Distance',
                     ),
                     _InfoBadge(

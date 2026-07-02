@@ -3,14 +3,12 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gap/gap.dart';
-import 'package:go_router/go_router.dart';
 import '../../../../core/design/design_system.dart';
 import '../../../../core/widgets/app_button.dart';
 import '../../../../core/widgets/app_text_field.dart';
 import '../../../../core/widgets/app_loading.dart';
 import '../../../../core/widgets/app_snackbar.dart';
 import '../../../../core/utils/validators.dart';
-import '../../../../core/router/app_routes.dart';
 import '../../../../providers/auth_provider.dart';
 
 class LoginPage extends ConsumerStatefulWidget {
@@ -31,24 +29,18 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     super.dispose();
   }
 
-  void _onSendOtp() async {
-    if (_formKey.currentState!.validate()) {
-      setState(() => _isLoading = true);
-      try {
-        final phone = _phoneController.text.trim();
-        await ref.read(authProvider.notifier).sendOtp(phone);
-        if (mounted) {
-          context.go(AppRoutes.otp);
-        }
-      } catch (e) {
-        if (mounted) {
-          AppSnackBar.showError(context, e.toString());
-        }
-      } finally {
-        if (mounted) {
-          setState(() => _isLoading = false);
-        }
-      }
+  Future<void> _onSendOtp() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    setState(() => _isLoading = true);
+    try {
+      final phone = _phoneController.text.trim();
+      await ref.read(authProvider.notifier).sendOtp(phone);
+      // Navigation handled by GoRouter redirect watching authProvider.
+    } catch (e) {
+      if (mounted) AppSnackBar.showError(context, e.toString());
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -73,7 +65,8 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       const Gap(40),
-                      // Centered Brand Logo
+
+                      // Brand Logo
                       Align(
                         alignment: Alignment.center,
                         child: Container(
@@ -90,8 +83,9 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                         ),
                       ),
                       const Gap(24),
+
                       Text(
-                        'Welcome to Lndry',
+                        'Welcome to LNDRY',
                         style: AppTypography.headlineLarge.copyWith(
                           fontWeight: FontWeight.bold,
                           color: AppColors.textBlack,
@@ -100,7 +94,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                       ),
                       const Gap(8),
                       Text(
-                        'Enter your mobile number to continue',
+                        'Enter your mobile number to get started',
                         style: AppTypography.bodyMedium.copyWith(
                           color: AppColors.textSecondary,
                         ),
@@ -108,7 +102,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                       ),
                       const Gap(48),
 
-                      // Input Form Field
+                      // Phone input
                       AppTextField(
                         label: 'Mobile Number',
                         hint: 'Enter 10-digit number',
@@ -124,86 +118,20 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                       ),
                       const Gap(32),
 
-                      // Submit Button
                       AppButton(
                         label: 'Send OTP',
                         onPressed: _onSendOtp,
                       ),
                       const Gap(32),
 
-                      // Social Connect Divider
-                      Row(
-                        children: [
-                          const Expanded(child: Divider()),
-                          Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 16),
-                            child: Text(
-                              'or continue with',
-                              style: AppTypography.caption,
-                            ),
-                          ),
-                          const Expanded(child: Divider()),
-                        ],
-                      ),
-                      const Gap(24),
-                      Row(
-                        children: [
-                          // Custom polished Google button
-                          Expanded(
-                            child: AppButton.outlined(
-                              label: 'Google',
-                              icon: Container(
-                                padding: EdgeInsets.all(4.r),
-                                decoration: const BoxDecoration(
-                                  color: AppColors.white,
-                                  shape: BoxShape.circle,
-                                ),
-                                child: Image.network(
-                                  'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c1/Google_%22G%22_logo.svg/24px-Google_%22G%22_logo.svg.png',
-                                  width: 16.r,
-                                  height: 16.r,
-                                  errorBuilder: (_, __, ___) => Text(
-                                    'G',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.blue,
-                                      fontSize: 14.sp,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              onPressed: () async {
-                                try {
-                                  await ref.read(authProvider.notifier).signInWithGoogle();
-                                  final authState = ref.read(authProvider);
-                                  if (authState is AuthError && mounted) {
-                                    AppSnackBar.showError(context, authState.message);
-                                  }
-                                } catch (e) {
-                                  if (mounted) {
-                                    AppSnackBar.showError(context, e.toString());
-                                  }
-                                }
-                              },
-                            ),
-                          ),
-                          const Gap(16),
-                          // Custom polished Apple button
-                          Expanded(
-                            child: AppButton.outlined(
-                              label: 'Apple',
-                              icon: Icon(
-                                Icons.apple,
-                                size: 22.r,
-                                color: isDark ? AppColors.white : AppColors.black,
-                              ),
-                              onPressed: () => AppSnackBar.showInfo(
-                                context,
-                                'Apple login simulated.',
-                              ),
-                            ),
-                          ),
-                        ],
+                      // Terms notice
+                      Text(
+                        'By continuing, you agree to LNDRY\'s Terms of Service and Privacy Policy.',
+                        style: AppTypography.caption.copyWith(
+                          color: AppColors.textMuted,
+                          height: 1.5,
+                        ),
+                        textAlign: TextAlign.center,
                       ),
                     ],
                   ),

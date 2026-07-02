@@ -5,7 +5,8 @@ import 'app_routes.dart';
 import '../design/design_system.dart';
 import '../../providers/auth_provider.dart';
 
-// Let's import the actual onboarding / auth pages
+// ── Page imports ──────────────────────────────────────────────────────────────
+
 import '../../features/onboarding/presentation/pages/onboarding_page.dart';
 import '../../features/onboarding/presentation/pages/splash_page.dart';
 import '../../features/auth/presentation/pages/login_page.dart';
@@ -14,24 +15,20 @@ import '../../features/auth/presentation/pages/profile_setup_page.dart';
 import '../../features/auth/presentation/pages/location_permission_page.dart';
 import '../../features/auth/presentation/pages/map_address_page.dart';
 
-// Client Customer Home Modules
 import '../../features/home/presentation/pages/home_page.dart';
 import '../../features/search/presentation/pages/search_page.dart';
 import '../../features/category/presentation/pages/category_page.dart';
 import '../../features/vendor_listing/presentation/pages/vendor_listing_page.dart';
 import '../../features/vendor_details/presentation/pages/vendor_details_page.dart';
 
-// Checkout & Cart Modules
 import '../../features/cart/presentation/pages/cart_page.dart';
 import '../../features/checkout/presentation/pages/checkout_page.dart';
 import '../../features/checkout/presentation/pages/payment_page.dart';
 import '../../features/orders/presentation/pages/order_confirmation_page.dart';
 
-// Orders module
 import '../../features/orders/presentation/pages/orders_list_page.dart';
 import '../../features/orders/presentation/pages/order_details_page.dart';
 
-// Profile Module
 import '../../features/profile/presentation/pages/profile_page.dart';
 import '../../features/profile/presentation/pages/edit_profile_page.dart';
 import '../../features/profile/presentation/pages/saved_addresses_page.dart';
@@ -39,367 +36,312 @@ import '../../features/profile/presentation/pages/notifications_page.dart';
 import '../../features/profile/presentation/pages/settings_page.dart';
 import '../../features/profile/presentation/pages/help_page.dart';
 
-// ── Reusable Custom Transitions ──────────────────────────────────────────────
+// ── Custom Transitions ────────────────────────────────────────────────────────
 
-CustomTransitionPage<T> buildPageWithSlideTransition<T>({
+CustomTransitionPage<T> _slideTransition<T>({
   required BuildContext context,
   required GoRouterState state,
   required Widget child,
-}) {
-  return CustomTransitionPage<T>(
-    key: state.pageKey,
-    child: child,
-    transitionDuration: AppDurations.pageRoute,
-    reverseTransitionDuration: AppDurations.pageRoute,
-    transitionsBuilder: (context, animation, secondaryAnimation, child) {
-      return SlideTransition(
+}) =>
+    CustomTransitionPage<T>(
+      key: state.pageKey,
+      child: child,
+      transitionDuration: AppDurations.pageRoute,
+      reverseTransitionDuration: AppDurations.pageRoute,
+      transitionsBuilder: (context, animation, secondaryAnimation, child) =>
+          SlideTransition(
         position: Tween<Offset>(
           begin: const Offset(1.0, 0.0),
           end: Offset.zero,
-        ).animate(CurvedAnimation(
-          parent: animation,
-          curve: AppCurves.decelerate,
-        )),
+        ).animate(CurvedAnimation(parent: animation, curve: AppCurves.decelerate)),
         child: child,
-      );
-    },
-  );
-}
+      ),
+    );
 
-CustomTransitionPage<T> buildPageWithFadeTransition<T>({
+CustomTransitionPage<T> _fadeTransition<T>({
   required BuildContext context,
   required GoRouterState state,
   required Widget child,
-}) {
-  return CustomTransitionPage<T>(
-    key: state.pageKey,
-    child: child,
-    transitionDuration: AppDurations.pageRoute,
-    reverseTransitionDuration: AppDurations.pageRoute,
-    transitionsBuilder: (context, animation, secondaryAnimation, child) {
-      return FadeTransition(
-        opacity: CurvedAnimation(
-          parent: animation,
-          curve: AppCurves.standard,
-        ),
+}) =>
+    CustomTransitionPage<T>(
+      key: state.pageKey,
+      child: child,
+      transitionDuration: AppDurations.pageRoute,
+      reverseTransitionDuration: AppDurations.pageRoute,
+      transitionsBuilder: (context, animation, secondaryAnimation, child) =>
+          FadeTransition(
+        opacity: CurvedAnimation(parent: animation, curve: AppCurves.standard),
         child: child,
-      );
-    },
-  );
-}
+      ),
+    );
 
-// ── App Router Provider ───────────────────────────────────────────────────────
+// ── Router Provider ───────────────────────────────────────────────────────────
 
 final appRouterProvider = Provider<GoRouter>((ref) {
-  // Listen to Auth State to trigger route recalculation on change
   final authState = ref.watch(authProvider);
-
   return GoRouter(
     initialLocation: AppRoutes.splash,
-    debugLogDiagnostics: true,
+    debugLogDiagnostics: false,
     redirect: (context, state) => _globalRedirect(context, state, authState),
     errorBuilder: (context, state) => _ErrorPage(error: state.error),
     routes: _routes,
   );
 });
 
-// ── Global redirect (auth guard) ─────────────────────────────────────────────
+// ── Global redirect (auth guard) ──────────────────────────────────────────────
 
-String? _globalRedirect(BuildContext context, GoRouterState state, AuthState authState) {
+String? _globalRedirect(
+  BuildContext context,
+  GoRouterState state,
+  AuthState authState,
+) {
   final path = state.uri.path;
 
-  final publicPaths = [
+  // Public paths that don't require authentication.
+  const publicPaths = [
     AppRoutes.splash,
     AppRoutes.onboarding,
     AppRoutes.login,
     AppRoutes.otp,
   ];
 
-  if (authState is AuthInitial || authState is AuthLoading) {
+  // While initialising or loading, stay put (don't flicker).
+  if (authState is AuthInitial || authState is AuthLoading) return null;
+
+  // Auth error: redirect to login so the user can retry.
+  if (authState is AuthError) {
+    if (!publicPaths.contains(path)) return AppRoutes.login;
     return null;
   }
 
   if (authState is AuthUnauthenticated) {
-    if (!publicPaths.contains(path)) {
-      return AppRoutes.login;
-    }
+    if (!publicPaths.contains(path)) return AppRoutes.login;
     return null;
   }
 
   if (authState is AuthOtpSent) {
-    if (path != AppRoutes.otp) {
-      return AppRoutes.otp;
-    }
+    if (path != AppRoutes.otp) return AppRoutes.otp;
     return null;
   }
 
   if (authState is AuthNeedsProfileSetup) {
-    if (path != AppRoutes.profileSetup) {
-      return AppRoutes.profileSetup;
-    }
+    if (path != AppRoutes.profileSetup) return AppRoutes.profileSetup;
     return null;
   }
 
   if (authState is AuthNeedsLocationPermission) {
-    if (path != AppRoutes.locationPermission) {
-      return AppRoutes.locationPermission;
-    }
+    if (path != AppRoutes.locationPermission) return AppRoutes.locationPermission;
     return null;
   }
 
   if (authState is AuthNeedsAddressSelection) {
-    if (path != AppRoutes.mapAddress) {
-      return AppRoutes.mapAddress;
-    }
+    if (path != AppRoutes.mapAddress) return AppRoutes.mapAddress;
     return null;
   }
 
   if (authState is AuthAuthenticated) {
-    if (publicPaths.contains(path) ||
+    // Redirect away from auth/onboarding screens once signed in.
+    final isAuthPath = publicPaths.contains(path) ||
         path == AppRoutes.profileSetup ||
         path == AppRoutes.locationPermission ||
-        path == AppRoutes.mapAddress) {
-      return AppRoutes.home;
-    }
+        path == AppRoutes.mapAddress;
+    if (isAuthPath) return AppRoutes.home;
     return null;
   }
 
   return null;
 }
 
+// ── Route definitions ─────────────────────────────────────────────────────────
+
 final List<RouteBase> _routes = [
-  // ── Splash / Onboarding ──────────────────────────────────────────────────
+  // ── Splash / Onboarding ───────────────────────────────────────────────────
   GoRoute(
     path: AppRoutes.splash,
     name: AppRouteNames.splash,
-    pageBuilder: (context, state) => buildPageWithFadeTransition(
-      context: context,
-      state: state,
-      child: const SplashPage(),
-    ),
+    pageBuilder: (c, s) =>
+        _fadeTransition(context: c, state: s, child: const SplashPage()),
   ),
   GoRoute(
     path: AppRoutes.onboarding,
     name: AppRouteNames.onboarding,
-    pageBuilder: (context, state) => buildPageWithFadeTransition(
-      context: context,
-      state: state,
-      child: const OnboardingPage(),
-    ),
+    pageBuilder: (c, s) =>
+        _fadeTransition(context: c, state: s, child: const OnboardingPage()),
   ),
 
-  // ── Auth ─────────────────────────────────────────────────────────────────
+  // ── Auth ──────────────────────────────────────────────────────────────────
   GoRoute(
     path: AppRoutes.login,
     name: AppRouteNames.login,
-    pageBuilder: (context, state) => buildPageWithSlideTransition(
-      context: context,
-      state: state,
-      child: const LoginPage(),
-    ),
+    pageBuilder: (c, s) =>
+        _slideTransition(context: c, state: s, child: const LoginPage()),
   ),
   GoRoute(
     path: AppRoutes.otp,
     name: AppRouteNames.otp,
-    pageBuilder: (context, state) => buildPageWithSlideTransition(
-      context: context,
-      state: state,
-      child: const OtpPage(),
-    ),
+    pageBuilder: (c, s) =>
+        _slideTransition(context: c, state: s, child: const OtpPage()),
   ),
   GoRoute(
     path: AppRoutes.profileSetup,
     name: AppRouteNames.profileSetup,
-    pageBuilder: (context, state) => buildPageWithSlideTransition(
-      context: context,
-      state: state,
-      child: const ProfileSetupPage(),
-    ),
+    pageBuilder: (c, s) =>
+        _slideTransition(context: c, state: s, child: const ProfileSetupPage()),
   ),
   GoRoute(
     path: AppRoutes.locationPermission,
     name: AppRouteNames.locationPermission,
-    pageBuilder: (context, state) => buildPageWithSlideTransition(
-      context: context,
-      state: state,
-      child: const LocationPermissionPage(),
-    ),
+    pageBuilder: (c, s) => _slideTransition(
+        context: c, state: s, child: const LocationPermissionPage()),
   ),
   GoRoute(
     path: AppRoutes.mapAddress,
     name: AppRouteNames.mapAddress,
-    pageBuilder: (context, state) => buildPageWithSlideTransition(
-      context: context,
-      state: state,
-      child: const MapAddressPage(),
-    ),
+    pageBuilder: (c, s) =>
+        _slideTransition(context: c, state: s, child: const MapAddressPage()),
   ),
-  GoRoute(
-    path: AppRoutes.checkout,
-    name: AppRouteNames.checkout,
-    pageBuilder: (context, state) => buildPageWithSlideTransition(
-      context: context,
-      state: state,
-      child: const CheckoutPage(),
-    ),
-  ),
-  GoRoute(
-    path: AppRoutes.payment,
-    name: AppRouteNames.payment,
-    pageBuilder: (context, state) => buildPageWithSlideTransition(
-      context: context,
-      state: state,
-      child: const PaymentPage(),
-    ),
-  ),
-  GoRoute(
-    path: AppRoutes.orderConfirmation,
-    name: AppRouteNames.orderConfirmation,
-    pageBuilder: (context, state) => buildPageWithFadeTransition(
-      context: context,
-      state: state,
-      child: OrderConfirmationPage(
-        orderId: state.pathParameters['orderId']!,
-      ),
-    ),
-  ),
+
+  // ── Vendor discovery (outside shell so no bottom nav shown) ───────────────
   GoRoute(
     path: '/category/:categoryId',
     name: AppRouteNames.category,
-    pageBuilder: (context, state) => buildPageWithSlideTransition(
-      context: context,
-      state: state,
-      child: CategoryPage(
-        categoryId: state.pathParameters['categoryId']!,
-      ),
+    pageBuilder: (c, s) => _slideTransition(
+      context: c,
+      state: s,
+      child: CategoryPage(categoryId: s.pathParameters['categoryId']!),
     ),
   ),
   GoRoute(
     path: '/vendors',
     name: AppRouteNames.vendorListing,
-    pageBuilder: (context, state) => buildPageWithSlideTransition(
-      context: context,
-      state: state,
-      child: const VendorListingPage(),
-    ),
+    pageBuilder: (c, s) =>
+        _slideTransition(context: c, state: s, child: const VendorListingPage()),
   ),
   GoRoute(
     path: '/vendor/:vendorId',
     name: AppRouteNames.vendorDetails,
-    pageBuilder: (context, state) => buildPageWithSlideTransition(
-      context: context,
-      state: state,
-      child: VendorDetailsPage(
-        vendorId: state.pathParameters['vendorId']!,
+    pageBuilder: (c, s) => _slideTransition(
+      context: c,
+      state: s,
+      child: VendorDetailsPage(vendorId: s.pathParameters['vendorId']!),
+    ),
+  ),
+
+  // ── Booking / Checkout (outside shell) ───────────────────────────────────
+  GoRoute(
+    path: AppRoutes.checkout,
+    name: AppRouteNames.checkout,
+    pageBuilder: (c, s) =>
+        _slideTransition(context: c, state: s, child: const CheckoutPage()),
+  ),
+  GoRoute(
+    path: AppRoutes.payment,
+    name: AppRouteNames.payment,
+    pageBuilder: (c, s) =>
+        _slideTransition(context: c, state: s, child: const PaymentPage()),
+  ),
+
+  // ── Order confirmation (/orders/:orderId/submitted) ───────────────────────
+  GoRoute(
+    path: '/orders/:orderId/submitted',
+    name: AppRouteNames.orderConfirmation,
+    pageBuilder: (c, s) => _fadeTransition(
+      context: c,
+      state: s,
+      child: OrderConfirmationPage(
+        orderId: s.pathParameters['orderId']!,
       ),
     ),
   ),
 
-  // ── Stateful Shell Navigation (Dashboard Tabs) ───────────────────────────
+  // ── Dashboard tabs (StatefulShellRoute) ──────────────────────────────────
   StatefulShellRoute.indexedStack(
-    builder: (_, __, navigationShell) =>
-        _DashboardShell(navigationShell: navigationShell),
+    builder: (_, __, shell) => _DashboardShell(navigationShell: shell),
     branches: [
-      // ── Tab 1: Home ────────────────────────────────────────────────────────
+      // Tab 0: Home
       StatefulShellBranch(routes: [
         GoRoute(
           path: AppRoutes.home,
           name: AppRouteNames.home,
-          builder: (context, state) => const HomePage(),
+          builder: (c, s) => const HomePage(),
         ),
       ]),
 
-      // ── Tab 2: Search ──────────────────────────────────────────────────────
+      // Tab 1: Search/Explore
       StatefulShellBranch(routes: [
         GoRoute(
           path: AppRoutes.search,
           name: AppRouteNames.search,
-          builder: (context, state) => const SearchPage(),
+          builder: (c, s) => const SearchPage(),
         ),
       ]),
 
-      // ── Tab 3: Cart ────────────────────────────────────────────────────────
+      // Tab 2: Cart/Booking
       StatefulShellBranch(routes: [
         GoRoute(
           path: AppRoutes.cart,
           name: AppRouteNames.cart,
-          builder: (context, state) => const CartPage(),
+          builder: (c, s) => const CartPage(),
         ),
       ]),
 
-      // ── Tab 4: Orders ──────────────────────────────────────────────────────
+      // Tab 3: Orders
       StatefulShellBranch(routes: [
         GoRoute(
           path: AppRoutes.orders,
           name: AppRouteNames.orders,
-          builder: (context, state) => const OrdersListPage(),
+          builder: (c, s) => const OrdersListPage(),
           routes: [
             GoRoute(
               path: 'details/:orderId',
               name: AppRouteNames.orderDetails,
-              pageBuilder: (context, state) => buildPageWithSlideTransition(
-                context: context,
-                state: state,
+              pageBuilder: (c, s) => _slideTransition(
+                context: c,
+                state: s,
                 child: OrderDetailsPage(
-                  orderId: state.pathParameters['orderId']!,
-                ),
+                    orderId: s.pathParameters['orderId']!),
               ),
             ),
           ],
         ),
       ]),
 
-      // ── Tab 5: Profile ─────────────────────────────────────────────────────
+      // Tab 4: Profile
       StatefulShellBranch(routes: [
         GoRoute(
           path: AppRoutes.profile,
           name: AppRouteNames.profile,
-          builder: (context, state) => const ProfilePage(),
+          builder: (c, s) => const ProfilePage(),
           routes: [
+            GoRoute(
+              path: 'edit',
+              name: AppRouteNames.editProfile,
+              pageBuilder: (c, s) => _slideTransition(
+                  context: c, state: s, child: const EditProfilePage()),
+            ),
             GoRoute(
               path: 'address',
               name: AppRouteNames.address,
-              pageBuilder: (context, state) => buildPageWithSlideTransition(
-                context: context,
-                state: state,
-                child: const SavedAddressesPage(),
-              ),
+              pageBuilder: (c, s) => _slideTransition(
+                  context: c, state: s, child: const SavedAddressesPage()),
             ),
             GoRoute(
               path: 'notifications',
               name: AppRouteNames.notifications,
-              pageBuilder: (context, state) => buildPageWithSlideTransition(
-                context: context,
-                state: state,
-                child: const NotificationsPage(),
-              ),
-            ),
-            GoRoute(
-              path: 'edit',
-              name: AppRouteNames.editProfile,
-              pageBuilder: (context, state) => buildPageWithSlideTransition(
-                context: context,
-                state: state,
-                child: const EditProfilePage(),
-              ),
+              pageBuilder: (c, s) => _slideTransition(
+                  context: c, state: s, child: const NotificationsPage()),
             ),
             GoRoute(
               path: 'settings',
               name: AppRouteNames.settings,
-              pageBuilder: (context, state) => buildPageWithSlideTransition(
-                context: context,
-                state: state,
-                child: const SettingsPage(),
-              ),
+              pageBuilder: (c, s) => _slideTransition(
+                  context: c, state: s, child: const SettingsPage()),
             ),
             GoRoute(
               path: 'help',
               name: AppRouteNames.help,
-              pageBuilder: (context, state) => buildPageWithSlideTransition(
-                context: context,
-                state: state,
-                child: const HelpPage(),
-              ),
+              pageBuilder: (c, s) => _slideTransition(
+                  context: c, state: s, child: const HelpPage()),
             ),
           ],
         ),
@@ -408,28 +350,27 @@ final List<RouteBase> _routes = [
   ),
 ];
 
-// ── Dashboard Shell Widget ───────────────────────────────────────────────────
+// ── Dashboard Shell ───────────────────────────────────────────────────────────
 
 class _DashboardShell extends StatelessWidget {
-  final StatefulNavigationShell navigationShell;
   const _DashboardShell({required this.navigationShell});
+  final StatefulNavigationShell navigationShell;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
       body: Stack(
         children: [
-          // The page content
           Positioned.fill(
             child: Padding(
-              padding: EdgeInsets.only(bottom: 64.h),
+              padding: EdgeInsets.only(
+                bottom: 64.h + MediaQuery.paddingOf(context).bottom,
+              ),
               child: navigationShell,
             ),
           ),
-          // The custom bottom nav bar
           Positioned(
             left: 0,
             right: 0,
@@ -458,11 +399,35 @@ class _DashboardShell extends StatelessWidget {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
-                  _buildNavItem(context, 0, AppIcons.homeOutlined, AppIcons.home, 'Home'),
-                  _buildNavItem(context, 1, Icons.grid_view_outlined, Icons.grid_view_rounded, 'Explore'),
-                  _buildCenterBookItem(context),
-                  _buildNavItem(context, 3, AppIcons.ordersOutlined, AppIcons.orders, 'Orders'),
-                  _buildNavItem(context, 4, AppIcons.profileOutlined, AppIcons.profile, 'Profile'),
+                  _NavItem(
+                    shell: navigationShell,
+                    index: 0,
+                    unselected: AppIcons.homeOutlined,
+                    selected: AppIcons.home,
+                    label: 'Home',
+                  ),
+                  _NavItem(
+                    shell: navigationShell,
+                    index: 1,
+                    unselected: Icons.grid_view_outlined,
+                    selected: Icons.grid_view_rounded,
+                    label: 'Explore',
+                  ),
+                  _CenterBookItem(shell: navigationShell),
+                  _NavItem(
+                    shell: navigationShell,
+                    index: 3,
+                    unselected: AppIcons.ordersOutlined,
+                    selected: AppIcons.orders,
+                    label: 'Orders',
+                  ),
+                  _NavItem(
+                    shell: navigationShell,
+                    index: 4,
+                    unselected: AppIcons.profileOutlined,
+                    selected: AppIcons.profile,
+                    label: 'Profile',
+                  ),
                 ],
               ),
             ),
@@ -471,23 +436,41 @@ class _DashboardShell extends StatelessWidget {
       ),
     );
   }
+}
 
-  Widget _buildNavItem(BuildContext context, int index, IconData unselectedIcon, IconData selectedIcon, String label) {
-    final isSelected = navigationShell.currentIndex == index;
-    final primaryColor = AppColors.primary;
-    final secondaryColor = const Color(0xFF495467);
+class _NavItem extends StatelessWidget {
+  const _NavItem({
+    required this.shell,
+    required this.index,
+    required this.unselected,
+    required this.selected,
+    required this.label,
+  });
+
+  final StatefulNavigationShell shell;
+  final int index;
+  final IconData unselected;
+  final IconData selected;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final isSelected = shell.currentIndex == index;
 
     return Expanded(
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
-        onTap: () => navigationShell.goBranch(index),
+        onTap: () => shell.goBranch(
+          index,
+          initialLocation: index == shell.currentIndex,
+        ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
-              isSelected ? selectedIcon : unselectedIcon,
-              color: isSelected ? primaryColor : secondaryColor,
+              isSelected ? selected : unselected,
+              color: isSelected ? AppColors.primary : const Color(0xFF495467),
               size: 22.r,
             ),
             const Gap(4),
@@ -495,8 +478,11 @@ class _DashboardShell extends StatelessWidget {
               label,
               style: AppTypography.caption.copyWith(
                 fontSize: 10.sp,
-                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                color: isSelected ? primaryColor : secondaryColor,
+                fontWeight:
+                    isSelected ? FontWeight.w600 : FontWeight.w500,
+                color: isSelected
+                    ? AppColors.primary
+                    : const Color(0xFF495467),
               ),
             ),
           ],
@@ -504,13 +490,19 @@ class _DashboardShell extends StatelessWidget {
       ),
     );
   }
+}
 
-  Widget _buildCenterBookItem(BuildContext context) {
-    final isSelected = navigationShell.currentIndex == 2;
+class _CenterBookItem extends StatelessWidget {
+  const _CenterBookItem({required this.shell});
+  final StatefulNavigationShell shell;
+
+  @override
+  Widget build(BuildContext context) {
+    final isSelected = shell.currentIndex == 2;
     return Expanded(
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
-        onTap: () => navigationShell.goBranch(2),
+        onTap: () => shell.goBranch(2, initialLocation: 2 == shell.currentIndex),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           mainAxisSize: MainAxisSize.min,
@@ -533,11 +525,7 @@ class _DashboardShell extends StatelessWidget {
                   ),
                 ],
               ),
-              child: Icon(
-                AppIcons.laundry,
-                color: AppColors.white,
-                size: 20.r,
-              ),
+              child: Icon(AppIcons.laundry, color: AppColors.white, size: 20.r),
             ),
             const Gap(2),
             Text(
@@ -545,7 +533,9 @@ class _DashboardShell extends StatelessWidget {
               style: AppTypography.caption.copyWith(
                 fontSize: 10.sp,
                 fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                color: isSelected ? AppColors.primary : const Color(0xFF495467),
+                color: isSelected
+                    ? AppColors.primary
+                    : const Color(0xFF495467),
               ),
             ),
           ],
@@ -558,8 +548,8 @@ class _DashboardShell extends StatelessWidget {
 // ── Error Page ────────────────────────────────────────────────────────────────
 
 class _ErrorPage extends StatelessWidget {
-  final Exception? error;
   const _ErrorPage({this.error});
+  final Exception? error;
 
   @override
   Widget build(BuildContext context) {
@@ -572,10 +562,14 @@ class _ErrorPage extends StatelessWidget {
             const SizedBox(height: 16),
             Text('Page not found', style: AppTypography.headlineSmall),
             const SizedBox(height: 8),
-            Text(error?.toString() ?? '', style: AppTypography.bodyMedium),
+            Text(
+              error?.toString() ?? 'Unknown route',
+              style: AppTypography.bodyMedium,
+              textAlign: TextAlign.center,
+            ),
             const SizedBox(height: 24),
             ElevatedButton(
-              onPressed: () => context.go(AppRoutes.splash),
+              onPressed: () => context.go(AppRoutes.home),
               child: const Text('Go Home'),
             ),
           ],

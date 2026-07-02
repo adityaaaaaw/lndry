@@ -1,16 +1,14 @@
-import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:gap/gap.dart';
-import 'package:go_router/go_router.dart';
+import 'package:razorpay_flutter/razorpay_flutter.dart';
+
+import '../../../../config/env.dart';
 import '../../../../core/design/design_system.dart';
-import '../../../../core/widgets/widgets.dart';
 import '../../../../core/extensions/extensions.dart';
-import '../../../../core/router/app_routes.dart';
+import '../../../../core/widgets/widgets.dart';
 import '../../../../models/models.dart';
+import '../../../../providers/auth_provider.dart';
 import '../../../../repositories/repositories.dart';
-import '../../../checkout/presentation/pages/checkout_page.dart';
 import '../../../cart/presentation/providers/cart_providers.dart';
+import '../../../checkout/presentation/pages/checkout_page.dart';
 
 class PaymentPage extends ConsumerStatefulWidget {
   const PaymentPage({super.key});
@@ -20,60 +18,343 @@ class PaymentPage extends ConsumerStatefulWidget {
 }
 
 class _PaymentPageState extends ConsumerState<PaymentPage> {
+  late final Razorpay _razorpay;
   bool _isProcessing = false;
-  String _selectedMethod = 'upi'; // upi, card, netbanking, wallet
+  bool _isVerifyingPayment = false;
+  bool _paymentFinalized = false;
+  bool _verificationRetryPending = false;
+  String _selectedMethod = 'upi'; // upi, card, wallet
+  PaymentOrderResult? _pendingPaymentOrder;
+  CheckoutSession? _pendingSession;
+  PaymentSuccessResponse? _pendingSuccessResponse;
+  final Set<String> _handledGatewayEvents = <String>{};
 
-  void _processMockPayment(CartState cart) async {
-    setState(() => _isProcessing = true);
+  @override
+  void initState() {
+    super.initState();
+    _razorpay = Razorpay();
+    _razorpay.on(Razorpay.EVENT_PAYMENT_SUCCESS, _handlePaymentSuccess);
+    _razorpay.on(Razorpay.EVENT_PAYMENT_ERROR, _handlePaymentFailure);
+    _razorpay.on(Razorpay.EVENT_EXTERNAL_WALLET, _handleExternalWallet);
+  }
+
+  @override
+  void dispose() {
+    _razorpay.clear();
+    super.dispose();
+  }
+
+  Future<void> _processPayment(CartState cart) async {
+    if (_isProcessing || _isVerifyingPayment || _paymentFinalized) return;
+
+    if (_verificationRetryPending && _pendingSuccessResponse != null) {
+      await _verifyAndPlaceOrder(_pendingSuccessResponse!);
+      return;
+    }
 
     final session = GoRouterState.of(context).extra as CheckoutSession?;
 
     if (cart.cart.isEmpty) {
       if (mounted) {
-        setState(() => _isProcessing = false);
         AppSnackBar.showError(context, 'Your cart is empty.');
         context.go(AppRoutes.vendorListing);
       }
       return;
     }
-    
-    // Simulate Razorpay transaction delay
-    await Future.delayed(const Duration(milliseconds: 1800));
+
+    final repo = ref.read(customerRepositoryProvider);
 
     try {
-      final repo = ref.read(customerRepositoryProvider);
-      final addressId = session?.deliveryAddressId ?? 'addr_1';
+      final isMockMode = Env.useMocksForVisualTestsOnly;
 
-      // Place order mock in repository
-      final placedOrder = await repo.placeOrder(
-        PlaceOrderRequest(
-          vendorId: cart.services.isNotEmpty ? cart.services.first.vendorId : 'vndr_demo',
-          items: cart.cart.items
-              .map((i) => OrderItemRequest(serviceId: i.serviceId, quantity: i.quantity))
-              .toList(),
-          deliveryAddressId: addressId,
-          pickupAddressId: session?.pickupAddressId ?? addressId,
-          paymentMethod: _resolvePaymentMethod(_selectedMethod),
-        ),
+      setState(() => _isProcessing = true);
+
+      if (!isMockMode) {
+        if (session?.orderDraftId == null || session!.orderDraftId!.isEmpty) {
+          if (mounted) {
+            setState(() => _isProcessing = false);
+            AppSnackBar.showError(
+              context,
+              'Checkout quote is unavailable. Please retry checkout.',
+            );
+          }
+          return;
+        }
+
+        final paymentResult = await repo.createPaymentOrder(
+          orderDraftId: session.orderDraftId,
+        );
+        final gatewayKey = _gatewayKey(paymentResult);
+
+        if (gatewayKey.isEmpty) {
+          if (mounted) {
+            setState(() => _isProcessing = false);
+            AppSnackBar.showError(
+              context,
+              'Payment gateway is not configured for this build.',
+            );
+          }
+          return;
+        }
+
+        if (paymentResult.razorpayOrderId.isEmpty) {
+          if (mounted) {
+            setState(() => _isProcessing = false);
+            AppSnackBar.showError(
+              context,
+              'Payment order is unavailable. Please retry checkout.',
+            );
+          }
+          return;
+        }
+
+        _pendingPaymentOrder = paymentResult;
+        _pendingSession = session;
+        _pendingSuccessResponse = null;
+        _verificationRetryPending = false;
+        _handledGatewayEvents.clear();
+
+        _razorpay.open(_buildCheckoutOptions(
+          paymentResult: paymentResult,
+          gatewayKey: gatewayKey,
+          amountDue: session.finalPrice,
+        ));
+        return;
+      }
+
+      // Development mock mode only: simulate a Razorpay transaction.
+      final paymentResult = await repo.createPaymentOrder(
+        orderDraftId: session?.orderDraftId,
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 1800));
+
+      // Development mock mode only: verify using mock repository semantics.
+      final verifyResult = await repo.verifyPayment(
+        razorpayOrderId: paymentResult.razorpayOrderId,
+        razorpayPaymentId: 'rzp_pay_${DateTime.now().millisecondsSinceEpoch}',
+        razorpaySignature: 'mock_signature',
+        orderDraftId: session?.orderDraftId,
       );
 
-      // Clear the local cart
-      ref.read(cartStateProvider.notifier).clear();
-
-      if (mounted) {
-        setState(() => _isProcessing = false);
-        AppSnackBar.showSuccess(context, 'Payment Successful!');
-        context.go('/checkout/confirmation/${placedOrder.id}');
+      if (!verifyResult.success) {
+        if (mounted) {
+          setState(() => _isProcessing = false);
+          AppSnackBar.showError(context, 'Payment verification failed.');
+        }
+        return;
       }
+
+      await _placeOrderAfterVerifiedPayment(session: session, cart: cart);
     } catch (e) {
       if (mounted) {
         setState(() => _isProcessing = false);
         AppSnackBar.showError(context, 'Transaction failed: ${e.toString()}');
       }
-    } finally {
-      if (mounted) {
-        setState(() => _isProcessing = false);
+    }
+  }
+
+  Map<String, dynamic> _buildCheckoutOptions({
+    required PaymentOrderResult paymentResult,
+    required String gatewayKey,
+    required double amountDue,
+  }) {
+    final user = ref.read(currentUserProvider);
+    final amountPaise =
+        paymentResult.amount > 0 ? (paymentResult.amount * 100).round() : 0;
+
+    return <String, dynamic>{
+      'key': gatewayKey,
+      'order_id': paymentResult.razorpayOrderId,
+      if (amountPaise > 0) 'amount': amountPaise,
+      'currency': paymentResult.currency,
+      'name': 'LNDRY',
+      'description': 'Laundry order payment',
+      'timeout': 300,
+      'prefill': <String, dynamic>{
+        if (user?.name.isNotEmpty == true) 'name': user!.name,
+        if (user?.phone.isNotEmpty == true) 'contact': user!.phone,
+        if (user?.email?.isNotEmpty == true) 'email': user!.email,
+      },
+      'notes': <String, dynamic>{
+        if (_pendingSession?.orderDraftId?.isNotEmpty == true)
+          'orderDraftId': _pendingSession!.orderDraftId,
+        'paymentId': paymentResult.paymentId,
+        'amountDue': amountDue.toStringAsFixed(2),
+      },
+    };
+  }
+
+  String _gatewayKey(PaymentOrderResult result) {
+    final backendKey = result.keyId;
+    if (backendKey != null && backendKey.isNotEmpty) return backendKey;
+    return Env.razorpayKey;
+  }
+
+  Future<void> _handlePaymentSuccess(PaymentSuccessResponse response) async {
+    final paymentId = response.paymentId;
+    final eventKey = paymentId ?? response.orderId ?? '';
+    if (eventKey.isNotEmpty && !_handledGatewayEvents.add(eventKey)) return;
+
+    _pendingSuccessResponse = response;
+    await _verifyAndPlaceOrder(response);
+  }
+
+  Future<void> _verifyAndPlaceOrder(PaymentSuccessResponse response) async {
+    if (_isVerifyingPayment || _paymentFinalized) return;
+
+    final pendingOrder = _pendingPaymentOrder;
+    final session = _pendingSession;
+    final razorpayOrderId = response.orderId?.isNotEmpty == true
+        ? response.orderId!
+        : pendingOrder?.razorpayOrderId;
+    final razorpayPaymentId = response.paymentId;
+    final razorpaySignature = response.signature;
+
+    if (pendingOrder == null ||
+        session?.orderDraftId == null ||
+        razorpayOrderId == null ||
+        razorpayOrderId.isEmpty ||
+        razorpayPaymentId == null ||
+        razorpayPaymentId.isEmpty ||
+        razorpaySignature == null ||
+        razorpaySignature.isEmpty) {
+      if (!mounted) return;
+      setState(() {
+        _isProcessing = false;
+        _isVerifyingPayment = false;
+      });
+      AppSnackBar.showError(
+        context,
+        'Payment response was incomplete. Please contact support.',
+      );
+      return;
+    }
+
+    setState(() {
+      _isProcessing = true;
+      _isVerifyingPayment = true;
+      _verificationRetryPending = false;
+    });
+
+    try {
+      final verifyResult =
+          await ref.read(customerRepositoryProvider).verifyPayment(
+                razorpayOrderId: razorpayOrderId,
+                razorpayPaymentId: razorpayPaymentId,
+                razorpaySignature: razorpaySignature,
+                orderDraftId: session!.orderDraftId,
+              );
+
+      if (!verifyResult.success) {
+        if (!mounted) return;
+        setState(() {
+          _isProcessing = false;
+          _isVerifyingPayment = false;
+        });
+        AppSnackBar.showError(context, 'Payment verification failed.');
+        return;
       }
+
+      _paymentFinalized = true;
+      await _placeOrderAfterVerifiedPayment(session: session, cart: null);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _isProcessing = false;
+        _isVerifyingPayment = false;
+        _verificationRetryPending = true;
+      });
+      AppSnackBar.showError(
+        context,
+        'Payment captured, but verification could not be completed. Tap Verify Payment to retry.',
+      );
+    }
+  }
+
+  void _handlePaymentFailure(PaymentFailureResponse response) {
+    if (_paymentFinalized) return;
+
+    final isCancel = response.code == 2 ||
+        (response.message ?? '').toLowerCase().contains('cancel');
+
+    _pendingPaymentOrder = null;
+    _pendingSession = null;
+    _pendingSuccessResponse = null;
+    _handledGatewayEvents.clear();
+
+    if (!mounted) return;
+    setState(() {
+      _isProcessing = false;
+      _isVerifyingPayment = false;
+      _verificationRetryPending = false;
+    });
+
+    AppSnackBar.showError(
+      context,
+      isCancel
+          ? 'Payment cancelled. You can retry safely.'
+          : 'Payment failed. Please try another payment method.',
+    );
+  }
+
+  void _handleExternalWallet(ExternalWalletResponse response) {
+    if (!mounted || _paymentFinalized) return;
+    AppSnackBar.showSuccess(
+        context, 'Wallet selected. Complete payment to continue.');
+  }
+
+  Future<void> _placeOrderAfterVerifiedPayment({
+    required CheckoutSession? session,
+    required CartState? cart,
+  }) async {
+    final repo = ref.read(customerRepositoryProvider);
+
+    final PlaceOrderRequest placeRequest;
+    if (session?.orderDraftId != null) {
+      placeRequest = PlaceOrderRequest(
+        orderDraftId: session!.orderDraftId,
+      );
+    } else {
+      final addressId = session?.deliveryAddressId;
+      final currentCart = cart;
+      if (addressId == null || addressId.isEmpty || currentCart == null) {
+        if (mounted) {
+          setState(() => _isProcessing = false);
+          AppSnackBar.showError(
+            context,
+            'Delivery address is unavailable. Please retry checkout.',
+          );
+        }
+        return;
+      }
+      placeRequest = PlaceOrderRequest(
+        vendorId: currentCart.services.isNotEmpty
+            ? currentCart.services.first.vendorId
+            : 'vndr_demo',
+        vendorSlotId: 'slot_mock_001',
+        items: currentCart.cart.items
+            .map((i) => OrderItemRequest(
+                  serviceId: i.serviceId,
+                  quantity: i.quantity,
+                ))
+            .toList(),
+        deliveryAddressId: addressId,
+        pickupAddressId: session?.pickupAddressId ?? addressId,
+        paymentMethod: _resolvePaymentMethod(_selectedMethod),
+      );
+    }
+
+    final placedOrder = await repo.placeOrder(placeRequest);
+    ref.read(cartStateProvider.notifier).clear();
+
+    if (mounted) {
+      setState(() {
+        _isProcessing = false;
+        _isVerifyingPayment = false;
+        _verificationRetryPending = false;
+      });
+      AppSnackBar.showSuccess(context, 'Payment Successful!');
+      context.go('/orders/${placedOrder.id}/submitted');
     }
   }
 
@@ -81,8 +362,7 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
         'upi' => PaymentMethod.upi,
         'card' => PaymentMethod.card,
         'wallet' => PaymentMethod.wallet,
-        'netbanking' => PaymentMethod.card,
-        _ => PaymentMethod.cash,
+        _ => PaymentMethod.upi,
       };
 
   @override
@@ -92,6 +372,9 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
     final cartState = ref.watch(cartStateProvider);
     final session = GoRouterState.of(context).extra as CheckoutSession?;
     final amountDue = session?.finalPrice ?? cartState.total;
+    final paymentCtaLabel = _verificationRetryPending
+        ? 'Verify Payment'
+        : 'Pay ${amountDue.toCurrencyDecimal}';
 
     return Scaffold(
       backgroundColor: isDark ? AppColors.darkBackground : AppColors.background,
@@ -103,7 +386,8 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
             const Gap(8),
             Text(
               'Razorpay Secures',
-              style: AppTypography.titleLarge.copyWith(color: AppColors.primary, fontWeight: FontWeight.bold),
+              style: AppTypography.titleLarge.copyWith(
+                  color: AppColors.primary, fontWeight: FontWeight.bold),
             ),
           ],
         ),
@@ -112,103 +396,104 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
         elevation: 0,
         leading: IconButton(
           icon: const Icon(AppIcons.back),
-          onPressed: () => Navigator.of(context).pop(),
+          onPressed: () => context.pop(),
         ),
       ),
       body: SafeArea(
         child: _isProcessing
-            ? const AppLoadingPage(message: 'Securing transaction with Razorpay...')
+            ? const AppLoadingPage(
+                message: 'Securing transaction with Razorpay...')
             : cartState.cart.isEmpty
                 ? AppEmptyState(
                     icon: AppIcons.cartOutlined,
                     title: 'Nothing to pay for',
-                    subtitle: 'Your cart is empty. Add services before completing payment.',
+                    subtitle:
+                        'Your cart is empty. Add services before completing payment.',
                     actionLabel: 'Browse vendors',
                     onAction: () => context.go(AppRoutes.vendorListing),
                   )
                 : Padding(
-                padding: EdgeInsets.symmetric(
-                  horizontal: AppSpacing.pagePaddingH.w,
-                  vertical: AppSpacing.pagePaddingV.h * 1.5,
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    // Grand total summary
-                    AppCard.outlined(
-                      backgroundColor: isDark ? AppColors.darkSurfaceContainer : AppColors.surface,
-                      child: Column(
-                        children: [
-                          Text('AMOUNT TO PAY', style: AppTypography.caption),
-                          const Gap(8),
-                          Text(
-                            amountDue.toCurrencyDecimal,
-                            style: AppTypography.displaySmall.copyWith(
-                              color: AppColors.primary,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
-                      ),
+                    padding: EdgeInsets.symmetric(
+                      horizontal: AppSpacing.pagePaddingH.w,
+                      vertical: AppSpacing.pagePaddingV.h * 1.5,
                     ),
-                    const Gap(32),
-
-                    Text('Select Payment Option', style: AppTypography.titleMedium),
-                    const Gap(16),
-
-                    // Payment options list
-                    _PaymentMethodTile(
-                      label: 'UPI (GPay / PhonePe / Paytm)',
-                      icon: AppIcons.upi,
-                      isSelected: _selectedMethod == 'upi',
-                      onTap: () => setState(() => _selectedMethod = 'upi'),
-                    ),
-                    const Gap(12),
-                    _PaymentMethodTile(
-                      label: 'Credit / Debit Card',
-                      icon: AppIcons.creditCard,
-                      isSelected: _selectedMethod == 'card',
-                      onTap: () => setState(() => _selectedMethod = 'card'),
-                    ),
-                    const Gap(12),
-                    _PaymentMethodTile(
-                      label: 'Net Banking',
-                      icon: AppIcons.document,
-                      isSelected: _selectedMethod == 'netbanking',
-                      onTap: () => setState(() => _selectedMethod = 'netbanking'),
-                    ),
-                    const Gap(12),
-                    _PaymentMethodTile(
-                      label: 'Wallet Pay',
-                      icon: AppIcons.walletOutlined,
-                      isSelected: _selectedMethod == 'wallet',
-                      onTap: () => setState(() => _selectedMethod = 'wallet'),
-                    ),
-
-                    const Spacer(),
-
-                    // Secure payment note
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        Icon(AppIcons.lock, size: 14.r, color: AppColors.onSurfaceVariant),
-                        const Gap(6),
-                        Text(
-                          '100% Secure PCI-DSS compliant transactions',
-                          style: AppTypography.caption,
+                        // Grand total summary
+                        AppCard.outlined(
+                          backgroundColor: isDark
+                              ? AppColors.darkSurfaceContainer
+                              : AppColors.surface,
+                          child: Column(
+                            children: [
+                              Text('AMOUNT TO PAY',
+                                  style: AppTypography.caption),
+                              const Gap(8),
+                              Text(
+                                amountDue.toCurrencyDecimal,
+                                style: AppTypography.displaySmall.copyWith(
+                                  color: AppColors.primary,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const Gap(32),
+
+                        Text('Select Payment Option',
+                            style: AppTypography.titleMedium),
+                        const Gap(16),
+
+                        // Payment options list
+                        _PaymentMethodTile(
+                          label: 'UPI (GPay / PhonePe / Paytm)',
+                          icon: AppIcons.upi,
+                          isSelected: _selectedMethod == 'upi',
+                          onTap: () => setState(() => _selectedMethod = 'upi'),
+                        ),
+                        const Gap(12),
+                        _PaymentMethodTile(
+                          label: 'Credit / Debit Card',
+                          icon: AppIcons.creditCard,
+                          isSelected: _selectedMethod == 'card',
+                          onTap: () => setState(() => _selectedMethod = 'card'),
+                        ),
+                        const Gap(12),
+                        _PaymentMethodTile(
+                          label: 'Wallet Pay',
+                          icon: AppIcons.walletOutlined,
+                          isSelected: _selectedMethod == 'wallet',
+                          onTap: () =>
+                              setState(() => _selectedMethod = 'wallet'),
+                        ),
+
+                        const Spacer(),
+
+                        // Secure payment note
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(AppIcons.lock,
+                                size: 14.r, color: AppColors.onSurfaceVariant),
+                            const Gap(6),
+                            Text(
+                              '100% Secure PCI-DSS compliant transactions',
+                              style: AppTypography.caption,
+                            ),
+                          ],
+                        ),
+                        const Gap(24),
+
+                        // Trigger payment CTA
+                        AppButton(
+                          label: paymentCtaLabel,
+                          onPressed: () => _processPayment(cartState),
                         ),
                       ],
                     ),
-                    const Gap(24),
-
-                    // Trigger payment CTA
-                    AppButton(
-                      label: 'Pay ${amountDue.toCurrencyDecimal}',
-                      onPressed: () => _processMockPayment(cartState),
-                    ),
-                  ],
-                ),
-              ),
+                  ),
       ),
     );
   }
@@ -232,7 +517,9 @@ class _PaymentMethodTile extends StatelessWidget {
     return AppCard.outlined(
       onTap: onTap,
       borderColor: isSelected ? AppColors.primary : AppColors.outline,
-      backgroundColor: isSelected ? AppColors.primaryContainer.withOpacity(0.1) : AppColors.transparent,
+      backgroundColor: isSelected
+          ? AppColors.primaryContainer.withValues(alpha: 0.1)
+          : AppColors.transparent,
       child: Row(
         children: [
           Icon(

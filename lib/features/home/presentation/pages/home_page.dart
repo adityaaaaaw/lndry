@@ -1,5 +1,3 @@
-import 'dart:async';
-import 'package:flutter/services.dart';
 import '../../../../core/design/design_system.dart';
 import '../../../../core/widgets/widgets.dart';
 import '../../../../core/extensions/extensions.dart';
@@ -11,6 +9,7 @@ import '../../../../repositories/repositories.dart';
 import '../../../cart/presentation/providers/cart_providers.dart';
 import '../providers/home_providers.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import '../../../../providers/providers.dart';
 
 class HomePage extends ConsumerStatefulWidget {
   const HomePage({super.key});
@@ -22,86 +21,28 @@ class HomePage extends ConsumerStatefulWidget {
 class _HomePageState extends ConsumerState<HomePage> {
   int _selectedCategoryIdx = 0;
   int _carouselIdx = 0;
-  String _bookService = 'Wash & Fold';
-  String _bookPickupSlot = 'Today, 6–8 PM';
-  String _bookAddress = 'Koramangala, BLR';
-
-  static const _bookServiceOptions = [
-    'Wash & Fold',
-    'Iron Only',
-    'Wash & Iron',
-    'Dry Clean',
-  ];
-
-  static const _bookPickupSlots = [
-    'Today, 6–8 PM',
-    'Today, 2–4 PM',
-    'Tomorrow, 10–12 AM',
-    'Tomorrow, 6–8 PM',
-  ];
-
-  void _showBookOptionSheet({
-    required String title,
-    required List<String> options,
-    required String current,
-    required ValueChanged<String> onSelected,
-  }) {
-    AppBottomSheet.show(
-      context: context,
-      title: title,
-      child: ListView.separated(
-        shrinkWrap: true,
-        itemCount: options.length,
-        separatorBuilder: (_, __) => const Gap(8),
-        itemBuilder: (context, idx) {
-          final option = options[idx];
-          final isSelected = option == current;
-          return AppCard.outlined(
-            borderColor: isSelected ? AppColors.primary : AppColors.outline,
-            backgroundColor: isSelected ? AppColors.primaryContainer : AppColors.transparent,
-            onTap: () {
-              onSelected(option);
-              Navigator.of(context).pop();
-            },
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    option,
-                    style: AppTypography.bodyMedium.copyWith(
-                      fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                    ),
-                  ),
-                ),
-                if (isSelected)
-                  Icon(AppIcons.success, color: AppColors.primary, size: 18.r),
-              ],
-            ),
-          );
-        },
-      ),
-    );
-  }
-
-  Future<void> _schedulePickup() async {
-    final cartState = ref.read(cartStateProvider);
-    if (cartState.cart.isEmpty) {
-      await ref.read(customerRepositoryProvider).addToCart(
-            serviceId: 'svc_001',
-            quantity: 2,
-          );
-      await ref.read(cartStateProvider.notifier).init();
-    }
-    if (mounted) {
-      context.push(AppRoutes.checkout);
-    }
-  }
 
   int _activeOrderStep(OrderStatus status) {
-    if (status.index >= OrderStatus.outForDelivery.index) return 3;
-    if (status.index >= OrderStatus.ready.index) return 2;
-    if (status.index >= OrderStatus.processing.index) return 1;
-    return 0;
+    // Map canonical statuses to 4-step visual tracker index.
+    return switch (status) {
+      OrderStatus.waitingForVendorConfirmation ||
+      OrderStatus.vendorAccepted ||
+      OrderStatus.pickupAssigned ||
+      OrderStatus.goingForPickup =>
+        0,
+      OrderStatus.pickupOtpVerified ||
+      OrderStatus.pickedUp ||
+      OrderStatus.receivedAtVendor ||
+      OrderStatus.processing =>
+        1,
+      OrderStatus.packed => 2,
+      OrderStatus.deliveryAssigned ||
+      OrderStatus.outForDelivery ||
+      OrderStatus.deliveryOtpVerified ||
+      OrderStatus.delivered =>
+        3,
+      _ => 0,
+    };
   }
 
   @override
@@ -160,21 +101,32 @@ class _HomePageState extends ConsumerState<HomePage> {
                                     size: 16.r,
                                   ),
                                   const Gap(4),
-                                  Text(
-                                    'Home',
-                                    style: AppTypography.labelMedium.copyWith(
-                                      fontWeight: FontWeight.bold,
-                                      color: AppColors.textBlack,
+                                  addressAsync.when(
+                                    data: (addr) => Flexible(
+                                      child: Text(
+                                        addr != null
+                                            ? '${addr.type.label}  •  ${addr.city}'
+                                            : 'Select address',
+                                        style: AppTypography.bodySmall.copyWith(
+                                          color: AppColors.textSecondary,
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
                                     ),
-                                  ),
-                                  Flexible(
-                                    child: Text(
-                                      '  •  Koramangala, Bengaluru',
+                                    loading: () => Container(
+                                      width: 120.w,
+                                      height: 12.h,
+                                      decoration: BoxDecoration(
+                                        color: AppColors.shimmerBase,
+                                        borderRadius: BorderRadius.circular(4.r),
+                                      ),
+                                    ),
+                                    error: (_, __) => Text(
+                                      'Select address',
                                       style: AppTypography.bodySmall.copyWith(
                                         color: AppColors.textSecondary,
                                       ),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
                                     ),
                                   ),
                                   const Gap(2),
@@ -198,7 +150,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                               color: AppColors.textBlack,
                               size: 26.r,
                             ),
-                            onPressed: () => context.go(AppRoutes.notifications),
+                            onPressed: () => context.push(AppRoutes.notifications),
                           ),
                           Positioned(
                             top: 8.h,
@@ -215,15 +167,36 @@ class _HomePageState extends ConsumerState<HomePage> {
                         ],
                       ),
                       const Gap(8),
-                      // User profile photo avatar (aarav)
+                      // Avatar: initials or user photo
                       GestureDetector(
                         onTap: () => context.go(AppRoutes.profile),
-                        child: CircleAvatar(
-                          radius: 20.r,
-                          backgroundImage: const NetworkImage(
-                            'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?fit=crop&w=100&q=80',
-                          ),
-                        ),
+                        child: Builder(builder: (context) {
+                          final user = ref.watch(currentUserProvider);
+                          final avatarUrl = user?.avatarUrl;
+                          final initials = (user?.name ?? '')
+                              .trim()
+                              .split(' ')
+                              .where((p) => p.isNotEmpty)
+                              .take(2)
+                              .map((p) => p[0].toUpperCase())
+                              .join();
+                          return CircleAvatar(
+                            radius: 20.r,
+                            backgroundColor: AppColors.primaryContainer,
+                            backgroundImage: (avatarUrl != null && avatarUrl.isNotEmpty)
+                                ? NetworkImage(avatarUrl)
+                                : null,
+                            child: (avatarUrl == null || avatarUrl.isEmpty)
+                                ? Text(
+                                    initials.isNotEmpty ? initials : '?',
+                                    style: AppTypography.labelSmall.copyWith(
+                                      color: AppColors.primary,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  )
+                                : null,
+                          );
+                        }),
                       ),
                     ],
                   ),
@@ -232,25 +205,36 @@ class _HomePageState extends ConsumerState<HomePage> {
                 // ── 2. Greeting Header ────────────────────────────────────────
                 Padding(
                   padding: EdgeInsets.symmetric(horizontal: 20.w),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Good morning, Aarav',
-                        style: AppTypography.headlineMedium.copyWith(
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.textBlack,
+                  child: Builder(builder: (context) {
+                    final user = ref.watch(currentUserProvider);
+                    final firstName = (user?.name ?? '').trim().split(' ').first;
+                    final displayName = firstName.isNotEmpty ? firstName : 'there';
+                    final hour = DateTime.now().hour;
+                    final greeting = hour < 12
+                        ? 'Good morning'
+                        : hour < 17
+                            ? 'Good afternoon'
+                            : 'Good evening';
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '$greeting, $displayName',
+                          style: AppTypography.headlineMedium.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.textBlack,
+                          ),
                         ),
-                      ),
-                      const Gap(4),
-                      Text(
-                        'What would you like us to care for today?',
-                        style: AppTypography.bodyMedium.copyWith(
-                          color: AppColors.textSecondary,
+                        const Gap(4),
+                        Text(
+                          'What would you like us to care for today?',
+                          style: AppTypography.bodyMedium.copyWith(
+                            color: AppColors.textSecondary,
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
+                      ],
+                    );
+                  }),
                 ),
                 const Gap(20),
 
@@ -314,13 +298,6 @@ class _HomePageState extends ConsumerState<HomePage> {
                 ),
                 const Gap(24),
 
-                // ── 4. Hero Carousel Promo Card (Matches Image 1 layout) ──────
-                Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 20.w),
-                  child: const _PromotionalBanner(),
-                ),
-                const Gap(24),
-
                 // ── 5. Category Scroll Row ("What do you need?") ──────────────
                 Padding(
                   padding: EdgeInsets.symmetric(horizontal: 20.w),
@@ -336,7 +313,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                       ),
                       TextButton(
                         onPressed: () {
-                          context.go(AppRoutes.vendorListing);
+                          context.go(AppRoutes.search);
                         },
                         child: Text(
                           'View all',
@@ -382,77 +359,6 @@ class _HomePageState extends ConsumerState<HomePage> {
                 ),
                 const Gap(24),
 
-                // ── 6. "Book in under a minute" widget (Pixel Perfect layout) ──
-                Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 20.w),
-                  child: AppCard.outlined(
-                    padding: EdgeInsets.all(16.r),
-                    borderRadius: AppRadius.card,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Text(
-                          'Book in under a minute',
-                          style: AppTypography.labelLarge.copyWith(
-                            fontWeight: FontWeight.bold,
-                            color: AppColors.textBlack,
-                          ),
-                        ),
-                        const Gap(16),
-                        Row(
-                          children: [
-                            // Column 1: Service
-                            Expanded(
-                              child: _BookDropdownField(
-                                icon: AppIcons.laundry,
-                                title: 'Service',
-                                value: _bookService,
-                                onTap: () => _showBookOptionSheet(
-                                  title: 'Select service',
-                                  options: _bookServiceOptions,
-                                  current: _bookService,
-                                  onSelected: (value) => setState(() => _bookService = value),
-                                ),
-                              ),
-                            ),
-                            Container(width: 1.w, height: 40.h, color: AppColors.outline.withOpacity(0.6)),
-                            // Column 2: Pickup time
-                            Expanded(
-                              child: _BookDropdownField(
-                                icon: AppIcons.clock,
-                                title: 'Pickup time',
-                                value: _bookPickupSlot,
-                                onTap: () => _showBookOptionSheet(
-                                  title: 'Select pickup time',
-                                  options: _bookPickupSlots,
-                                  current: _bookPickupSlot,
-                                  onSelected: (value) => setState(() => _bookPickupSlot = value),
-                                ),
-                              ),
-                            ),
-                            Container(width: 1.w, height: 40.h, color: AppColors.outline.withOpacity(0.6)),
-                            // Column 3: Address
-                            Expanded(
-                              child: _BookDropdownField(
-                                icon: AppIcons.location,
-                                title: 'Address',
-                                value: _bookAddress,
-                                onTap: () => context.push(AppRoutes.mapAddress),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const Gap(16),
-                        AppButton(
-                          label: 'Schedule pickup',
-                          onPressed: _schedulePickup,
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                const Gap(24),
-
                 // ── 7. Active Order Status Tracker (Image 1 checklist steps) ──
                 activeOrdersAsync.when(
                   data: (orders) {
@@ -478,7 +384,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                                 ),
                               ),
                               GestureDetector(
-                                onTap: () => context.go('/orders/details/${order.id}'),
+                                onTap: () => context.push('/orders/details/${order.id}'),
                                 child: Text(
                                   'Track',
                                   style: AppTypography.labelMedium.copyWith(
@@ -534,7 +440,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                           width: 300.w,
                           child: _HorizontalVendorCard(
                             vendor: vendor,
-                            onTap: () => context.go('/vendor/${vendor.id}'),
+                            onTap: () => context.push('/vendor/${vendor.id}'),
                           ),
                         );
                       },
@@ -549,125 +455,12 @@ class _HomePageState extends ConsumerState<HomePage> {
                     error: (_, __) => const SizedBox.shrink(),
                   ),
                 ),
-                const Gap(24),
-
-                // ── 9. Special Offers Section ──────────────────────────────────
-                Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 20.w),
-                  child: Text(
-                    'Special offers',
-                    style: AppTypography.titleLarge.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.textBlack,
-                    ),
-                  ),
-                ),
-                const Gap(12),
-                SizedBox(
-                  height: 90.h,
-                  child: ListView(
-                    scrollDirection: Axis.horizontal,
-                    padding: EdgeInsets.symmetric(horizontal: 20.w),
-                    children: [
-                      _PromoCouponCard(
-                        title: 'Free ironing',
-                        subtitle: 'over ₹499',
-                        code: 'IRONFREE',
-                        icon: AppIcons.iron,
-                        color: const Color(0xFFFDF8F0),
-                        borderColor: const Color(0xFFFBD38D),
-                        onTap: () {
-                          Clipboard.setData(const ClipboardData(text: 'IRONFREE'));
-                          AppSnackBar.showSuccess(context, 'Promo code IRONFREE copied!');
-                        },
-                      ),
-                      const Gap(12),
-                      _PromoCouponCard(
-                        title: '20% off',
-                        subtitle: 'your first dry clean',
-                        code: 'DRYCLEAN20',
-                        icon: AppIcons.dry,
-                        color: const Color(0xFFEDF2F7),
-                        borderColor: const Color(0xFFCBD5E0),
-                        onTap: () {
-                          Clipboard.setData(const ClipboardData(text: 'DRYCLEAN20'));
-                          AppSnackBar.showSuccess(context, 'Promo code DRYCLEAN20 copied!');
-                        },
-                      ),
-                    ],
-                  ),
-                ),
                 const Gap(32),
               ],
             ),
           ),
         ),
       ),
-    );
-  }
-}
-
-// ── Dropdown Item layout widget for booking ──────────────────────────────────
-
-class _BookDropdownField extends StatelessWidget {
-  const _BookDropdownField({
-    required this.icon,
-    required this.title,
-    required this.value,
-    this.onTap,
-  });
-  final IconData icon;
-  final String title;
-  final String value;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: Padding(
-        padding: EdgeInsets.symmetric(horizontal: 4.w),
-        child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(icon, size: 14.r, color: AppColors.primary),
-              const Gap(4),
-              Expanded(
-                child: Text(
-                  title,
-                  style: AppTypography.caption.copyWith(
-                    fontSize: 10.sp,
-                    color: AppColors.textMuted,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ],
-          ),
-          const Gap(4),
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  value,
-                  style: AppTypography.labelSmall.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.textBlack,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              Icon(AppIcons.chevronDown, size: 14.r, color: AppColors.textSecondary),
-            ],
-          ),
-        ],
-      ),
-    ),
     );
   }
 }
@@ -871,8 +664,8 @@ class _HorizontalVendorCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Mock values matching Luxe Fabric details
-    final double mockDistance = ((vendor.id.hashCode.abs() % 20) + 5) / 10;
+    // Use distance from backend, or fallback for mock mode
+    final double displayDistance = vendor.distanceKm ?? ((vendor.id.hashCode.abs() % 20) + 5) / 10;
 
     return AppCard.outlined(
       onTap: onTap,
@@ -928,7 +721,7 @@ class _HorizontalVendorCard extends StatelessWidget {
                     Icon(AppIcons.star, color: Colors.amber, size: 12.r),
                     const Gap(2),
                     Text(
-                      '${vendor.averageRating ?? 4.5}  •  ${mockDistance.toStringAsFixed(1)} km',
+                      '${vendor.averageRating ?? 4.5}  •  ${displayDistance.toStringAsFixed(1)} km',
                       style: AppTypography.caption.copyWith(
                         color: AppColors.textSecondary,
                         fontSize: 10.sp,
@@ -965,16 +758,6 @@ class _HorizontalVendorCard extends StatelessWidget {
                   ],
                 ),
                 const Gap(8),
-                // Service Tags Row
-                Row(
-                  children: [
-                    _buildTagChip('Wash & Fold'),
-                    const Gap(4),
-                    _buildTagChip('Dry Clean'),
-                    const Gap(4),
-                    _buildTagChip('+3'),
-                  ],
-                ),
                 const Gap(10),
                 // Divider
                 Container(height: 1.h, color: AppColors.outline.withOpacity(0.5)),
@@ -1027,320 +810,5 @@ class _HorizontalVendorCard extends StatelessWidget {
     );
   }
 
-  Widget _buildTagChip(String text) {
-    return Container(
-      padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 2.h),
-      decoration: BoxDecoration(
-        color: AppColors.background,
-        borderRadius: BorderRadius.circular(4.r),
-        border: Border.all(color: AppColors.outline.withOpacity(0.5), width: 0.5),
-      ),
-      child: Text(
-        text,
-        style: TextStyle(
-          color: AppColors.textSecondary,
-          fontSize: 8.sp,
-          fontWeight: FontWeight.w500,
-        ),
-      ),
-    );
-  }
 }
 
-// ── Promo coupon row ─────────────────────────────────────────────────────────
-
-class _PromoCouponCard extends StatelessWidget {
-  const _PromoCouponCard({
-    required this.title,
-    required this.subtitle,
-    required this.code,
-    required this.icon,
-    required this.color,
-    required this.borderColor,
-    this.onTap,
-  });
-
-  final String title;
-  final String subtitle;
-  final String code;
-  final IconData icon;
-  final Color color;
-  final Color borderColor;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-      width: 210.w,
-      padding: EdgeInsets.all(12.r),
-      decoration: BoxDecoration(
-        color: color,
-        border: Border.all(color: borderColor),
-        borderRadius: BorderRadius.circular(AppRadius.card.r),
-      ),
-      child: Row(
-        children: [
-          Icon(icon, color: AppColors.primary, size: 30.r),
-          const Gap(12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  title,
-                  style: AppTypography.labelMedium.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.textBlack,
-                  ),
-                ),
-                Text(
-                  subtitle,
-                  style: AppTypography.caption.copyWith(fontSize: 10.sp, color: AppColors.textSecondary),
-                ),
-                const Gap(4),
-                Container(
-                  padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 2.h),
-                  decoration: BoxDecoration(
-                    color: AppColors.white,
-                    border: Border.all(color: AppColors.outline, style: BorderStyle.solid),
-                    borderRadius: BorderRadius.circular(4.r),
-                  ),
-                  child: Text(
-                    'Use code: $code',
-                    style: AppTypography.caption.copyWith(
-                      fontSize: 8.sp,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.primary,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Icon(AppIcons.forward, color: AppColors.textSecondary, size: 14.r),
-        ],
-      ),
-    ),
-    );
-  }
-}
-
-// ── Reusable, Overflow-Free Promotional Banner Widget ────────────────────────
-
-class _PromotionalBanner extends StatefulWidget {
-  const _PromotionalBanner();
-
-  @override
-  State<_PromotionalBanner> createState() => _PromotionalBannerState();
-}
-
-class _PromotionalBannerState extends State<_PromotionalBanner> {
-  late final PageController _pageController;
-  Timer? _timer;
-  int _currentPage = 0;
-
-  final List<Map<String, dynamic>> _slides = [
-    {
-      'title': 'First pickup is on us',
-      'subtitle': 'Book your first order today',
-      'button': 'Book now',
-      'image': 'https://images.unsplash.com/photo-1582735689369-4fe89db7114c?fit=crop&w=200&q=80',
-    },
-    {
-      'title': 'Flat 20% off on Luxe',
-      'subtitle': 'Premium fabric care experience',
-      'button': 'Claim offer',
-      'image': 'https://images.unsplash.com/photo-1545180856-f6d2e61df3fa?fit=crop&w=200&q=80',
-    },
-    {
-      'title': 'Get express delivery',
-      'subtitle': 'Clean clothes in just 24 hours',
-      'button': 'Explore',
-      'image': 'https://images.unsplash.com/photo-1489274495757-95c7c837b101?fit=crop&w=200&q=80',
-    },
-  ];
-
-  // Starting page in the middle of a large range for infinite loop
-  late final int _initialPage;
-
-  @override
-  void initState() {
-    super.initState();
-    _initialPage = _slides.length * 100;
-    _currentPage = _initialPage;
-    _pageController = PageController(initialPage: _initialPage);
-
-    _startTimer();
-  }
-
-  @override
-  void dispose() {
-    _timer?.cancel();
-    _pageController.dispose();
-    super.dispose();
-  }
-
-  void _startTimer() {
-    _timer = Timer.periodic(const Duration(seconds: 4), (timer) {
-      if (_pageController.hasClients) {
-        _pageController.nextPage(
-          duration: const Duration(milliseconds: 400),
-          curve: Curves.easeInOut,
-        );
-      }
-    });
-  }
-
-  void _resetTimer() {
-    _timer?.cancel();
-    _startTimer();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        SizedBox(
-          height: 140.h,
-          child: PageView.builder(
-            controller: _pageController,
-            onPageChanged: (page) {
-              setState(() {
-                _currentPage = page;
-              });
-              _resetTimer();
-            },
-            itemBuilder: (context, index) {
-              final slideIdx = index % _slides.length;
-              final slide = _slides[slideIdx];
-
-              return Padding(
-                padding: EdgeInsets.symmetric(horizontal: 4.w),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(AppRadius.xxl.r),
-                  child: Container(
-                    width: double.infinity,
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [Color(0xFFEEECFF), Color(0xFFF5F3FF)],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                      boxShadow: AppElevation.low,
-                      borderRadius: BorderRadius.circular(AppRadius.xxl.r),
-                    ),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        // Left Text Contents
-                        Expanded(
-                          flex: 13,
-                          child: Padding(
-                            padding: EdgeInsets.all(16.r),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Text(
-                                  slide['title'] as String,
-                                  style: AppTypography.titleLarge.copyWith(
-                                    color: AppColors.primaryDark,
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 18.sp,
-                                  ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                                const Gap(4),
-                                Text(
-                                  slide['subtitle'] as String,
-                                  style: AppTypography.bodySmall.copyWith(
-                                    color: AppColors.primaryDark.withOpacity(0.8),
-                                    fontSize: 11.sp,
-                                  ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                                const Gap(12),
-                                ElevatedButton(
-                                  onPressed: () {
-                                    final navShell = StatefulNavigationShell.of(context);
-                                    navShell.goBranch(2); // Cart/Book
-                                  },
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: AppColors.primary,
-                                    foregroundColor: AppColors.white,
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(AppRadius.full.r),
-                                    ),
-                                    padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 8.h),
-                                    elevation: 0,
-                                  ),
-                                  child: Text(
-                                    slide['button'] as String,
-                                    style: AppTypography.buttonText.copyWith(fontSize: 12.sp),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                        // Right Illustration Image
-                        Expanded(
-                          flex: 9,
-                          child: Padding(
-                            padding: EdgeInsets.only(right: 16.w, top: 12.h, bottom: 12.h),
-                            child: Align(
-                              alignment: Alignment.centerRight,
-                              child: ConstrainedBox(
-                                constraints: BoxConstraints(
-                                  maxHeight: 110.h,
-                                  maxWidth: 120.w,
-                                ),
-                                child: Image.network(
-                                  slide['image'] as String,
-                                  fit: BoxFit.contain,
-                                  errorBuilder: (_, __, ___) => Icon(
-                                    AppIcons.laundry,
-                                    size: 80.r,
-                                    color: AppColors.primary.withOpacity(0.15),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              );
-            },
-          ),
-        ),
-        const Gap(10),
-        // Synchronized center indicators
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: List.generate(_slides.length, (idx) {
-            final activeIdx = _currentPage % _slides.length;
-            final isActive = idx == activeIdx;
-            return AnimatedContainer(
-              duration: const Duration(milliseconds: 300),
-              margin: EdgeInsets.symmetric(horizontal: 4.w),
-              width: isActive ? 12.w : 6.w,
-              height: 6.h,
-              decoration: BoxDecoration(
-                color: isActive ? AppColors.primary : AppColors.outline.withOpacity(0.6),
-                borderRadius: BorderRadius.circular(3.r),
-              ),
-            );
-          }),
-        ),
-      ],
-    );
-  }
-}

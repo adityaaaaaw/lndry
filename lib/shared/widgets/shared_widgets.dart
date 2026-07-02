@@ -94,30 +94,37 @@ class AppDivider extends StatelessWidget {
   }
 }
 
-/// Status badge chip (e.g., for order status)
+/// Status badge chip (e.g., for order status).
+/// Set [large] = true for full-width prominent status display.
 class StatusBadge extends StatelessWidget {
   const StatusBadge({
     super.key,
     required this.label,
     required this.color,
     this.backgroundColor,
+    this.large = false,
   });
 
   final String label;
   final Color color;
   final Color? backgroundColor;
+  final bool large;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 4.h),
+      padding: large
+          ? EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h)
+          : EdgeInsets.symmetric(horizontal: 10.w, vertical: 4.h),
       decoration: BoxDecoration(
         color: backgroundColor ?? color.withOpacity(0.12),
         borderRadius: BorderRadius.circular(20.r),
+        border: large ? Border.all(color: color.withOpacity(0.3)) : null,
       ),
       child: Text(
         label,
-        style: AppTypography.badge.copyWith(color: color),
+        style: (large ? AppTypography.labelLarge : AppTypography.badge)
+            .copyWith(color: color, fontWeight: FontWeight.bold),
       ),
     );
   }
@@ -158,6 +165,91 @@ class RatingRow extends StatelessWidget {
             ),
           ),
         ],
+      ],
+    );
+  }
+}
+
+/// Price summary card showing subtotal, platform fee, GST and total.
+/// Used on the cart, checkout, and order detail screens.
+class PriceCard extends StatelessWidget {
+  const PriceCard({
+    super.key,
+    required this.subtotal,
+    required this.platformFee,
+    required this.gstAmount,
+    required this.total,
+    this.padding,
+  });
+
+  final double subtotal;
+  final double platformFee;
+  final double gstAmount;
+  final double total;
+  final EdgeInsetsGeometry? padding;
+
+  String _fmt(double v) => '₹${v.toStringAsFixed(2)}';
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: padding ?? EdgeInsets.all(AppSpacing.md.w),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(AppRadius.card.r),
+        border: Border.all(color: AppColors.outlineVariant),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Price Details', style: AppTypography.titleSmall),
+          Gap(AppSpacing.sm.h),
+          _PriceRow(label: 'Subtotal', value: _fmt(subtotal)),
+          Gap(AppSpacing.xs.h),
+          _PriceRow(label: 'Platform Fee', value: _fmt(platformFee)),
+          Gap(AppSpacing.xs.h),
+          _PriceRow(label: 'GST', value: _fmt(gstAmount)),
+          Gap(AppSpacing.sm.h),
+          Divider(color: AppColors.outlineVariant, thickness: 1, height: 1),
+          Gap(AppSpacing.sm.h),
+          _PriceRow(
+            label: 'Total',
+            value: _fmt(total),
+            labelStyle: AppTypography.titleSmall,
+            valueStyle: AppTypography.titleSmall.copyWith(
+              color: AppColors.primary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Internal helper row used by [PriceCard].
+class _PriceRow extends StatelessWidget {
+  const _PriceRow({
+    required this.label,
+    required this.value,
+    this.labelStyle,
+    this.valueStyle,
+  });
+
+  final String label;
+  final String value;
+  final TextStyle? labelStyle;
+  final TextStyle? valueStyle;
+
+  @override
+  Widget build(BuildContext context) {
+    final defaultStyle = AppTypography.bodySmall.copyWith(
+      color: AppColors.onSurfaceVariant,
+    );
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(label, style: labelStyle ?? defaultStyle),
+        Text(value, style: valueStyle ?? defaultStyle),
       ],
     );
   }

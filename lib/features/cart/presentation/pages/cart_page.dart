@@ -1,3 +1,4 @@
+import '../../../../config/env.dart';
 import '../../../../core/design/design_system.dart';
 import '../../../../core/widgets/widgets.dart';
 import '../../../../core/extensions/extensions.dart';
@@ -60,7 +61,8 @@ class _CartPageState extends ConsumerState<CartPage> {
                 final confirm = await AppDialog.show(
                   context,
                   title: 'Clear Cart?',
-                  message: 'Are you sure you want to remove all items from your cart?',
+                  message:
+                      'Are you sure you want to remove all items from your cart?',
                   confirmLabel: 'Clear All',
                   isDestructive: true,
                 );
@@ -76,11 +78,12 @@ class _CartPageState extends ConsumerState<CartPage> {
             ? AppEmptyState(
                 icon: AppIcons.cartOutlined,
                 title: 'Your Cart is Empty',
-                subtitle: 'Add items from your favorite laundry service vendor menu to get started.',
+                subtitle:
+                    'Add items from your favorite laundry service vendor menu to get started.',
                 actionLabel: 'Browse Laundries',
                 onAction: () {
                   final navShell = StatefulNavigationShell.of(context);
-                  navShell.goBranch(0); // 0 = Home tab branch
+                  navShell.goBranch(1); // 1 = Search/Explore tab branch
                 },
               )
             : RefreshIndicator(
@@ -89,73 +92,86 @@ class _CartPageState extends ConsumerState<CartPage> {
                   await ref.read(cartStateProvider.notifier).init();
                 },
                 child: Column(
-                children: [
-                  // Items listing
-                  Expanded(
-                    child: ListView.separated(
-                      padding: EdgeInsets.all(AppSpacing.pagePaddingH.w),
-                      physics: const AlwaysScrollableScrollPhysics(),
-                      itemCount: state.cart.items.length,
-                      separatorBuilder: (_, __) => const Gap(12),
-                      itemBuilder: (context, idx) {
-                        final item = state.cart.items[idx];
-                        final svc = state.services.firstWhere(
-                          (s) => s.id == item.serviceId,
-                          orElse: () => ServiceModel(
-                            id: item.serviceId,
-                            vendorId: '',
-                            name: 'Laundry Item',
-                            description: 'Processing services',
-                            category: ServiceCategory.wash,
-                            minWeightKg: 0,
-                            pricePerKg: 99,
-                          ),
-                        );
+                  children: [
+                    // Items listing
+                    Expanded(
+                      child: ListView.separated(
+                        padding: EdgeInsets.all(AppSpacing.pagePaddingH.w),
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        itemCount: state.cart.items.length,
+                        separatorBuilder: (_, __) => const Gap(12),
+                        itemBuilder: (context, idx) {
+                          final item = state.cart.items[idx];
+                          final svc = state.services.firstWhere(
+                            (s) => s.id == item.serviceId,
+                            orElse: () => ServiceModel(
+                              id: item.serviceId,
+                              vendorId: '',
+                              name: 'Laundry Item',
+                              description: 'Processing services',
+                              category: ServiceCategory.wash,
+                              minWeightKg: 0,
+                              pricePerKg: 99,
+                            ),
+                          );
 
-                        return ServiceCard(
-                          service: svc,
-                          quantity: item.quantity,
-                          onAdd: () => ref.read(cartStateProvider.notifier).updateQuantity(svc.id, item.quantity + 1),
-                          onRemove: () => ref.read(cartStateProvider.notifier).updateQuantity(svc.id, item.quantity - 1),
-                        );
-                      },
-                    ),
-                  ),
-
-                  // Pricing summary & proceed CTA
-                  Container(
-                    padding: EdgeInsets.symmetric(
-                      horizontal: AppSpacing.pagePaddingH.w,
-                      vertical: AppSpacing.pagePaddingV.h,
-                    ),
-                    decoration: BoxDecoration(
-                      color: isDark ? AppColors.darkSurface : AppColors.surface,
-                      borderRadius: BorderRadius.vertical(
-                        top: Radius.circular(AppRadius.dialog.r),
+                          return ServiceCard(
+                            service: svc,
+                            quantity: item.quantity,
+                            onAdd: () => ref
+                                .read(cartStateProvider.notifier)
+                                .updateQuantity(svc.id, item.quantity + 1),
+                            onRemove: () => ref
+                                .read(cartStateProvider.notifier)
+                                .updateQuantity(svc.id, item.quantity - 1),
+                          );
+                        },
                       ),
-                      boxShadow: AppElevation.high,
                     ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        PriceCard(
-                          subtotal: state.subtotal,
-                          platformFee: state.platformFee,
-                          gstAmount: state.gstAmount,
-                          total: state.total,
+
+                    // Pricing summary & proceed CTA
+                    Container(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: AppSpacing.pagePaddingH.w,
+                        vertical: AppSpacing.pagePaddingV.h,
+                      ),
+                      decoration: BoxDecoration(
+                        color:
+                            isDark ? AppColors.darkSurface : AppColors.surface,
+                        borderRadius: BorderRadius.vertical(
+                          top: Radius.circular(AppRadius.dialog.r),
                         ),
-                        const Gap(20),
-                        AppButton(
-                          label: 'Proceed to Checkout',
-                          onPressed: () => context.push(AppRoutes.checkout),
-                        ),
-                      ],
+                        boxShadow: AppElevation.high,
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (Env.useMocksForVisualTestsOnly)
+                            PriceCard(
+                              subtotal: state.subtotal,
+                              platformFee: state.platformFee,
+                              gstAmount: state.gstAmount,
+                              total: state.total,
+                            )
+                          else
+                            Text(
+                              'Final payable amount is calculated securely by the backend during checkout.',
+                              style: AppTypography.bodySmall.copyWith(
+                                color: AppColors.textSecondary,
+                              ),
+                            ),
+                          const Gap(20),
+                          AppButton(
+                            label: 'Proceed to Checkout',
+                            onPressed: () => context.push(AppRoutes.checkout),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
       ),
     );
   }

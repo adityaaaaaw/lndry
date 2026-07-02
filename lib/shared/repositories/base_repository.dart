@@ -52,6 +52,8 @@ class PaginationParams {
     this.search,
     this.sortBy,
     this.sortDesc = false,
+    this.lat,
+    this.lng,
   });
 
   final int page;
@@ -59,6 +61,8 @@ class PaginationParams {
   final String? search;
   final String? sortBy;
   final bool sortDesc;
+  final double? lat;
+  final double? lng;
 
   Map<String, dynamic> toQueryParams() => {
         'page': page,
@@ -66,5 +70,7 @@ class PaginationParams {
         if (search != null && search!.isNotEmpty) 'search': search,
         if (sortBy != null) 'sort_by': sortBy,
         if (sortBy != null) 'sort_desc': sortDesc,
+        if (lat != null) 'lat': lat,
+        if (lng != null) 'lng': lng,
       };
 }

@@ -1,0 +1,1760 @@
+﻿Total pages: 42
+
+======== PAGE 1 ========
+SHOTLIN DIGITAL PRODUCT STUDIO | LNDRY CUSTOMER APP
+SHOTLIN
+DIGITAL PRODUCT STUDIO
+LNDRY CUSTOMER FLUTTER
+APPLICATION
+Completion, API Integration, Workflow and Verification Specification
+Developer and Coding-Agent Execution Copy
+Repository audited github.com/adityaaaaaw/lndry
+Repository baseline main @ ba0983ec32db0d500792a3301a3140debb621f19
+Product surface Customer Mobile Application - Android and iOS
+Requirements baseline LNDRY Phase 1 MVP approved workflow, API contract and
+technical annexure
+Audit type Static source-code and contract audit; no runtime execution
+claimed
+Document date 29 June 2026
+Overall requirement-compliant progress 37% complete / 63% pending
+CONFIDENTIAL - IMPLEMENTATION AND REMEDIATION BLUEPRINT
+Confidential - Development Specification | 29 June 2026
+Page 1
+
+======== PAGE 2 ========
+SHOTLIN DIGITAL PRODUCT STUDIO | LNDRY CUSTOMER APP
+Document Control and Use
+What this report proves, what it does not prove, and how the developer must use it.
+Scope of this document
+This specification covers the LNDRY Customer Flutter Application only. It does not define the Vendor Partner application, vendor
+delivery-employee mode, Admin Operations Dashboard, backend repair, server deployment, EC2/VPS configuration, store
+publishing or production infrastructure.
+Purpose
+Convert the existing Flutter UI foundation into the complete, locally testable customer application required by the approved LNDRY
+Phase 1 workflow. The document is intentionally explicit enough to be supplied to a Flutter developer, Cloud Code, Codex, Claude
+Code or another coding agent together with the repository and approved UI reference assets.
+Source hierarchy
+Priority Source Controls
+Signed/approved LNDRY System Workflow Functional scope, user actions, sequence, roles,
+1
+Confirmation and Approval inclusions and exclusions.
+LNDRY Phase 1 API Contract and Endpoint Target endpoint capability, access control, inputs and
+2
+Catalogue outputs.
+LNDRY Platform Requirements and Technical Security, Maps, payment, capacity, third-party and
+3
+Annexure acceptance requirements.
+Exact visual implementation: layout, spacing,
+Approved UI/UX screen images and asset pack
+4 typography, colours, icons, illustrations, copy and
+supplied by the project owner
+screen states.
+Reusable code foundation only. Existing code never
+5 Current GitHub repository
+overrides the approved workflow or visual references.
+Audit limitations
+∩é╖ The GitHub repository was inspected read-only at the single baseline commit identified on the cover.
+∩é╖ The repository could not be cloned or executed in this environment; no claim is made that flutter pub get, build_runner, flutter
+analyze, widget tests, Android build or iOS build currently passes.
+∩é╖ No continuous-integration status was available for the inspected commit.
+∩é╖ The approved UI/UX images and complete asset pack were not attached to this audit message. Visual fidelity cannot be scored
+from code alone; the developer must compare each screen against the owner-supplied references.
+∩é╖ Progress percentages are engineering estimates based on observable code and approved workflow coverage, not time-sheet
+percentages.
+No invention rule
+When the code, backend contract, UI reference or asset pack is unclear, do not guess. Pause only the affected task, send the
+project owner a screenshot or code path, explain the ambiguity and ask for written confirmation by message or call. Continue
+unrelated tasks that are not blocked.
+Confidential - Development Specification | 29 June 2026
+Page 2
+
+======== PAGE 3 ========
+SHOTLIN DIGITAL PRODUCT STUDIO | LNDRY CUSTOMER APP
+Contents
+Execution map for the complete report.
+1.1. Executive decision and progress report
+2.2. Current repository architecture and reusable foundation
+3.3. Critical blockers and root causes
+4.4. Approved customer workflow - canonical sequence
+5.5. Screen-by-screen gap analysis
+6.6. Canonical domain and state model
+7.7. Data layer, API client and session architecture
+8.8. Authentication and onboarding implementation
+9.9. Customer profile, addresses and Google Maps
+10.10. Home, search, discovery and vendor comparison
+11.11. Vendor detail, garment selection and server quotation
+12.12. Slot capacity, checkout, Razorpay and order creation
+13.13. Order lifecycle, OTP, rejection, cancellation and history
+14.14. Notifications, reviews, invoices and account settings
+15.15. UI/UX and asset fidelity rules
+16.16. Features and code that must be removed or disabled
+17.17. Safe migration and regression-control plan
+18.18. Test strategy and acceptance scenarios
+19.19. Local-development setup and build gates
+20.20. Definition of done and developer sign-off
+21.Appendix A. Complete customer endpoint matrix
+22.Appendix B. Canonical screen and route inventory
+23.Appendix C. Data-model field catalogue
+24.Appendix D. Error, empty, loading and offline states
+25.Appendix E. Developer/coding-agent execution prompt
+Confidential - Development Specification | 29 June 2026
+Page 3
+
+======== PAGE 4 ========
+SHOTLIN DIGITAL PRODUCT STUDIO | LNDRY CUSTOMER APP
+1. Executive Decision and Progress Report
+Current status of the customer application against the approved Phase 1 MVP.
+Official working progress
+37% of the approved Customer Application is materially complete. Approximately 63% remains. The existing repository is a
+strong UI and architecture prototype, but it is not yet a functional LNDRY customer application connected to the approved
+backend workflow.
+Measurement Estimate Interpretation
+Most major visual screens/routes exist, but screenshot
+UI screen and navigation shell present 73% fidelity is unverified and several screens contain
+placeholders or extra features.
+Some buttons, forms and mock lists respond, but
+Local mock interaction flow 45%
+several flows are simulated, inconsistent or broken.
+No ApiCustomerRepository is implemented; the
+Approved backend/API integration 4% runtime provider always returns
+MockCustomerRepository.
+Dependencies or production flows are absent or only
+Google Maps/Razorpay/FCM native integration 5% declared; the visible Maps and payment flows are
+mock screens.
+Weighted score across architecture, screens, real
+Requirement-compliant end-to-end customer MVP 37% behavior, API integration, workflow correctness and
+QA.
+Weighted calculation
+Area Weight Earned Completion Reason
+Riverpod, GoRouter,
+Architecture and design-system ScreenUtil, feature folders,
+10 8 80%
+foundation theme tokens and reusable
+widgets are present.
+Major routes exist; visual
+UI screens and routing shell 15 11 73% fidelity and all required states
+are not proven.
+Fixed mock OTP, local token
+and optional Google auth
+Authentication and session 10 2 20%
+replace the approved backend
+OTP/session flow.
+Profile/address screens exist,
+but Google Maps, Places,
+Profile, address and Maps 10 3 30%
+exact pin and real address
+persistence do not.
+UI exists; eligibility, nearest
+Discovery, search and vendor ranking, search breadth and
+12 5 42%
+selection filters are client-side mock
+logic.
+Current cart selects generic
+Garment selection and services; no garment rate lines,
+12 2 17%
+quotation weight quotation or server
+quote lifecycle.
+Hard-coded slots and mock
+Slots, checkout, payment and payment directly create local
+15 2 13%
+order creation orders; no hold/draft/Razorpay
+verification.
+Basic list/detail exists;
+Order lifecycle, OTP, history
+13 3 23% canonical states, OTPs,
+and reviews
+rejection recovery, reviews and
+Confidential - Development Specification | 29 June 2026
+Page 4
+
+======== PAGE 5 ========
+SHOTLIN DIGITAL PRODUCT STUDIO | LNDRY CUSTOMER APP
+Area Weight Earned Completion Reason
+invoice are missing.
+Notification UI exists, but
+Notifications, devices and repository returns an empty list
+5 1 20%
+realtime refresh and FCM/device registration is
+not wired.
+No passing CI/build/test
+Automated verification 3 0 0%
+evidence was available.
+Safe reuse versus rebuild
+Classification Decision
+Feature-first folders, shared widgets, ScreenUtil, Riverpod, GoRouter, theme
+Keep and adapt
+tokens, loading/empty/error components, most approved visual screen layouts.
+Repositories, auth state, models, API client, cart/booking state, checkout/payment
+Replace internally
+orchestration, order state handling and hard-coded data.
+Google/Apple social login, coupons/special offers, express surcharge, weekly
+Remove or disable combo, simulated favorites/share/voice search, customer map-view button,
+cash/platform-wallet semantics and vendor-facing repository code.
+All supplied UI/UX reference screens and approved assets. Implement same-to-
+Do not redesign
+same unless the owner approves a deviation.
+Confidential - Development Specification | 29 June 2026
+Page 5
+
+======== PAGE 6 ========
+SHOTLIN DIGITAL PRODUCT STUDIO | LNDRY CUSTOMER APP
+2. Current Repository Architecture and Reusable Foundation
+Static code inventory of what already exists and should be preserved where correct.
+Repository facts
+∩é╖ Public Flutter repository on the main branch with one initial commit.
+∩é╖ Flutter SDK constraint >=3.4.0 <4.0.0.
+∩é╖ Riverpod state management, GoRouter navigation and ScreenUtil responsiveness are included.
+∩é╖ Dio and secure storage packages are declared, but no production customer API repository is wired.
+∩é╖ Firebase packages are declared, but the customer flow still relies on mock/local authentication.
+∩é╖ Google Maps Flutter and Razorpay Flutter packages are not declared in the inspected pubspec.
+∩é╖ The Android application ID and namespace are still com.example.lndry; release signing uses debug keys. These are deferred
+release concerns and must not block local functional development.
+Current route inventory
+Route Current screen Assessment
+Present; must route using persisted backend session
+/ Splash
+and onboarding state.
+/onboarding Onboarding Present; visual fidelity must follow supplied reference.
+Present; mock/social auth must be replaced with
+/login Mobile login
+backend OTP only.
+/otp OTP verification Present; fixed code 1234 must be removed.
+/profile-setup New customer profile Present; integrate customer profile API.
+/location-permission Location permission Present; integrate real permission states.
+Present as mock; requires Google Maps, Places,
+/map-address Address pin
+geocoding and API persistence.
+Substantial UI; replace hard-coded
+/home Customer home
+customer/address/category/vendor/order data.
+Substantial UI; replace fake services, filters, distance
+/search Explore/search
+and search.
+Present; remodel from generic service cart to garment
+/cart Booking basket
+quotation basket.
+Present; wire pagination, active/history states and
+/orders Orders
+backend events.
+Present; wire profile, addresses, preferences and
+/profile Profile
+account deletion.
+/category/:categoryId Category vendors Present; use backend eligible discovery query.
+/vendors Vendor listing Present; use nearest-first backend ordering and filters.
+Large UI; use published services, garment rate lines,
+/vendor/:vendorId Vendor details
+reviews and slots.
+Present; implement quote, slot hold and prepared
+/checkout Booking review
+order draft.
+Mock only; implement Razorpay
+/checkout/payment Payment
+create/verify/failure/retry.
+Present but wrong message; must show Waiting for
+/checkout/confirmation/:orderId Post-payment status
+Vendor Confirmation.
+Present but incomplete; add canonical timeline, OTPs,
+/orders/details/:orderId Order tracking
+payment and actions.
+Confidential - Development Specification | 29 June 2026
+Page 6
+
+======== PAGE 7 ========
+SHOTLIN DIGITAL PRODUCT STUDIO | LNDRY CUSTOMER APP
+Current technical strengths
+∩é╖ Feature-first separation makes incremental API migration possible.
+∩é╖ Reusable loading, empty, error, button, card and typography components reduce implementation time.
+∩é╖ Route guards already model onboarding states: unauthenticated, OTP sent, profile required, address required and authenticated.
+∩é╖ AsyncProvider/StateNotifier patterns are already familiar to the codebase.
+∩é╖ Mock JSON files are useful for visual development and deterministic golden tests, but must not remain the production data
+source.
+Architecture risks already present
+Risk Evidence in current code Required correction
+Introduce ApiCustomerRepository and
+customerRepositoryProvider directly returns
+Mock provider is permanent environment/provider override; mocks only for
+MockCustomerRepository.
+tests/storybook.
+CustomerRepository exposes getCart/addToCart and Replace with a booking-draft/quotation state
+Retail cart abstraction
+whole-service quantities. containing vendor, service and garment lines.
+Cart computes platform fee, GST and total using Render server quote amounts in integer paise; never
+Client amount authority
+double. calculate authoritative payable amount in Flutter.
+Use backend mobile OTP, JWT/refresh session and
+Mixed authentication sources Firebase/Google and local mock OTP coexist. device registration. Remove social login unless
+separately approved.
+Home/search/vendor/checkout contain fixed names,
+Hard-coded routes/data Bind every screen to models/API and supplied assets.
+addresses, slots, prices and network images.
+Implement canonical internal/customer status
+Incomplete statuses Order enum contains only nine generic states.
+mapping and immutable timeline events.
+Confidential - Development Specification | 29 June 2026
+Page 7
+
+======== PAGE 8 ========
+SHOTLIN DIGITAL PRODUCT STUDIO | LNDRY CUSTOMER APP
+3. Critical Blockers and Root Causes
+Work that must be corrected before the app can be described as functionally
+integrated.
+ID Blocker Current effect Required result
+The application imports Dio but exposes Build the authenticated Dio client, DTOs,
+no ApiCustomerRepository. Every mappers and ApiCustomerRepository;
+P0-01 No production customer API layer
+customer provider resolves to local switch development to the local backend
+JSON/in-memory mock data. URL.
+OTP is always 1234, shown on-screen,
+Integrate send-otp, verify-otp, refresh-
+stored as local mock state and not bound
+P0-02 Mock OTP and invalid session model token, session and logout endpoints with
+to challenge_id, expiry, attempts, device or
+secure token storage.
+refresh token.
+Add Google Maps Flutter, current location,
+The address screen displays a coloured
+Places search, draggable exact pin,
+P0-03 Google Maps is only a placeholder mock container and saves hard-coded
+reverse geocoding, serviceability validation
+Bengaluru coordinates.
+and address CRUD.
+Service/cart/order models omit garment
+types, rate units, quote/draft/hold/payment Replace models before wiring APIs; add
+P0-04 Domain models do not match LNDRY
+IDs, final quantities, OTP visibility and explicit DTO-to-domain mapping.
+canonical statuses.
+Users currently increment whole services Implement garment-line selection,
+Garment selection and server quotation
+P0-05 rather than shirt/saree/shoe/weight rate quantity/weight validation and
+missing
+lines. POST/PATCH quote flow.
+Load backend slots, hold a slot, show hold
+Checkout displays a fixed local slot list and
+P0-06 Capacity-safe slot flow missing expiry, release on exit/failure and prepare
+never creates or releases a slot hold.
+order from quote/address/hold.
+Payment waits 1.8 seconds, creates a
+Use backend create-order, Razorpay SDK
+mock order and shows success. No
+P0-07 Razorpay is simulated callback, backend verify and idempotent
+Razorpay dependency or signature
+order finalisation.
+verification exists.
+Confirmation says Order Confirmed and Show payment success plus Waiting for
+P0-08 Post-payment state is wrong implies a delivery partner will contact the Vendor Confirmation; vendor
+customer. acceptance/rejection happens later.
+Render immutable timeline, grouped
+Order detail has seven generic statuses
+P0-09 Order tracking and OTPs incomplete customer labels, purpose-bound OTP
+and no pickup/delivery OTP views.
+cards and visibility/expiry rules.
+Register FCM token, implement
+Notifications and device registration not Notification repository returns an empty list
+P0-10 notifications/preferences and deep-link
+wired and mark methods are no-ops.
+order events.
+MapAddressPage calls onboarding-only
+Split onboarding default-address creation
+completeAddressSelection while an
+P0-11 Adding a saved address is broken from authenticated address CRUD and
+authenticated user is adding from Profile;
+return to the correct calling route.
+repository.addAddress is not invoked.
+Establish baseline build, unit/widget/golden
+No passing build/test/CI evidence is
+P0-12 No end-to-end regression proof tests and staged E2E before each
+available.
+migration phase.
+High-priority correctness issues
+∩é╖ Home quick-booking silently inserts service svc_001 quantity 2 when the basket is empty. This bypasses the customer-selected
+vendor, garment lines and server quotation.
+∩é╖ Home contains two-hour pickup examples such as 6-8 PM; the approved workflow uses 60-minute slots.
+∩é╖ Vendor listing defaults to Best Rating, while the approved default is nearest eligible vendors first.
+∩é╖ Distance is generated from the vendor ID hash and is not based on customer/vendor coordinates.
+∩é╖ Search only checks vendor name and description; approved search includes service, category, garment type and vendor name.
+∩é╖ Checkout adds an unapproved 60-minute express pickup surcharge and calls the vendor employee a delivery agent.
+∩é╖ Payment maps net banking to card and exposes cash/platform-wallet concepts that are not part of the approved customer
+payment model.
+∩é╖ Order confirmation and history do not preserve the selected slot, quote, payment or actual server-created order snapshot.
+∩é╖ Profile falls back to a vendor-like email address in the customer application.
+Confidential - Development Specification | 29 June 2026
+Page 8
+
+======== PAGE 9 ========
+SHOTLIN DIGITAL PRODUCT STUDIO | LNDRY CUSTOMER APP
+∩é╖ Network-hosted placeholder avatars and Unsplash images contradict the instruction to use the supplied final assets.
+Confidential - Development Specification | 29 June 2026
+Page 9
+
+======== PAGE 10 ========
+SHOTLIN DIGITAL PRODUCT STUDIO | LNDRY CUSTOMER APP
+4. Approved Customer Workflow - Canonical Sequence
+The exact customer business flow that every route, state and API call must preserve.
+Step Stage Required application behaviour
+Read onboarding flag; call authenticated session only
+1 Launch and session restore when tokens exist; refresh once if required; route to
+login/profile/address/home.
+Enter mobile number; request challenge; show
+2 Mobile OTP login expiry/resend; verify OTP; securely store
+access/refresh tokens and customer identity.
+New customer provides full name, optional email and
+3 Profile completion
+optional profile photograph.
+Use current location, search or saved address;
+confirm exact draggable Google Maps pin; complete
+4 Address selection
+house/building/road/landmark/city/postal
+code/label/instructions.
+Backend checks whether at least one approved
+5 Serviceability validation vendor serves the exact coordinate. Do not fabricate
+availability in Flutter.
+Show selected address, search, categories, eligible
+6 Home nearby vendors, available services, active order and
+previous orders.
+Customer selects category/search/garment; backend
+7 Discovery returns eligible vendors based on radius, approval,
+active service, capacity and slot availability.
+Default nearest first; support price low/high, best
+8 Comparison rating, value for money and available now; customer
+makes final vendor choice.
+Show vendor profile, rating, distance, hours, policies,
+9 Vendor/service detail service inclusions/exclusions, completion time and
+published garment rate lines.
+Customer selects clothing items and quantities, or
+10 Garment declaration estimated weight for weight-based service. Validate
+min/max and rate unit.
+Create quote from vendor, service and garment lines;
+11 Server quotation display server estimate and expiry. Flutter never
+invents total, fee or tax.
+Load only remaining-capacity 60-minute slots. Create
+12 Pickup slot temporary hold for the chosen quote/date/slot and
+display countdown.
+Backend validates quote, selected vendor, address,
+13 Prepare order slot hold and current eligibility; returns order_draft_id,
+payable amount and immutable snapshot.
+Backend creates Razorpay order; Flutter opens SDK;
+14 Razorpay success payload is verified by backend. Failure/cancel
+returns to a retry-safe state.
+Create/finalise one paid order from the verified draft.
+15 Order submission Initial business status: Waiting for Vendor
+Confirmation.
+Vendor accepts or rejects; timeout auto-rejects.
+16 Vendor response Customer receives notification. No automatic
+reassignment to another vendor.
+Show reason and refund/payment state; customer
+17 Rejected recovery
+explicitly selects another vendor and new slot/quote.
+After acceptance, vendor-owned employee is
+18 Pickup assignment
+assigned. Customer sees status, not live GPS.
+At permitted stage, customer sees pickup OTP and
+19 Pickup OTP
+expiry; tells it to assigned employee; verified event
+Confidential - Development Specification | 29 June 2026
+Page 10
+
+======== PAGE 11 ========
+SHOTLIN DIGITAL PRODUCT STUDIO | LNDRY CUSTOMER APP
+Step Stage Required application behaviour
+moves pickup forward.
+Vendor confirms actual garment count/weight;
+20 At vendor and adjustment customer sees original and confirmed lines plus
+audited final amount/payment consequence.
+Customer sees grouped At Partner/Processing plus
+21 Processing optional current activity such as Washing, Drying or
+Ironing.
+Packed order is assigned by vendor; customer sees
+22 Delivery
+Out for Delivery without a moving map.
+Customer sees separate delivery OTP; assigned
+23 Delivery OTP
+employee verifies; order becomes Delivered.
+Show final receipt/invoice, full timeline, final amount
+24 Completion and review eligibility; customer rates vendor after
+delivery.
+Canonical customer-facing timeline
+Order Submitted -> Waiting for Vendor Confirmation -> Vendor Accepted -> Scheduled -> Pickup Partner Coming -> Pickup OTP Verified -> Picked Up ->
+At Partner -> Processing -> Packed -> Out for Delivery -> Delivery OTP Verified -> Delivered
+Alternative terminal/recovery paths
+Waiting for Vendor Confirmation -> Rejected by Vendor -> Customer Selects Another Vendor
+Waiting for Vendor Confirmation -> Auto-Rejected -> Customer Selects Another Vendor
+Allowed early status -> Customer Cancelled -> Refund/Pending Refund/Refunded
+Payment Pending -> Payment Failed or Cancelled -> Retry without duplicate order
+Customer tracking rule
+The customer application must never show continuous rider movement, a live employee marker or in-app turn-by-turn navigation.
+It shows order status, timestamps, notifications and OTPs only.
+Confidential - Development Specification | 29 June 2026
+Page 11
+
+======== PAGE 12 ========
+SHOTLIN DIGITAL PRODUCT STUDIO | LNDRY CUSTOMER APP
+5. Screen-by-Screen Gap Analysis
+Current code, approved behavior, implementation action and acceptance evidence for
+every customer surface.
+Screen Current Gap Required action Acceptance proof
+Display supplied splash exactly;
+Session logic is local/Firebase- initialize storage; determine first Golden test + new/existing/expired-
+Splash Present
+oriented. launch; restore backend session; session routing tests.
+route without flicker.
+Use supplied images/copy exactly;
+persist completion; skip after first Golden tests for all pages and
+Onboarding Present Functional completion not proven.
+completion; no network dependency skip/continue behavior.
+for local assets.
+Keep only approved mobile OTP
+path unless written change request; API contract test and widget error-
+Login Present Phone UI plus Google/Apple extras.
+send account_type=CUSTOMER; state tests.
+handle validation/rate limits/offline.
+Use challenge_id/expires_in from
+server; configurable length;
+Fixed visible 1234 code and 4-digit Invalid/expired/resend/rate-limit
+OTP Present countdown; resend cooldown;
+assumption. tests.
+attempts; masked phone; no OTP
+logging.
+PATCH customer profile; optional
+photo upload only if
+Profile setup Present Local storage only. New-user E2E.
+approved/reference requires it; route
+to address.
+Explain permission; request while-in-
+use; handle denied/denied Permission-state widget/integration
+Location permission Present Needs native permission integration.
+forever/service off; permit manual tests.
+search fallback.
+Google Places autocomplete,
+current location, map, draggable pin, Golden + Maps adapter tests +
+Address picker Mock No map, Places or persistence.
+reverse geocode, exact fields, serviceable/unserviceable E2E.
+serviceability and save/default.
+Bind to discovery/home response
+Hard-coded Aarav/address/avatar,
+and current profile/address; remove Golden test with supplied reference
+Home Substantial UI mock vendors/categories/orders,
+extras; show active order/previous plus loading/empty/error states.
+coupons.
+orders from API.
+Use
+Hard-coded grid/price/images; categories/search/suggestions/filters Search query matrix and pagination
+Explore/Search Substantial UI
+search and filters simulated. endpoints; debounce; backend tests.
+sorting; no fake distances.
+Use category detail and discovery
+Client gets all categories and mock vendors with
+Category vendors Basic Eligibility and empty-state tests.
+vendors. lat/lng/date/slot/category/garment
+filter.
+Default nearest; server pagination,
+Rating default and hash-based
+Vendor listing Substantial UI sorting and filter state; display server Sort/filter contract tests.
+distance.
+distance/starting price/slot.
+Display only backend
+Hard-coded 0.8 km, pickup, express, profile/services/rates/reviews/policie Golden + vendor/service/rate
+Vendor detail Large UI
+qualities, combo, favorites/share. s; implement garment selection; mapping tests.
+remove unapproved extras.
+Represent one vendor + one service
+Whole-service quantities and local + garment rate lines/weight; no Unit tests for garment validation and
+Booking basket Present as cart
+fee calculation. cross-vendor cart; show server quote mapping.
+quote.
+Load remaining-capacity slots;
+Hard-coded slots and express Hold expiry, full slot and reselect
+Slot selection Present in checkout create hold; expiry countdown;
+option. E2E.
+release/reselect; 60-minute only.
+Call orders/prepare; render
+immutable snapshot and payable
+Booking review Present Client total and no draft preparation. Contract test for all validation errors.
+amount; prevent stale
+quote/address/slot.
+Create gateway order, open SDK,
+handle success/failure/cancel, verify Razorpay test-mode
+Payment Mock Simulated delay; no Razorpay.
+signature, poll status when success/failure/idempotency E2E.
+uncertain.
+Confidential - Development Specification | 29 June 2026
+Page 12
+
+======== PAGE 13 ========
+SHOTLIN DIGITAL PRODUCT STUDIO | LNDRY CUSTOMER APP
+Screen Current Gap Required action Acceptance proof
+Show payment success and Waiting
+Incorrectly says confirmed/pending for Vendor Confirmation; include
+Confirmation Present Golden and status assertion.
+pickup. order number, vendor, amount and
+notification expectation.
+Paginated active/history list;
+status/date filter; rejected/auto-
+Orders list Present Mock/client filtering only. Pagination and filter tests.
+rejected/refund labels; pull-to-
+refresh.
+Full snapshot, immutable timeline,
+payment, garments,
+Seven statuses, no Status-by-status golden and action
+Order detail Basic quantities/weight, original/final
+timestamps/actions/OTP. tests.
+amounts, cancellation/recovery,
+OTP cards, invoice.
+Show only at permitted stage;
+explicit purpose, expiry, copy
+Pickup OTP card Missing No route/widget/API. Visibility matrix and expiry tests.
+disabled if policy requires,
+refresh/resend rules from server.
+Separate purpose-bound OTP at
+Visibility matrix and successful
+Delivery OTP card Missing No route/widget/API. delivery stage; never reuse pickup
+delivery E2E.
+OTP.
+Paginated notifications, unread
+Push/deep-link and unread-count
+Notifications UI present Mock returns empty, mark no-op. badge, mark one/all, deep links,
+tests.
+preferences and FCM token.
+List vendor reviews; delivered-order
+No customer review
+Reviews Vendor tab only/unclear eligibility; create/update/delete own Eligibility and duplicate-review tests.
+repository/actions.
+review per policy.
+Load/update backend profile; correct
+Fallback vendor-like email; local
+Profile Present customer fallback; display verified Profile update E2E.
+auth data.
+phone.
+List/delete only; add flow broken; no Full CRUD, edit, default,
+Saved addresses Partial CRUD E2E.
+edit/default UI. serviceability and safe delete rules.
+Keep only approved
+theme/notification/legal/account
+Settings Present Must be checked against scope. Settings golden and API tests.
+actions; add notification preferences
+and account deletion.
+Use client-supplied support contact,
+Help/Legal Present Content source not proven. privacy, terms, refund/cancellation Link and copy approval.
+links.
+Confidential - Development Specification | 29 June 2026
+Page 13
+
+======== PAGE 14 ========
+SHOTLIN DIGITAL PRODUCT STUDIO | LNDRY CUSTOMER APP
+6. Canonical Domain and State Model
+Replace retail-style and mock models with LNDRY service-booking entities.
+Money rule
+Integer paise only
+Every API/domain money value must be an integer paise amount. Convert to formatted rupees only in presentation extensions.
+Do not use double for authoritative amounts, fees, taxes, refunds or totals.
+typedef MoneyPaise = int;
+String formatMoney(int paise) => NumberFormat.currency(locale: "en_IN", symbol: "Rs ").format(paise / 100);
+Required domain entities
+Entity Minimum required fields
+Customer id, name, phone, email?, photo_url?, account_status, created_at
+id, label, house, building?, road, landmark?, city, state, postal_code, formatted_address,
+CustomerAddress
+place_id?, latitude, longitude, instructions?, is_default
+LaundryCategory id, name, description, image_url?, icon?, display_order, is_active
+id, public_name, logo_url?, rating, review_count, distance_km, starting_price_paise,
+VendorSummary
+completion_time, next_slot, pickup_available, delivery_available, verified
+summary + description, contact display policy, address area, business hours, working
+VendorDetail
+days, policies, images, published services
+id, vendor_id, category_id, name, description, inclusions, exclusions, completion_time,
+LaundryService
+image_url?, pickup_available, delivery_available, publication_status
+id, service_id, garment_type_id, name, unit: PIECE|PAIR|KILOGRAM, rate_paise,
+GarmentRateLine
+min_quantity, max_quantity, is_active
+GarmentSelection garment_rate_id, quantity? integer, estimated_weight_kg? decimal string
+id, vendor_id, service_id, lines, subtotal_paise, fees/tax breakdown from server,
+Quote
+estimated_total_paise, expires_at, rate_snapshot_version
+PickupSlot id, date, start_at, end_at, remaining_capacity, available
+SlotHold id, quote_id, slot_id, expires_at, status
+OrderDraft id, quote snapshot, address snapshot, slot snapshot, payable_amount_paise, expires_at
+id, gateway_order_id, gateway_payment_id?, amount_paise, currency, status,
+Payment
+refund_status, failure_code?
+id, order_number, customer_id, vendor snapshot, service snapshot, garment snapshots,
+LaundryOrder original/final quantity/weight, quote/draft/payment, slot/address, status, timeline, OTP
+visibility, amounts, assignments summary, timestamps
+OrderTimelineEvent id, internal_status, customer_label, detail?, actor_type, occurred_at
+HandoverOtp purpose: PICKUP|DELIVERY, otp?, masked_purpose, expires_at, visible, verified_at?
+id, order_id, vendor_id, vendor_rating, rider_rating?, comment?, created_at,
+Review
+editable_until?
+Notification id, type, title, body, deep_link?, is_read, created_at
+NotificationPreferences push/sms/email category matrix
+Confidential - Development Specification | 29 June 2026
+Page 14
+
+======== PAGE 15 ========
+SHOTLIN DIGITAL PRODUCT STUDIO | LNDRY CUSTOMER APP
+Canonical internal order status enum
+enum OrderStatus {
+PAYMENT_PENDING,
+PAYMENT_FAILED,
+WAITING_FOR_VENDOR_CONFIRMATION,
+VENDOR_ACCEPTED,
+PICKUP_ASSIGNED,
+GOING_FOR_PICKUP,
+PICKUP_OTP_VERIFIED,
+PICKED_UP,
+RECEIVED_AT_VENDOR,
+PROCESSING,
+PACKED,
+DELIVERY_ASSIGNED,
+OUT_FOR_DELIVERY,
+DELIVERY_OTP_VERIFIED,
+DELIVERED,
+VENDOR_REJECTED,
+AUTO_REJECTED,
+CUSTOMER_CANCELLED,
+ADMIN_CANCELLED,
+REFUND_PENDING,
+REFUNDED
+}
+Customer-label mapping
+Internal status Customer-facing label Customer action
+PAYMENT_PENDING Payment Pending Complete or retry payment.
+WAITING_FOR_VENDOR_CONFIRMATION Waiting for Vendor Confirmation Wait; cancellation only if policy permits.
+VENDOR_ACCEPTED / PICKUP_ASSIGNED Scheduled View slot and assignment status.
+GOING_FOR_PICKUP Pickup Partner Coming Prepare garments and pickup OTP.
+PICKUP_OTP_VERIFIED / PICKED_UP Picked Up View verification timestamp.
+RECEIVED_AT_VENDOR At Partner Review confirmed quantities/weight and adjustment.
+PROCESSING Processing View optional current activity.
+PACKED Packed Wait for delivery assignment.
+OUT_FOR_DELIVERY Out for Delivery Prepare delivery OTP.
+DELIVERY_OTP_VERIFIED / DELIVERED Delivered View final receipt and rate order.
+VENDOR_REJECTED Rejected by Vendor View reason/refund and select another vendor.
+AUTO_REJECTED Auto-Rejected View timeout/refund and select another vendor.
+CUSTOMER_CANCELLED / ADMIN_CANCELLED Cancelled View reason and refund state.
+REFUND_PENDING / REFUNDED Refund Pending / Refunded View payment/refund detail.
+Confidential - Development Specification | 29 June 2026
+Page 15
+
+======== PAGE 16 ========
+SHOTLIN DIGITAL PRODUCT STUDIO | LNDRY CUSTOMER APP
+7. Data Layer, API Client and Session Architecture
+Implementation structure that lets the UI remain stable while mock logic is replaced
+safely.
+Target folder structure
+lib/
+core/network/
+api_client.dart
+api_error.dart
+auth_interceptor.dart
+retry_policy.dart
+idempotency.dart
+features/<feature>/
+data/dto/
+data/mappers/
+data/repositories/api_<feature>_repository.dart
+domain/entities/
+domain/repositories/
+presentation/providers/
+presentation/pages/
+shared/session/
+session_store.dart
+session_controller.dart
+device_registration.dart
+Dio client requirements
+∩é╖ Base URL injected through --dart-define, with local Android emulator default http://10.0.2.2:<port>/api/v1 and iOS simulator
+default http://127.0.0.1:<port>/api/v1.
+∩é╖ 15-30 second connect/receive timeouts with typed timeout errors.
+∩é╖ Authorization bearer injection from secure storage.
+∩é╖ Automatic single refresh-token attempt after 401; queued refresh so concurrent requests do not create multiple refresh calls.
+∩é╖ Retry only safe GET operations or idempotent requests; never blindly retry payment verification or order creation.
+∩é╖ Idempotency-Key header for slot hold/order prepare/payment/order finalisation where backend requires it.
+∩é╖ Parse the standard success/error envelope, field_errors and request_id.
+∩é╖ Never log Authorization, refresh token, login OTP, pickup OTP, delivery OTP, Razorpay signature or sensitive addresses in
+release logs.
+∩é╖ Cancel stale search/autocomplete requests and debounce user input.
+∩é╖ Support multipart upload only for approved profile photo flow.
+Repository contracts to implement
+Repository Methods
+AuthRepository sendOtp, verifyOtp, refreshToken, getSession, logout
+DeviceRepository registerDevice, removeDevice
+CustomerRepository getProfile, updateProfile, requestAccountDeletion
+list, create, get, update, delete, setDefault, validateLocation, placeAutocomplete,
+AddressRepository
+placeDetails
+getHome, listCategories, getCategory, listVendors, getVendor, getVendorServices,
+DiscoveryRepository
+getService, search, suggestions, getFilters
+QuoteRepository createQuote, updateQuote
+SlotRepository getPickupSlots, createHold, releaseHold
+CheckoutRepository prepareOrderDraft
+PaymentRepository createGatewayOrder, verifyPayment, getPayment, listPayments
+Confidential - Development Specification | 29 June 2026
+Page 16
+
+======== PAGE 17 ========
+SHOTLIN DIGITAL PRODUCT STUDIO | LNDRY CUSTOMER APP
+Repository Methods
+createOrderFromPaidDraft, listOrders, getActiveOrder, getOrder, getTimeline,
+OrderRepository
+getPickupOtp, getDeliveryOtp, cancel, selectAnotherVendor, getInvoice
+ReviewRepository listVendorReviews, getEligibility, create, update, delete
+NotificationRepository list, markRead, markAllRead, getPreferences, updatePreferences
+Provider migration rule
+final customerRepositoryProvider = Provider<CustomerRepository>((ref) {
+if (Env.useMocksForVisualTestsOnly) return MockCustomerRepository();
+return ApiCustomerRepository(ref.watch(apiClientProvider));
+});
+Migration safety
+Keep mock repositories only for widget/golden tests and explicit visual-demo builds. Normal local development must talk to the
+local backend so integration defects are discovered early.
+Confidential - Development Specification | 29 June 2026
+Page 17
+
+======== PAGE 18 ========
+SHOTLIN DIGITAL PRODUCT STUDIO | LNDRY CUSTOMER APP
+8. Authentication and Onboarding Implementation
+Replace fixed OTP and mixed Firebase/social authentication with the approved
+customer login flow.
+Required API sequence
+Action Request Success state Failure handling
+POST /auth/send-otp { phone, Invalid phone, cooldown, rate limit, service
+Send OTP challenge_id, expires_in; route OTP.
+account_type: CUSTOMER } unavailable.
+POST /auth/verify-otp { phone, user, roles, access_token, refresh_token, Invalid, expired, attempts exhausted,
+Verify OTP
+challenge_id, otp, device } onboarding state. account blocked.
+Profile summary, permissions/role, 401 -> one refresh attempt; then clear
+Restore session GET /auth/session
+onboarding state. session.
+POST /auth/refresh-token { refresh_token,
+Refresh Rotated tokens. Clear local session when invalid/reused.
+device_id }
+Server session revoked; clear secure Clear local state even when network logout
+Logout POST /auth/logout
+storage and device state. fails.
+Device ID/platform/FCM token/app version
+Register push device POST /devices Retry later without blocking login.
+stored.
+Remove from customer scope
+∩é╖ Google Sign-In button and Firebase Auth Google flow.
+∩é╖ Apple Sign-In simulated button.
+∩é╖ Visible ΓÇ£Use code: 1234ΓÇ¥ text.
+∩é╖ Fixed mock code and local hash-based user IDs.
+∩é╖ Mock access token stored as a constant.
+∩é╖ Firebase Auth as session source of truth. Firebase Messaging may remain for push notifications.
+Onboarding routing matrix
+Server/local state Destination
+First app launch, onboarding incomplete Onboarding
+Onboarding complete, no valid session Login
+OTP verified, profile incomplete Profile Setup
+Profile complete, no address/default location Location Permission / Address Picker
+Valid session and default address Home
+Access token expired, refresh succeeds Previous intended route
+Refresh invalid/revoked Login with ΓÇ£Session expiredΓÇ¥ message
+Account suspended Blocked account screen with support action
+Confidential - Development Specification | 29 June 2026
+Page 18
+
+======== PAGE 19 ========
+SHOTLIN DIGITAL PRODUCT STUDIO | LNDRY CUSTOMER APP
+9. Customer Profile, Addresses and Google Maps
+Exact-pin address behavior required before discovery and booking.
+Address screen functional requirements
+∩é╖ Search address using server-proxied Google Places autocomplete with a session token.
+∩é╖ Use current location after permission grant; manual search remains available when permission is denied.
+∩é╖ Resolve selected place ID to formatted address, latitude, longitude and postal code.
+∩é╖ Display Google map only while selecting/editing an address, with a fixed center pin or draggable marker matching the supplied UI
+reference.
+∩é╖ Reverse geocode after the pin stops moving; show loading and retry states.
+∩é╖ Collect house/flat, building, road/area, landmark, city, postal code, label and pickup instructions.
+∩é╖ Validate serviceability before final confirmation; explain unserviceable address without deleting entered fields.
+∩é╖ Persist address through backend and set default when required.
+∩é╖ After confirmation, normal screens show address text; customer tracking never embeds a navigation map.
+Current MapAddressPage correction
+Current code Problem Required implementation
+Populate from Places/current pin and user-entered
+Hard-coded Bengaluru/Karnataka and coordinates Every user saves the same fake location.
+address fields.
+Use google_maps_flutter or approved map
+Mock map container No exact pin or Google billing-backed map.
+component.
+Onboarding: create + set default + complete
+Calls completeAddressSelection only Authenticated add-address flow silently fails. onboarding. Profile: create/update repository then pop
+to address list.
+No serviceability call User can proceed from unsupported area. POST addresses/validate-location before save/use.
+Add details/edit/delete/set-default flows with
+No edit/default controls Address management incomplete.
+confirmation.
+Location permission states
+State UI behavior
+Not requested Show purpose screen and Continue/Enter address manually.
+Granted Detect current coordinates and open map.
+Denied once Explain and offer Try Again / Search manually.
+Denied forever Open App Settings and manual search.
+Location service disabled Open device location settings and manual search.
+Maps key/config missing in local dev Show explicit configuration error; never save fake coordinates.
+Confidential - Development Specification | 29 June 2026
+Page 19
+
+======== PAGE 20 ========
+SHOTLIN DIGITAL PRODUCT STUDIO | LNDRY CUSTOMER APP
+10. Home, Search, Discovery and Vendor Comparison
+Replace visual placeholders and client heuristics with backend eligibility and ranking.
+Home response binding
+Home component Required data source Do not do
+Selected address Default/current address repository Hard-code Koramangala or Home.
+Greeting/profile Authenticated customer profile Hard-code Aarav/avatar URL.
+Categories GET /laundry/categories or discovery/home Hard-code service grids.
+GET /discovery/home or /discovery/vendors with
+Nearby vendors Load all vendors then calculate fake distance.
+coordinates
+Active order GET /orders/active Derive from local JSON only.
+Previous orders GET /orders with delivered/history filter Show stale mock entries.
+Notifications badge Notification unread count/device events Always show a red dot.
+Promotions Not in signed MVP Show coupons/special offers without change request.
+Discovery query requirements
+GET /discovery/vendors?lat=<lat>&lng=<lng>&category_id=<id>&date=<YYYY-MM-DD>&slot=<slotId>&sort=<nearest|price_asc|price_desc|rating|
+value>&garment_type_id=<id>&available_now=<bool>&page=1&limit=20
+Sort and filter rules
+Control Required behavior
+Default Nearest eligible vendors first.
+Price low/high Backend compares selected service/garment context, not vendor minimum order.
+Best rating Backend rating with deterministic tie-breaker.
+Value for money Backend-defined stable score; Flutter only displays result/explanation.
+Available now Vendors with active service, configured capacity and remaining applicable slot.
+Garment type Only vendors with active rate for the selected garment type.
+Search Service name, category name, garment type and vendor name.
+Current extras to remove
+∩é╖ Voice search snackbar unless a real, approved voice-search requirement is added.
+∩é╖ Map View button for vendor results; the approved customer app does not require a vendor map.
+∩é╖ Favorites/heart behavior unless separately approved.
+∩é╖ Hard-coded Bag Care, Tailoring, Weekly Essentials and other categories/combinations not returned by admin-managed
+categories.
+∩é╖ Fake ΓÇ£verified partnersΓÇ¥ count, review count, next pickup and delivery date.
+∩é╖ Hash-derived distance and locally invented value score.
+Confidential - Development Specification | 29 June 2026
+Page 20
+
+======== PAGE 21 ========
+SHOTLIN DIGITAL PRODUCT STUDIO | LNDRY CUSTOMER APP
+11. Vendor Detail, Garment Selection and Server Quotation
+The central LNDRY booking model: services process customer-owned garment lines.
+Vendor detail data
+∩é╖ Public laundry name, logo/shop image, description, rating and verified review count.
+∩é╖ Approximate straight-line distance returned by backend.
+∩é╖ Opening/closing times, working days, pickup/delivery availability and public policies.
+∩é╖ Published laundry services with category, inclusions, exclusions and completion time.
+∩é╖ Garment rate lines by piece, pair or kilogram, with min/max quantity.
+∩é╖ Only backend-confirmed available slots and capacity context.
+Garment selection behavior
+Unit Input control Validation Example
+min <= quantity <= max; zero removes
+PIECE Integer stepper Shirt x 3
+line.
+PAIR Integer stepper Whole pairs only. Shoes x 1 pair
+Positive estimate within service range;
+KILOGRAM Decimal input/stepper Regular clothes approx. 5 kg
+consistent precision.
+Quote API
+Operation Request Response used by UI
+POST /quotes { vendor_id, service_id, garment_lines[] quote_id, rate snapshot, line amounts, estimate,
+Create
+} expiry, warnings.
+Update PATCH /quotes/:quoteId { garment_lines[] } Recalculated server estimate and expiry/version.
+Booking-basket state
+BookingSelectionState {
+vendorId; serviceId; List<GarmentSelection> lines; Quote? quote;
+PickupSlot? selectedSlot; SlotHold? hold; CustomerAddress? address;
+OrderDraft? draft; Payment? payment;
+}
+One-vendor invariant
+A booking selection belongs to exactly one vendor and one service quotation. When the customer changes vendor or service,
+clear incompatible garment lines, quote, slot hold and draft after confirmation.
+Remove local commercial calculations
+∩é╖ 5% platform fee constant.
+∩é╖ 18% GST constant.
+∩é╖ Locally generated discount/combo savings.
+∩é╖ Locally generated express surcharge.
+∩é╖ Any price derived from minOrderAmount or placeholder service price.
+∩é╖ Any use of double as final payable source of truth.
+Confidential - Development Specification | 29 June 2026
+Page 21
+
+======== PAGE 22 ========
+SHOTLIN DIGITAL PRODUCT STUDIO | LNDRY CUSTOMER APP
+12. Slot Capacity, Checkout, Razorpay and Order Creation
+Capacity-safe and idempotent booking sequence required for real transactions.
+Required sequence and data flow
+Step Action Required behavior
+GET /vendors/:vendorId/pickup-slots using date,
+A Load slots service_id and quote_id. Render only remaining
+capacity.
+POST /slot-holds. Save hold_id/expires_at; start local
+B Create hold
+countdown using server time offset where available.
+POST /orders/prepare with quote_id, address_id and
+C Prepare draft
+hold_id. Backend revalidates all snapshots.
+POST /payments/create-order with order_draft_id.
+D Create gateway order Receive Razorpay order ID, amount, currency and
+key.
+Pass only backend amount/order ID. Never trust a
+E Open Razorpay
+Flutter-calculated amount.
+POST /payments/verify with gateway payload and
+F Verify
+draft ID.
+POST /orders with paid draft/payment ID when
+G Finalise
+contract requires separate submission.
+Display Waiting for Vendor Confirmation. Refresh
+H Confirm state
+order detail or subscribe to updates.
+Slot hold UX states
+State UI
+Available Selectable 60-minute slot with exact date/time.
+Selected / hold creating Disable duplicate tap and show progress.
+Held Show countdown and ΓÇ£Reserved temporarilyΓÇ¥.
+Expired Disable payment, explain expiry, reload slots.
+Full during hold Show SLOT_FULL and retain quote/address.
+Released by user Return to slot selection.
+Release or let backend expire according to contract; offer retry only with valid
+Payment failed/cancelled
+hold/draft.
+Razorpay callback matrix
+Callback/result App action Backend confirmation
+Only backend signature/captured status confirms
+Success callback Immediately call verify; show verifying state.
+success.
+Show safe failure message/code; retain retryable draft
+Failure callback GET payment status when ambiguity exists.
+when valid.
+Return to review with Cancelled state; no order
+User cancelled Release/expire hold according to policy.
+creation.
+Network lost after gateway success Do not retry charge. Poll payment/order by IDs. Backend/webhook is source of truth.
+Confidential - Development Specification | 29 June 2026
+Page 22
+
+======== PAGE 23 ========
+SHOTLIN DIGITAL PRODUCT STUDIO | LNDRY CUSTOMER APP
+Callback/result App action Backend confirmation
+Duplicate tap/callback Disable CTA and reuse idempotency key. One payment/order only.
+Correct confirmation copy
+Payment successful - awaiting vendor
+Your payment has been verified and the order has been sent to the selected laundry partner. Current status: Waiting for Vendor
+Confirmation. You will be notified when the vendor accepts, rejects or the request times out.
+Confidential - Development Specification | 29 June 2026
+Page 23
+
+======== PAGE 24 ========
+SHOTLIN DIGITAL PRODUCT STUDIO | LNDRY CUSTOMER APP
+13. Order Lifecycle, OTP, Rejection, Cancellation and History
+Complete post-payment customer experience.
+Order detail required sections
+∩é╖ Order number and current customer-facing status.
+∩é╖ Vendor snapshot: name, logo, service and approved contact display.
+∩é╖ Selected service and garment rate snapshot.
+∩é╖ Original declared quantities/estimated weight and vendor-confirmed final values.
+∩é╖ Pickup date, 60-minute slot, address and instructions.
+∩é╖ Payment status, estimated amount, final amount, refund/adjustment state.
+∩é╖ Immutable timeline events with timestamps and optional current processing activity.
+∩é╖ Pickup OTP card only when visible and valid.
+∩é╖ Delivery OTP card only when visible and valid.
+∩é╖ Cancellation button only in allowed states and with policy/reason collection.
+∩é╖ Rejected/auto-rejected recovery action to select another vendor.
+∩é╖ Invoice/receipt after applicable completion.
+∩é╖ Review action only after delivered and eligible.
+OTP visibility matrix
+OTP Visible when Hidden when UI safety
+Purpose label, expiry, warning to share
+Assigned/going for pickup and backend Before assignment, after
+Pickup only at handover; never cache after
+returns visible=true. verified/expired/cancelled.
+logout.
+Out for delivery/delivery handover stage Before delivery assignment, after Separate endpoint/state; never reuse
+Delivery
+and visible=true. verified/expired/cancelled. pickup value.
+Vendor rejection and timeout
+∩é╖ Show Rejected by Vendor or Auto-Rejected as explicit terminal state, not a generic cancelled label.
+∩é╖ Show rejection reason when supplied and payment/refund state.
+∩é╖ Do not automatically choose another vendor.
+∩é╖ ΓÇ£Select another vendorΓÇ¥ starts a new quotation and slot selection while reusing address/garment intent only when backend
+permits.
+∩é╖ Prevent accidental duplicate charge/order.
+Cancellation
+Requirement Behavior
+Eligibility Backend decides whether current status is cancellable.
+Reason Send reason_code and optional comment.
+Confirmation Show consequence, refund policy and irreversible warning.
+Result Refresh order/payment timeline and display refund state.
+Offline/timeout Do not optimistically mark cancelled; reconcile with backend.
+History and review
+∩é╖ Order history supports active and past states with pagination and stable ordering.
+∩é╖ Each entry shows vendor, service, final amount, payment status and relevant timestamps.
+∩é╖ Only delivered orders pass review eligibility.
+Confidential - Development Specification | 29 June 2026
+Page 24
+
+======== PAGE 25 ========
+SHOTLIN DIGITAL PRODUCT STUDIO | LNDRY CUSTOMER APP
+∩é╖ Review supports vendor rating 1-5, optional employee/rider rating only when the approved contract exposes it, optional comment
+and update/delete policy.
+∩é╖ Never show a review submission UI for rejected, cancelled or undelivered orders.
+Confidential - Development Specification | 29 June 2026
+Page 25
+
+======== PAGE 26 ========
+SHOTLIN DIGITAL PRODUCT STUDIO | LNDRY CUSTOMER APP
+14. Notifications, Reviews, Invoices and Account Settings
+Supporting customer modules required to complete the workflow.
+Push notification integration
+∩é╖ Initialize Firebase Core with valid platform configuration supplied by the client.
+∩é╖ Obtain FCM token and register it with device_id, platform and app version after authentication.
+∩é╖ Handle token refresh and remove stale token on logout when appropriate.
+∩é╖ Handle foreground messages with in-app banner/snackbar and refresh affected query.
+∩é╖ Handle background/terminated deep links to order detail or notifications.
+∩é╖ Do not include OTP or sensitive payment values in push payloads.
+∩é╖ Use Socket.IO only if explicitly chosen for live events; FCM plus refresh is sufficient for the approved status-only customer
+experience.
+Notification centre
+Function Required behavior
+List Paginated, unread filter/type filter, newest first.
+Unread count Drive home/profile badge.
+Mark read Optimistic UI with rollback on failure.
+Mark all read Confirmation optional; update count.
+Deep link Validate route/entity ownership before navigation.
+Preferences Push/SMS/email categories loaded and saved through backend.
+Invoice/receipt
+∩é╖ Available only when backend returns it for the applicable order state.
+∩é╖ Open signed URL or authenticated PDF stream using a safe viewer/download action.
+∩é╖ Display final amount and payment/refund data from the backend snapshot.
+∩é╖ Do not generate a client-side invoice from local cart values.
+Account settings
+∩é╖ Edit permitted customer profile fields.
+∩é╖ Manage saved addresses and default address.
+∩é╖ Notification preferences.
+∩é╖ Privacy policy, terms, refund/cancellation policy and support contacts supplied by the client.
+∩é╖ Logout all local state safely.
+∩é╖ Account deletion/anonymisation request with confirmation and re-authentication when backend requires it.
+Confidential - Development Specification | 29 June 2026
+Page 26
+
+======== PAGE 27 ========
+SHOTLIN DIGITAL PRODUCT STUDIO | LNDRY CUSTOMER APP
+15. UI/UX and Asset Fidelity Rules
+The existing UI is not permission to invent a new design. Approved references control
+the final presentation.
+Same-to-same instruction
+Implement every supplied UI/UX screen and asset exactly as provided: hierarchy, spacing, dimensions, typography, colours,
+iconography, illustrations, imagery, border radius, shadows, copy, button states, safe areas and responsive behavior. Do not
+redesign, simplify or replace assets without written approval.
+Developer visual workflow
+26.Create a screen-reference inventory: screen name, reference image filename, target route, assets and all visible states.
+27.Place final local assets in typed asset constants; remove Unsplash and other placeholder network URLs.
+28.Build each screen with reusable tokens/components while preserving the exact reference output.
+29.Capture golden screenshots at the owner-approved baseline device size and at minimum one small Android and one large
+device.
+30.Compare screenshots pixel-by-pixel or with an approved tolerance; fix spacing/overflow before API work is accepted.
+31.After API integration, repeat golden tests for loading, populated, empty, error and long-text states.
+32.Send a screenshot and precise question when a reference omits a required state; do not invent the state silently.
+Responsive and accessibility requirements
+∩é╖ No horizontal overflow at 320dp width or with large text.
+∩é╖ Respect safe areas, keyboard insets and bottom navigation.
+∩é╖ Use semantic labels for icons and controls; minimum touch target approximately 44-48dp.
+∩é╖ Ensure contrast for text, disabled states, status badges and OTP cards.
+∩é╖ Support screen-reader order and form error association.
+∩é╖ Do not scale text by hard-coded pixel values that break accessibility; use ScreenUtil carefully and test system font scaling.
+∩é╖ All user-generated/vendor text must wrap or truncate intentionally.
+Asset policy
+Asset type Rule
+Logos/icons Use supplied vector/PNG assets or approved icon set; no generic replacement.
+Vendor/customer placeholders Use approved local placeholders, not random internet portraits.
+Service/category imagery Use final asset pack or backend URLs; provide deterministic fallback.
+Animations/Lottie Only supplied/approved animations; pause for reduced-motion where possible.
+Use the exact approved family and weights; bundle font if licensing/offline reliability
+Fonts
+requires it.
+CachedNetworkImage for backend images with loading/error placeholders; never
+Remote images
+hard-code Unsplash URLs.
+Confidential - Development Specification | 29 June 2026
+Page 27
+
+======== PAGE 28 ========
+SHOTLIN DIGITAL PRODUCT STUDIO | LNDRY CUSTOMER APP
+16. Features and Code That Must Be Removed or Disabled
+Strict Phase 1 cleanup so the customer app remains a laundry-service product rather
+than a generic marketplace.
+Feature/code Current location Action
+Login screen, auth provider, google_sign_in/Firebase Auth Not in approved customer workflow; remove UI and code
+Google login
+flow unless written change request.
+Apple login simulation Login screen Placeholder action is misleading; remove.
+Visible fixed OTP 1234 OTP screen/auth provider Security defect; remove.
+Special offers/coupons Home Not included in signed Phase 1 scope.
+Promo codes IRONFREE/DRYCLEAN20 Home Hard-coded non-functional commerce behavior.
+Voice search simulation Search Not approved and not functional.
+Customer flow uses list-based discovery and exact
+Customer vendor map view Search/vendor listing
+address map only.
+No approved persistence/API; remove unless separately
+Favorites/share simulation Vendor detail
+approved.
+Standard/Express selector and +Rs 49 Vendor detail Not in signed service model.
+60-minute express pickup +Rs 99 Checkout Unapproved surcharge/behavior; remove.
+Weekly Essentials combo Vendor detail Unapproved bundle/commercial logic.
+Cash payment Payment model Approved flow is Razorpay online payment.
+Only Razorpay-supported wallet method may appear
+Platform wallet semantics Payment UI/model
+inside gateway; no LNDRY wallet.
+Client-calculated fees/GST Cart/vendor cart/mock order Backend quote is authoritative.
+VendorRepository/customer app vendor-management Not needed by customer application; archive or isolate
+repositories/abstract and mock files
+code outside customer build.
+Remove unless a documented customer feature genuinely
+Firestore/Firebase Storage/Firebase Auth dependencies pubspec/code
+uses them; keep Firebase Core/Messaging for FCM.
+Gate behind explicit local debug flag; never overlay
+DevPreviewOverlay in normal builds main.dart
+production/release UI.
+Use configured local backend base URL; do not silently
+Placeholder backend domains env.dart
+call non-existent domains.
+Do not remove required ΓÇ£walletΓÇ¥ gateway option incorrectly
+The signed workflow allows wallet methods supported by Razorpay. That means the Razorpay checkout may expose supported
+wallets. It does not approve a separate LNDRY stored-value wallet, wallet balance or wallet ledger.
+Confidential - Development Specification | 29 June 2026
+Page 28
+
+======== PAGE 29 ========
+SHOTLIN DIGITAL PRODUCT STUDIO | LNDRY CUSTOMER APP
+17. Safe Migration and Regression-Control Plan
+How to replace mocks without breaking the already-developed UI.
+Non-negotiable working method
+∩é╖ Create a backup tag/branch at the audited baseline before modifications.
+∩é╖ Never rewrite the entire application in one pass.
+∩é╖ Keep page widgets and visual components stable while replacing data contracts underneath.
+∩é╖ Introduce DTOs/mappers and API repositories beside mocks, then switch feature by feature.
+∩é╖ Each phase must pass flutter format, flutter analyze, code generation, unit/widget/golden tests and a local smoke build before
+merge.
+∩é╖ Use small commits grouped by feature and preserve a rollback point.
+∩é╖ Do not delete mock fixtures until equivalent automated tests exist.
+∩é╖ No server deployment work is included; use local backend and local/test third-party configuration only.
+Implementation phases
+Phase Name Work Exit gate
+Run current project, record analyzer/build
+0 Baseline and visual freeze output, capture screenshots, inventory UI No feature changes.
+references/assets, create branch/tag.
+Dio client, error envelope, session storage,
+App still uses mocks through adapters;
+1 Core network and models canonical money/status/domain models,
+build remains green.
+DTO mappers.
+Auth repository, token refresh/session,
+2 Backend OTP and onboarding profile setup, device identity; remove New/existing customer login E2E passes.
+social/mock auth.
+Maps/Places/current location/serviceability Onboarding and profile address E2E
+3 Maps and address CRUD
+and real address repository. passes.
+Categories, home, search, filters, nearest-
+4 Home/discovery/search No hard-coded business data remains.
+first vendors, vendor detail and reviews list.
+Service details, rate units, quantity/weight
+5 Garment lines and quotes Server amount displayed exactly.
+state, create/update quote.
+Pickup slots, slot holds/expiry/release,
+6 Slots and order preparation Full-slot/expired-hold tests pass.
+address/quote validation and draft.
+SDK, create/verify/status, idempotent order
+7 Razorpay and finalisation Test-mode success/failure/cancel passes.
+creation and correct confirmation.
+Orders list/detail, realtime refresh,
+8 Orders, timeline and OTP rejection, cancellation, pickup/delivery All canonical status golden/E2E tests pass.
+OTP, invoice.
+FCM/device, notification
+9 Notifications/reviews/settings centre/preferences, review lifecycle, Customer supporting modules complete.
+account deletion/legal/support.
+Full test matrix, screenshot comparison,
+10 Regression and acceptance low-end device performance, clean local Definition of done signed.
+builds.
+Change isolation rules
+∩é╖ One feature branch per phase or bounded module.
+∩é╖ Provider interfaces change only with adapters for current callers.
+∩é╖ No UI refactor mixed into payment/auth/model migrations unless required to match supplied design.
+∩é╖ Use feature flags only temporarily and remove dead branches after acceptance.
+∩é╖ When backend response differs from the target contract, record the discrepancy; do not patch the UI with undocumented
+guesses.
+∩é╖ Every mutation disables duplicate submit and reconciles server result before optimistic success.
+Confidential - Development Specification | 29 June 2026
+Page 29
+
+======== PAGE 30 ========
+SHOTLIN DIGITAL PRODUCT STUDIO | LNDRY CUSTOMER APP
+18. Test Strategy and Acceptance Scenarios
+Evidence required before the customer application can be called complete.
+Automated test layers
+Layer Required coverage
+Money formatting, DTO mapping, status mapping, validators, quote line rules,
+Unit
+search query construction, session refresh queue, error parsing.
+Mock HTTP responses for every endpoint success and documented error; request
+Repository/contract
+body/query/header assertions.
+Loading/data/empty/error transitions, cancellation, stale request prevention, retry
+Provider/controller
+and cache invalidation.
+All interactive screens, validation, disabled/loading states, long text and
+Widget
+accessibility semantics.
+Every supplied UI reference plus loading/empty/error states at baseline and
+Golden
+responsive device sizes.
+Secure storage/session, router redirects, Maps adapter, FCM deep links,
+Integration
+Razorpay wrapper using test/fake gateway.
+End-to-end Real local backend and test services from login through delivered/review.
+Mandatory E2E scenarios
+ΓÿÉ New customer OTP -> profile -> exact address -> home.
+ΓÿÉ Existing customer session restore and token refresh.
+ΓÿÉ Invalid/expired OTP, resend cooldown and rate limit.
+ΓÿÉ Location denied/manual search; serviceable and unserviceable addresses.
+ΓÿÉ Category/search results show only eligible vendors; nearest default; every sort/filter.
+ΓÿÉ Garment pieces, pairs and kilograms; min/max validation; quote update and expiry.
+ΓÿÉ Last slot becomes unavailable; app handles SLOT_FULL without losing selection.
+ΓÿÉ Slot hold expiry before payment; reselect and continue.
+ΓÿÉ Razorpay success creates exactly one order.
+ΓÿÉ Razorpay failure, user cancellation and network loss after success.
+ΓÿÉ Waiting for Vendor Confirmation then vendor acceptance.
+ΓÿÉ Vendor rejection and auto-rejection with explicit select-another-vendor recovery.
+ΓÿÉ Pickup OTP hidden -> visible -> verified -> hidden.
+ΓÿÉ Vendor confirms different quantity/weight and customer sees final amount/payment impact.
+ΓÿÉ Processing stage changes displayed as grouped customer timeline.
+ΓÿÉ Delivery OTP hidden -> visible -> verified -> delivered.
+ΓÿÉ Allowed cancellation and disallowed cancellation.
+ΓÿÉ Notification deep link opens the owned order and marks read.
+ΓÿÉ Delivered order review eligibility, submit, edit/delete policy and duplicate prevention.
+ΓÿÉ Logout clears tokens, OTPs, address-sensitive cache and query state.
+Regression gates
+Command/gate Required result
+dart format --set-exit-if-changed . No formatting differences.
+Confidential - Development Specification | 29 June 2026
+Page 30
+
+======== PAGE 31 ========
+SHOTLIN DIGITAL PRODUCT STUDIO | LNDRY CUSTOMER APP
+Command/gate Required result
+flutter analyze Zero errors; warnings reviewed and accepted explicitly.
+dart run build_runner build --delete-conflicting-outputs Completes without conflict.
+flutter test All unit/widget/golden tests pass.
+flutter build apk --debug Local Android build succeeds.
+flutter build ios --simulator --no-codesign Local iOS simulator build succeeds where macOS runner is available.
+Manual smoke checklist All critical paths on at least one Android emulator/device.
+Visual review Supplied UI references approved screen-by-screen.
+Confidential - Development Specification | 29 June 2026
+Page 31
+
+======== PAGE 32 ========
+SHOTLIN DIGITAL PRODUCT STUDIO | LNDRY CUSTOMER APP
+19. Local-Development Setup and Build Gates
+Development-only environment. Production server/deployment work is intentionally
+excluded.
+Required local configuration
+flutter run \
+--dart-define=FLAVOR=development \
+--dart-define=API_BASE_URL=http://10.0.2.2:3000/api/v1 \
+--dart-define=GOOGLE_MAPS_KEY=<local-restricted-key> \
+--dart-define=RAZORPAY_KEY=<test-key>
+∩é╖ Android emulator uses 10.0.2.2 for host-machine localhost; physical device uses the development machine LAN address or
+approved tunnel.
+∩é╖ iOS simulator normally uses 127.0.0.1 when the backend runs on the same Mac.
+∩é╖ Keep local/test keys out of Git and inject with dart-define or untracked local configuration.
+∩é╖ Use Razorpay test mode only during local development.
+∩é╖ Firebase configuration files are client-provided and remain outside public repositories where required.
+∩é╖ No EC2, VPS, Docker deployment, Nginx, DNS, SSL, CI/CD, backup, production monitoring or store-publishing task belongs to
+this customer-app development brief.
+Package corrections
+Package area Action
+Dio/codegen versions Pin compatible versions; remove any where reproducible builds require it.
+Add google_maps_flutter and approved location/Places integration packages or
+Google Maps
+backend proxy adapter.
+Razorpay Add razorpay_flutter and wrap SDK behind PaymentGateway interface.
+Keep firebase_core and firebase_messaging for push; remove
+Firebase
+auth/firestore/storage/google_sign_in unless approved use remains.
+Connectivity Use for user messaging only; still handle request failures normally.
+Generated files Run build_runner locally/CI; do not rely on missing generated sources.
+Local environment failure behavior
+∩é╖ Backend unavailable: show retryable connection error, never fall back silently to mock data.
+∩é╖ Maps key missing: show developer configuration error in debug; do not save fake pin.
+∩é╖ Razorpay key missing: disable payment and show configuration error in debug.
+∩é╖ Firebase unavailable: app remains usable; push registration retries later, while API notifications can still load.
+∩é╖ Mock mode: available only through an explicit visual-test flag displayed in a debug banner.
+Confidential - Development Specification | 29 June 2026
+Page 32
+
+======== PAGE 33 ========
+SHOTLIN DIGITAL PRODUCT STUDIO | LNDRY CUSTOMER APP
+20. Definition of Done and Developer Sign-Off
+The customer application is complete only when every gate below is demonstrably
+satisfied.
+Functional definition of done
+ΓÿÉ Backend mobile OTP login, refresh, session restoration and logout work without fixed codes.
+ΓÿÉ New customer profile and exact Google Maps address onboarding work.
+ΓÿÉ All address CRUD/default/serviceability flows work.
+ΓÿÉ Home/search/categories/discovery use real backend data and nearest-first default.
+ΓÿÉ Customer selects the final vendor; no auto-assignment occurs.
+ΓÿÉ Garment piece/pair/kg lines create a server quotation and client shows server amounts.
+ΓÿÉ Only available 60-minute slots are shown and a capacity-safe hold is used.
+ΓÿÉ Prepared order draft and Razorpay test payment work with idempotent finalisation.
+ΓÿÉ Post-payment state is Waiting for Vendor Confirmation.
+ΓÿÉ Vendor acceptance, rejection and auto-rejection update the customer app correctly.
+ΓÿÉ Pickup and delivery OTPs follow purpose/stage/expiry visibility rules.
+ΓÿÉ Order timeline, actual quantity/weight, final amount, payment/refund and invoice are displayed.
+ΓÿÉ Notifications, preferences, order history and delivered-order reviews work.
+ΓÿÉ No continuous live employee map exists in the customer app.
+ΓÿÉ Unapproved extras and hard-coded commerce data are removed.
+ΓÿÉ Every screen matches supplied UI/UX references and assets.
+ΓÿÉ All mandatory tests/builds pass and no mock repository is used in normal local integration mode.
+Developer sign-off record
+Area Owner Evidence/link Status
+UI reference inventory Not started
+Android local build Not started
+iOS simulator build Not started
+API contract tests Not started
+Maps/address E2E Not started
+Razorpay E2E Not started
+Order/OTP E2E Not started
+Golden screenshot approval Not started
+Accessibility review Not started
+Final client walkthrough Not started
+Communication requirement
+When any supplied UI reference, asset, business rule, endpoint response or transition is ambiguous, contact the project owner
+by message or call before implementing an interpretation. Include the route, screenshot, code file, expected behavior and the
+exact decision needed.
+Confidential - Development Specification | 29 June 2026
+Page 33
+
+======== PAGE 34 ========
+SHOTLIN DIGITAL PRODUCT STUDIO | LNDRY CUSTOMER APP
+Appendix A - Complete Customer Endpoint Matrix
+Target API capability mapped to Flutter screens and state changes.
+Method Endpoint Screen Input Output UI/state effect
+POST /auth/send-otp Login phone, account_type challenge_id, expires_in Create OTP state; route OTP.
+Store tokens; route by
+POST /auth/verify-otp OTP phone, challenge_id, otp, device user, roles, tokens, onboarding
+onboarding.
+POST /auth/refresh-token API interceptor refresh_token, device_id rotated tokens Retry original request once.
+POST /auth/logout Profile/settings device_id/refresh token success Clear session/cache.
+GET /auth/session Splash/router Bearer token profile, role, onboarding Restore route.
+device_id, platform, fcm_token,
+POST /devices Session/FCM device record Enable push.
+app_version
+DELETE /devices/:deviceId Logout/settings device ID removed Remove stale device.
+GET /customer/me Profile/home - customer profile Bind profile.
+PATCH /customer/me Edit profile name, email, photo_url updated profile Refresh profile.
+DELETE /customer/account Account settings reason, confirmation accepted/anonymised Logout and final screen.
+GET /addresses Address selector - saved addresses List/default.
+POST /addresses Add address exact address + lat/lng created address Save/select.
+GET /addresses/:id Address edit id address Populate editor.
+PUT /addresses/:id Address edit editable fields updated address Refresh.
+DELETE /addresses/:id Address settings id success Remove safely.
+PUT /addresses/:id/default Address selector id default address Update current address.
+serviceable,
+POST /addresses/validate-location Address confirmation lat, lng Allow/stop confirmation.
+eligible_vendor_count
+query, session_token, location
+GET /maps/place-autocomplete Address search predictions Suggestion list.
+bias
+formatted address, lat/lng, postal
+GET /maps/place-details/:placeId Address search placeId Move pin/populate.
+code
+GET /laundry/categories Home/explore locale/page as supported categories Category UI.
+GET /laundry/categories/:id Category id category, garment types Category context.
+categories, vendors,
+GET /discovery/home Home address/lat/lng Single home payload.
+active/previous orders
+lat/lng/category/date/slot/sort/
+GET /discovery/vendors Listing eligible vendors + pagination Server-ranked list.
+filter/page
+GET /discovery/vendors/:vendorId Vendor detail vendorId + coordinate context public vendor profile Profile UI.
+/discovery/vendors/:vendorId/
+GET Vendor detail category/garment filters published services Service list.
+services
+inclusions, garment rates, slots
+GET /discovery/services/:serviceId Service detail serviceId Selection UI.
+summary
+grouped
+GET /search Search q, lat, lng service/category/garment/vendor Results.
+results
+GET /search/suggestions Search input q typed suggestions Autocomplete.
+GET /discovery/filters Filter sheet current result context sorts and garment filters Build filter UI.
+POST /discovery/value-score Value sort result context ranked vendor IDs/explanation Optional explanation.
+vendor_id, service_id,
+POST /quotes Garment selection quote_id, estimate, expiry Display estimate.
+garment_lines
+PATCH /quotes/:quoteId Garment selection changed lines recalculated quote Update estimate.
+GET /vendors/:vendorId/pickup-slots Slot screen date, service_id, quote_id remaining-capacity slots Select slot.
+POST /slot-holds Booking confirmation vendor_id, date, slot_id, hold_id, expires_at Start countdown.
+Confidential - Development Specification | 29 June 2026
+Page 34
+
+======== PAGE 35 ========
+SHOTLIN DIGITAL PRODUCT STUDIO | LNDRY CUSTOMER APP
+Method Endpoint Screen Input Output UI/state effect
+quote_id
+DELETE /slot-holds/:holdId Back/cancel/timeout holdId released Clear hold.
+order_draft_id, payable,
+POST /orders/prepare Booking review quote, address, hold Freeze review.
+snapshot
+razorpay_order_id, amount,
+POST /payments/create-order Payment order_draft_id Open SDK.
+currency, key
+POST /payments/verify Payment callback gateway IDs/signature/draft verified payment/order state Finalise/confirm.
+GET /payments/:paymentId Recovery paymentId payment/refund status Reconcile ambiguity.
+GET /payments/history Profile/payment history page/filter payments Optional approved history view.
+POST /orders Post-payment finalisation order_draft_id, payment_id order waiting for vendor Confirmation.
+GET /orders Orders status/page/date range orders + pagination Active/history list.
+latest active order/timeline/OTP
+GET /orders/active Home/order - Home tracker.
+flags
+GET /orders/:orderId Order detail orderId full order snapshot Render detail.
+GET /orders/:orderId/timeline Tracking orderId immutable events Timeline.
+GET /orders/:orderId/pickup-otp Pickup handover orderId OTP/expiry/visibility OTP card.
+GET /orders/:orderId/delivery-otp Delivery handover orderId OTP/expiry/visibility OTP card.
+POST /orders/:orderId/cancel Order detail reason_code, comment cancel/refund state Refresh.
+/orders/:orderId/select-another- new_vendor_id, slot/quote
+POST Rejected recovery new attempt Continue explicitly.
+vendor context
+GET /orders/:orderId/invoice Completed order orderId PDF/signed URL Open receipt.
+GET /reviews/vendors/:vendorId Vendor reviews page reviews Reviews tab.
+GET /reviews/eligibility/:orderId Delivered order orderId eligible, reason Show/hide CTA.
+order_id, vendor_rating, optional
+POST /reviews Rating review Show saved.
+fields
+PATCH /reviews/:reviewId My review rating/comment updated review Refresh.
+DELETE /reviews/:reviewId My review reviewId deleted Remove.
+GET /notifications Notifications unread/page/type notifications List/badge.
+PATCH /notifications/:id/read Notification tap id notification Mark read.
+PATCH /notifications/read-all Notifications - updated_count Clear badge.
+GET /notification-preferences Settings - preference matrix Populate.
+PUT /notification-preferences Settings preference matrix updated preferences Persist.
+Confidential - Development Specification | 29 June 2026
+Page 35
+
+======== PAGE 36 ========
+SHOTLIN DIGITAL PRODUCT STUDIO | LNDRY CUSTOMER APP
+Appendix B - Canonical Screen and Route Inventory
+Recommended customer application route map. Keep actual route names compatible
+where practical.
+Route Purpose
+/ Splash/session bootstrap
+/onboarding Onboarding
+/login Mobile login
+/otp OTP verification
+/profile-setup New customer profile
+/location-permission Location permission
+/addresses/select Address selector
+/addresses/new Google Maps new address
+/addresses/:id/edit Edit address
+/home Home
+/search Search and suggestions
+/categories/:id Category/vendor results
+/vendors Vendor comparison listing
+/vendors/:id Vendor profile
+/services/:id Service and garment-rate detail
+/booking Garment selection/quote basket
+/booking/slots 60-minute slot selection and hold
+/booking/review Prepared order review
+/payment Razorpay checkout
+/orders/:id/submitted Waiting vendor confirmation
+/orders Orders active/history
+/orders/:id Order detail and timeline
+/orders/:id/rejected Rejected/auto-rejected recovery
+/orders/:id/review Review form
+/notifications Notification centre
+/profile Profile
+/profile/edit Edit profile
+/profile/addresses Saved addresses
+/profile/preferences Notification preferences
+/profile/legal Legal/support links
+/profile/account Logout/account deletion
+Confidential - Development Specification | 29 June 2026
+Page 36
+
+======== PAGE 37 ========
+SHOTLIN DIGITAL PRODUCT STUDIO | LNDRY CUSTOMER APP
+Bottom navigation recommendation
+Tab Decision
+Home Keep.
+Explore/Search Keep.
+Keep only if the supplied UI reference includes it; represent booking selection, not
+Book/Booking basket
+retail cart.
+Orders Keep.
+Profile Keep.
+Confidential - Development Specification | 29 June 2026
+Page 37
+
+======== PAGE 38 ========
+SHOTLIN DIGITAL PRODUCT STUDIO | LNDRY CUSTOMER APP
+Appendix C - Data-Model Field Catalogue
+Implementation checklist for DTOs, entities and persistence.
+Quote line
+∩é╖ garment_rate_id
+∩é╖ garment_type_id/name snapshot
+∩é╖ unit
+∩é╖ rate_paise
+∩é╖ quantity or estimated_weight_kg
+∩é╖ line_amount_paise
+∩é╖ min/max constraints
+Order amounts
+∩é╖ estimated_subtotal_paise
+∩é╖ fee/tax line items from server
+∩é╖ estimated_total_paise
+∩é╖ final_subtotal_paise
+∩é╖ final_total_paise
+∩é╖ paid_paise
+∩é╖ adjustment_paise
+∩é╖ refund_paise
+∩é╖ currency
+Order handover
+∩é╖ pickup_assignment summary
+∩é╖ pickup_otp_visible/expires_at
+∩é╖ pickup_verified_at
+∩é╖ delivery_assignment summary
+∩é╖ delivery_otp_visible/expires_at
+∩é╖ delivery_verified_at
+Order exception
+∩é╖ vendor_rejection_reason
+∩é╖ auto_rejected_at
+∩é╖ cancellation_reason/code
+∩é╖ refund_status
+∩é╖ failure code/message safe for UI
+Order timeline
+∩é╖ event_id
+∩é╖ internal_status
+∩é╖ customer_label
+∩é╖ detail/current activity
+∩é╖ actor type
+∩é╖ occurred_at
+Pagination
+∩é╖ page
+∩é╖ limit
+∩é╖ total
+∩é╖ total_pages
+Confidential - Development Specification | 29 June 2026
+Page 38
+
+======== PAGE 39 ========
+SHOTLIN DIGITAL PRODUCT STUDIO | LNDRY CUSTOMER APP
+API error
+∩é╖ code
+∩é╖ message
+∩é╖ field_errors
+∩é╖ request_id
+∩é╖ safe metadata
+Session
+∩é╖ access token
+∩é╖ refresh token
+∩é╖ access expiry
+∩é╖ device_id
+∩é╖ customer summary
+∩é╖ onboarding state
+Confidential - Development Specification | 29 June 2026
+Page 39
+
+======== PAGE 40 ========
+SHOTLIN DIGITAL PRODUCT STUDIO | LNDRY CUSTOMER APP
+Appendix D - Loading, Empty, Error and Offline States
+Every screen must include deterministic non-happy-path behavior matching the
+supplied visual system.
+Surface Required states
+Login Submitting, invalid phone, OTP cooldown, rate limit, offline, blocked account.
+OTP Countdown, resend, wrong OTP, expired, attempts exhausted, server error.
+Permission states, Places loading/none/error, map loading, geocode error,
+Address
+unserviceable, save error.
+Home Skeleton, no serviceable vendors, no active order, backend error, pull-to-refresh.
+Initial suggestions, no results, pagination loading, filter no results, request
+Search
+cancelled.
+Vendor unavailable, service unpublished, rates empty, reviews empty, slot
+Vendor detail
+unavailable.
+Quote Calculating, expired, rate changed, invalid min/max, vendor became unavailable.
+Slots Loading, no slots, full, hold creating, hold expired, release failure.
+Draft preparing, stale address/quote/hold, payable changed, duplicate submit
+Checkout
+disabled.
+Opening gateway, verifying, success, failure, cancelled, uncertain/polling,
+Payment
+refunded.
+Empty active/history, pagination, stale event refresh, order not found/ownership
+Orders
+denied.
+OTP handover Not yet visible, loading, visible, expired, verified/hidden.
+Notifications Empty, unread, pagination, deep-link invalid, permission disabled.
+Reviews Not eligible with reason, submitting, duplicate, edit window closed.
+Profile/account Update loading/error, account deletion confirmation/re-auth, session expired.
+Error copy rule
+∩é╖ Show user-actionable language and preserve entered data.
+∩é╖ Display request ID in expandable support details for server errors, not raw stack traces.
+∩é╖ Map stable codes such as SLOT_FULL, QUOTE_EXPIRED, HOLD_EXPIRED, PAYMENT_FAILED, PERMISSION_DENIED
+and RATE_LIMIT_EXCEEDED to dedicated recovery actions.
+∩é╖ Never report success until the backend confirms the mutation.
+Confidential - Development Specification | 29 June 2026
+Page 40
+
+======== PAGE 41 ========
+SHOTLIN DIGITAL PRODUCT STUDIO | LNDRY CUSTOMER APP
+Appendix E - Developer / Coding-Agent Execution Instruction
+Copy this section together with the repository, backend contract and UI asset folder.
+Execution directive
+Treat this document, the signed workflow, API contract, technical annexure and supplied UI reference assets as binding.
+Preserve approved visual design exactly. Implement in phases, run all gates after each phase and do not add unapproved
+marketplace features.
+You are completing the LNDRY Customer Flutter Application in repository adityaaaaaw/lndry.
+Rules:
+1. Work only on the customer application. Do not add vendor, vendor-employee/rider or admin dashboards.
+2. The signed LNDRY Phase 1 workflow controls functionality. The approved UI/UX images and assets control visual output.
+3. Preserve and reuse the existing Flutter UI components where they match the references; replace mock repositories, hard-coded data and incompatible
+models underneath them.
+4. Implement backend mobile OTP, exact Google Maps address, eligible vendor discovery, garment piece/pair/kg quotation, 60-minute capacity-safe slots,
+Razorpay, Waiting for Vendor Confirmation, complete order timeline, pickup/delivery OTP, notifications, history and reviews.
+5. Money is integer paise from the server. The Flutter app is never the source of truth for price, fees, tax, capacity, payment or order status.
+6. Remove social login, fixed OTP, coupons, express surcharges, combos, fake map view, favorites/share simulations, cash/platform wallet and other
+unapproved extras.
+7. No continuous live rider map. Vendor-owned employees are visible only as order-assignment context where returned.
+8. Use the local backend during development. Do not perform EC2/VPS/server deployment work.
+9. Do not silently invent missing UI states or API behavior. Send the project owner a message/call request containing the screen, route, code path,
+screenshot and exact decision needed.
+10. Before every merge run format, analyze, code generation, tests, golden comparison and local debug build.
+11. Complete one bounded phase at a time and preserve rollback points.
+12. Do not declare completion until the Definition of Done and all mandatory E2E scenarios in this specification pass.
+Required first response from developer/agent
+∩é╖ Confirm the baseline commit and create a working branch.
+∩é╖ Report the actual flutter --version, pub get, codegen, analyze, test and debug-build results.
+∩é╖ List missing UI reference files/assets/config keys without inventing replacements.
+∩é╖ Provide a phase-by-phase implementation plan referencing this specification.
+∩é╖ Start with Phase 0 and Phase 1; do not begin payment before canonical models/network/session are accepted.
+Confidential - Development Specification | 29 June 2026
+Page 41
+
+======== PAGE 42 ========
+SHOTLIN DIGITAL PRODUCT STUDIO | LNDRY CUSTOMER APP
+Final Assessment
+Decision for the project owner and development team.
+Current status
+The repository is a visually substantial Flutter prototype with a reusable architecture, but it remains primarily mock-driven. The
+customer MVP is assessed at 37% requirement-compliant completion. The remaining 63% is mainly real backend integration,
+canonical LNDRY domain modelling, Google Maps, capacity-safe quotation/slots, Razorpay, complete order states/OTPs,
+notifications/reviews and verification.
+The development team should not discard the existing UI indiscriminately. The correct strategy is to freeze the approved visual
+output, replace the mock and retail-style behavior in controlled phases, and prove each feature through API contract tests, golden
+screenshots and end-to-end scenarios.
+No production deployment, server or EC2 work is required by this specification. Completion means a locally integrated, testable
+customer application that follows the approved workflow and matches the supplied UI/UX assets same-to-same.
+Confidential - Development Specification | 29 June 2026
+Page 42

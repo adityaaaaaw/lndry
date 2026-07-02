@@ -1,5 +1,6 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gap/gap.dart';
@@ -28,53 +29,138 @@ class _VendorDetailsPageState extends ConsumerState<VendorDetailsPage>
   bool _isLoading = true;
   VendorModel? _vendor;
   late TabController _tabController;
-  
-  // Delivery speed toggle: 0 = Standard, 1 = Express
-  int _deliverySpeedIdx = 0;
-  String _pickupSlotLabel = 'Today, 5:30–6:00 PM';
-  String _deliveryEstimate = 'Tomorrow, 7:00 PM';
 
-  static const _pickupSlotOptions = [
-    'Today, 5:30–6:00 PM',
-    'Today, 6:00–7:00 PM',
-    'Tomorrow, 10:00–11:00 AM',
-    'Tomorrow, 5:30–6:00 PM',
-  ];
+  // Pickup slot state
+  bool _slotsLoading = false;
+  List<PickupSlot> _availableSlots = [];
+  PickupSlot? _selectedSlot;
+  String? _currentHoldId;
+  String _selectedDate = '';
+
+  Future<void> _loadPickupSlots() async {
+    final repo = ref.read(customerRepositoryProvider);
+    final today = DateTime.now();
+    final dateStr =
+        '${today.year}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')}';
+
+    setState(() {
+      _slotsLoading = true;
+      _selectedDate = dateStr;
+    });
+
+    try {
+      final slots = await repo.getPickupSlots(
+        vendorId: widget.vendorId,
+        date: dateStr,
+      );
+      if (mounted) {
+        PickupSlot? firstSlot;
+        setState(() {
+          _availableSlots = slots;
+          if (_selectedSlot == null && slots.isNotEmpty) {
+            _selectedSlot = slots.first;
+            firstSlot = slots.first;
+          }
+          _slotsLoading = false;
+        });
+        // Hold outside setState to properly handle async
+        if (firstSlot != null) {
+          _holdSlot(firstSlot!);
+        }
+      }
+    } catch (_) {
+      if (mounted) setState(() => _slotsLoading = false);
+    }
+  }
+
+  Future<void> _holdSlot(PickupSlot slot) async {
+    // Release previous hold if any
+    if (_currentHoldId != null) {
+      try {
+        await ref
+            .read(customerRepositoryProvider)
+            .releaseSlotHold(_currentHoldId!);
+      } catch (_) {}
+    }
+
+    try {
+      final result = await ref.read(customerRepositoryProvider).holdSlot(
+            vendorId: widget.vendorId,
+            slotId: slot.id,
+            date: _selectedDate,
+          );
+      if (mounted) {
+        setState(() {
+          _currentHoldId = result.holdId;
+        });
+      }
+    } catch (_) {
+      // Hold failed — slot may no longer be available
+      if (mounted) {
+        AppSnackBar.showError(context,
+            'This slot is no longer available. Please select another.');
+      }
+    }
+  }
 
   void _showPickupSlotSheet() {
     AppBottomSheet.show(
       context: context,
       title: 'Select pickup slot',
-      child: ListView.separated(
-        shrinkWrap: true,
-        itemCount: _pickupSlotOptions.length,
-        separatorBuilder: (_, __) => const Gap(8),
-        itemBuilder: (context, idx) {
-          final slot = _pickupSlotOptions[idx];
-          final isSelected = slot == _pickupSlotLabel;
-          return AppCard.outlined(
-            borderColor: isSelected ? AppColors.primary : AppColors.outline,
-            backgroundColor: isSelected ? AppColors.primaryContainer : AppColors.transparent,
-            onTap: () {
-              setState(() {
-                _pickupSlotLabel = slot;
-                _deliveryEstimate = slot.startsWith('Today')
-                    ? 'Tomorrow, 7:00 PM'
-                    : 'Day after, 7:00 PM';
-              });
-              Navigator.of(context).pop();
-            },
-            child: Row(
-              children: [
-                Expanded(child: Text(slot, style: AppTypography.bodyMedium)),
-                if (isSelected)
-                  Icon(AppIcons.success, color: AppColors.primary, size: 18.r),
-              ],
+      child: _slotsLoading
+          ? const Center(
+              child: Padding(
+                padding: EdgeInsets.all(24.0),
+                child: CircularProgressIndicator(),
+              ),
+            )
+          : ListView.separated(
+              shrinkWrap: true,
+              itemCount: _availableSlots.length,
+              separatorBuilder: (_, __) => const Gap(8),
+              itemBuilder: (context, idx) {
+                final slot = _availableSlots[idx];
+                final isSelected = _selectedSlot?.id == slot.id;
+                final label = _slotLabel(slot);
+
+                return AppCard.outlined(
+                  borderColor:
+                      isSelected ? AppColors.primary : AppColors.outline,
+                  backgroundColor: isSelected
+                      ? AppColors.primaryContainer
+                      : AppColors.transparent,
+                  onTap: () {
+                    setState(() => _selectedSlot = slot);
+                    _holdSlot(slot);
+                    Navigator.of(context).pop();
+                  },
+                  child: Row(
+                    children: [
+                      Expanded(
+                          child: Text(label, style: AppTypography.bodyMedium)),
+                      if (isSelected)
+                        Icon(AppIcons.success,
+                            color: AppColors.primary, size: 18.r),
+                    ],
+                  ),
+                );
+              },
             ),
-          );
-        },
-      ),
     );
+  }
+
+  String _slotLabel(PickupSlot slot) {
+    final part = slot.label != null ? '${slot.label} • ' : '';
+    return '$part${slot.startTime}–${slot.endTime}';
+  }
+
+  String _deliveryEstimate() {
+    // Rough estimate: if slot starts before 12 PM, delivery next day evening;
+    // otherwise day after.
+    if (_selectedSlot == null) return 'Tomorrow, 7:00 PM';
+    final startHour =
+        int.tryParse((_selectedSlot!.startTime.split(':').first)) ?? 9;
+    return startHour < 12 ? 'Tomorrow, 7:00 PM' : 'Day after, 7:00 PM';
   }
 
   @override
@@ -87,6 +173,10 @@ class _VendorDetailsPageState extends ConsumerState<VendorDetailsPage>
 
   @override
   void dispose() {
+    // Release any held slot
+    if (_currentHoldId != null) {
+      ref.read(customerRepositoryProvider).releaseSlotHold(_currentHoldId!);
+    }
     _tabController.dispose();
     super.dispose();
   }
@@ -103,6 +193,8 @@ class _VendorDetailsPageState extends ConsumerState<VendorDetailsPage>
           _vendor = v;
           _isLoading = false;
         });
+        // Load pickup slots in background
+        _loadPickupSlots();
       }
     } catch (_) {
       if (mounted) setState(() => _isLoading = false);
@@ -133,8 +225,6 @@ class _VendorDetailsPageState extends ConsumerState<VendorDetailsPage>
     }
 
     final cartState = ref.watch(vendorCartProvider);
-    final expressSurcharge = _deliverySpeedIdx == 1 ? 49.0 : 0.0;
-    final stickySubtotal = cartState.subtotal + expressSurcharge;
 
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.surface,
@@ -160,7 +250,8 @@ class _VendorDetailsPageState extends ConsumerState<VendorDetailsPage>
                       child: IconButton(
                         padding: EdgeInsets.zero,
                         constraints: const BoxConstraints(),
-                        icon: Icon(AppIcons.back, color: const Color(0xFF090F14), size: 16.r),
+                        icon: Icon(AppIcons.back,
+                            color: const Color(0xFF090F14), size: 16.r),
                         onPressed: () {
                           if (Navigator.of(context).canPop()) {
                             Navigator.of(context).pop();
@@ -185,9 +276,16 @@ class _VendorDetailsPageState extends ConsumerState<VendorDetailsPage>
                       child: IconButton(
                         padding: EdgeInsets.zero,
                         constraints: const BoxConstraints(),
-                        icon: Icon(AppIcons.share, color: const Color(0xFF090F14), size: 16.r),
-                        onPressed: () {
-                          AppSnackBar.showSuccess(context, 'Vendor link copied to clipboard!');
+                        icon: Icon(AppIcons.share,
+                            color: const Color(0xFF090F14), size: 16.r),
+                        onPressed: () async {
+                          await Clipboard.setData(ClipboardData(
+                            text:
+                                'Check out ${_vendor!.name} on LNDRY! lndry.app/vendor/${_vendor!.id}',
+                          ));
+                          if (!context.mounted) return;
+                          AppSnackBar.showSuccess(
+                              context, 'Vendor link copied to clipboard!');
                         },
                       ),
                     ),
@@ -205,9 +303,11 @@ class _VendorDetailsPageState extends ConsumerState<VendorDetailsPage>
                       child: IconButton(
                         padding: EdgeInsets.zero,
                         constraints: const BoxConstraints(),
-                        icon: Icon(AppIcons.favoriteOutlined, color: const Color(0xFF090F14), size: 16.r),
+                        icon: Icon(AppIcons.favoriteOutlined,
+                            color: const Color(0xFF090F14), size: 16.r),
                         onPressed: () {
-                          AppSnackBar.showSuccess(context, 'Added to your favorites!');
+                          AppSnackBar.showSuccess(
+                              context, 'Added to your favorites!');
                         },
                       ),
                     ),
@@ -252,7 +352,10 @@ class _VendorDetailsPageState extends ConsumerState<VendorDetailsPage>
                           color: Theme.of(context).colorScheme.surface,
                           borderRadius: BorderRadius.circular(16.r),
                           border: Border.all(
-                            color: Theme.of(context).colorScheme.outlineVariant.withOpacity(0.5),
+                            color: Theme.of(context)
+                                .colorScheme
+                                .outlineVariant
+                                .withOpacity(0.5),
                           ),
                           boxShadow: [
                             BoxShadow(
@@ -263,7 +366,8 @@ class _VendorDetailsPageState extends ConsumerState<VendorDetailsPage>
                           ],
                         ),
                         child: Padding(
-                          padding: EdgeInsets.only(left: 16.w, right: 16.w, top: 48.h, bottom: 16.h),
+                          padding: EdgeInsets.only(
+                              left: 16.w, right: 16.w, top: 48.h, bottom: 16.h),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
@@ -272,9 +376,14 @@ class _VendorDetailsPageState extends ConsumerState<VendorDetailsPage>
                                   Expanded(
                                     child: Text(
                                       _vendor!.name,
-                                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .titleLarge
+                                          ?.copyWith(
                                             fontWeight: FontWeight.bold,
-                                            color: Theme.of(context).colorScheme.onSurface,
+                                            color: Theme.of(context)
+                                                .colorScheme
+                                                .onSurface,
                                             fontSize: 18.sp,
                                           ),
                                       maxLines: 1,
@@ -284,15 +393,20 @@ class _VendorDetailsPageState extends ConsumerState<VendorDetailsPage>
                                   const Gap(8),
                                   if (_vendor!.isVerified)
                                     Container(
-                                      padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
+                                      padding: EdgeInsets.symmetric(
+                                          horizontal: 8.w, vertical: 4.h),
                                       decoration: BoxDecoration(
-                                        color: AppColors.successContainer.withOpacity(0.2),
-                                        borderRadius: BorderRadius.circular(12.r),
+                                        color: AppColors.successContainer
+                                            .withOpacity(0.2),
+                                        borderRadius:
+                                            BorderRadius.circular(12.r),
                                       ),
                                       child: Row(
                                         mainAxisSize: MainAxisSize.min,
                                         children: [
-                                          Icon(AppIcons.done, color: AppColors.success, size: 10.r),
+                                          Icon(AppIcons.done,
+                                              color: AppColors.success,
+                                              size: 10.r),
                                           const Gap(4),
                                           Text(
                                             'Verified',
@@ -310,22 +424,27 @@ class _VendorDetailsPageState extends ConsumerState<VendorDetailsPage>
                               const Gap(8),
                               Row(
                                 children: [
-                                  Icon(AppIcons.star, color: Colors.amber, size: 14.r),
+                                  Icon(AppIcons.star,
+                                      color: Colors.amber, size: 14.r),
                                   const Gap(4),
                                   Text(
                                     '${_vendor!.averageRating ?? 4.8}',
                                     style: TextStyle(
                                       fontSize: 12.sp,
                                       fontWeight: FontWeight.bold,
-                                      color: Theme.of(context).colorScheme.onSurface,
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .onSurface,
                                     ),
                                   ),
                                   const Gap(4),
                                   Text(
-                                    '(${_vendor!.reviewCount} reviews)  •  0.8 km away',
+                                    '(${_vendor!.reviewCount} reviews)  •  ${_vendor!.distanceKm != null ? '${_vendor!.distanceKm!.toStringAsFixed(1)} km away' : 'Nearby'}',
                                     style: TextStyle(
                                       fontSize: 11.sp,
-                                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .onSurfaceVariant,
                                     ),
                                   ),
                                 ],
@@ -333,7 +452,8 @@ class _VendorDetailsPageState extends ConsumerState<VendorDetailsPage>
                               const Gap(8),
                               Row(
                                 children: [
-                                  Icon(AppIcons.delivery, color: AppColors.success, size: 16.r),
+                                  Icon(AppIcons.delivery,
+                                      color: AppColors.success, size: 16.r),
                                   const Gap(6),
                                   Text(
                                     'Pickup available in 30 min',
@@ -377,7 +497,8 @@ class _VendorDetailsPageState extends ConsumerState<VendorDetailsPage>
                                 ? CachedNetworkImage(
                                     imageUrl: _vendor!.logoUrl!,
                                     fit: BoxFit.cover,
-                                    errorWidget: (context, url, error) => Center(
+                                    errorWidget: (context, url, error) =>
+                                        Center(
                                       child: Icon(
                                         AppIcons.laundry,
                                         color: const Color(0xFFFBD38D), // gold
@@ -407,11 +528,14 @@ class _VendorDetailsPageState extends ConsumerState<VendorDetailsPage>
                   child: TabBar(
                     controller: _tabController,
                     labelColor: Theme.of(context).colorScheme.primary,
-                    unselectedLabelColor: Theme.of(context).colorScheme.onSurfaceVariant,
+                    unselectedLabelColor:
+                        Theme.of(context).colorScheme.onSurfaceVariant,
                     indicatorColor: Theme.of(context).colorScheme.primary,
                     indicatorSize: TabBarIndicatorSize.label,
                     indicator: UnderlineTabIndicator(
-                      borderSide: BorderSide(color: Theme.of(context).colorScheme.primary, width: 3.h),
+                      borderSide: BorderSide(
+                          color: Theme.of(context).colorScheme.primary,
+                          width: 3.h),
                       insets: EdgeInsets.symmetric(horizontal: 16.w),
                     ),
                     labelStyle: AppTypography.titleSmall.copyWith(
@@ -486,12 +610,14 @@ class _VendorDetailsPageState extends ConsumerState<VendorDetailsPage>
                         children: [
                           Text(
                             'About ${_vendor!.name}',
-                            style: AppTypography.titleMedium.copyWith(fontWeight: FontWeight.bold),
+                            style: AppTypography.titleMedium
+                                .copyWith(fontWeight: FontWeight.bold),
                           ),
                           const Gap(8),
                           Text(
                             _vendor!.description,
-                            style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary),
+                            style: AppTypography.bodyMedium
+                                .copyWith(color: AppColors.textSecondary),
                           ),
                         ],
                       ),
@@ -501,417 +627,354 @@ class _VendorDetailsPageState extends ConsumerState<VendorDetailsPage>
               if (_tabController.index == 2)
                 const SliverToBoxAdapter(child: Gap(16)),
 
-              // ── 5. Standard/Express selector cards ─────────────────────────
-              if (_tabController.index == 0)
-                SliverToBoxAdapter(
-                child: Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 20.w),
-                  child: Row(
-                    children: [
-                      // Standard Card
-                      Expanded(
-                        child: GestureDetector(
-                          onTap: () => setState(() => _deliverySpeedIdx = 0),
-                          child: AnimatedContainer(
-                            duration: const Duration(milliseconds: 200),
-                            padding: EdgeInsets.symmetric(vertical: 12.h, horizontal: 16.w),
-                            decoration: BoxDecoration(
-                              color: _deliverySpeedIdx == 0
-                                  ? Theme.of(context).colorScheme.primaryContainer.withOpacity(0.4)
-                                  : Theme.of(context).colorScheme.surface,
-                              borderRadius: BorderRadius.circular(12.r),
-                              border: Border.all(
-                                color: _deliverySpeedIdx == 0 ? Theme.of(context).colorScheme.primary : Theme.of(context).colorScheme.outlineVariant,
-                                width: _deliverySpeedIdx == 0 ? 1.5 : 1,
-                              ),
-                              boxShadow: _deliverySpeedIdx == 0
-                                  ? [
-                                      BoxShadow(
-                                        color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
-                                        blurRadius: 8.r,
-                                        offset: const Offset(0, 4),
-                                      )
-                                    ]
-                                  : [],
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.center,
-                              children: [
-                                Text(
-                                  'Standard',
-                                  style: AppTypography.labelLarge.copyWith(
-                                    fontWeight: FontWeight.bold,
-                                    color: _deliverySpeedIdx == 0 ? Theme.of(context).colorScheme.primary : Theme.of(context).colorScheme.onSurface,
-                                  ),
-                                ),
-                                const Gap(4),
-                                Text(
-                                  '48-hour delivery',
-                                  style: AppTypography.caption.copyWith(
-                                    fontSize: 10.sp,
-                                    color: _deliverySpeedIdx == 0 ? Theme.of(context).colorScheme.primary : Theme.of(context).colorScheme.onSurfaceVariant,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                      const Gap(16),
-                      // Express Card
-                      Expanded(
-                        child: GestureDetector(
-                          onTap: () => setState(() => _deliverySpeedIdx = 1),
-                          child: AnimatedContainer(
-                            duration: const Duration(milliseconds: 200),
-                            padding: EdgeInsets.symmetric(vertical: 12.h, horizontal: 16.w),
-                            decoration: BoxDecoration(
-                              color: _deliverySpeedIdx == 1
-                                  ? Theme.of(context).colorScheme.primaryContainer.withOpacity(0.4)
-                                  : Theme.of(context).colorScheme.surface,
-                              borderRadius: BorderRadius.circular(12.r),
-                              border: Border.all(
-                                color: _deliverySpeedIdx == 1 ? Theme.of(context).colorScheme.primary : Theme.of(context).colorScheme.outlineVariant,
-                                width: _deliverySpeedIdx == 1 ? 1.5 : 1,
-                              ),
-                              boxShadow: _deliverySpeedIdx == 1
-                                  ? [
-                                      BoxShadow(
-                                        color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
-                                        blurRadius: 8.r,
-                                        offset: const Offset(0, 4),
-                                      )
-                                    ]
-                                  : [],
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.center,
-                              children: [
-                                Text(
-                                  'Express',
-                                  style: AppTypography.labelLarge.copyWith(
-                                    fontWeight: FontWeight.bold,
-                                    color: _deliverySpeedIdx == 1 ? Theme.of(context).colorScheme.primary : Theme.of(context).colorScheme.onSurface,
-                                  ),
-                                ),
-                                const Gap(4),
-                                Text(
-                                  '+₹49 surcharge',
-                                  style: AppTypography.caption.copyWith(
-                                    fontSize: 10.sp,
-                                    color: _deliverySpeedIdx == 1 ? Theme.of(context).colorScheme.primary : Theme.of(context).colorScheme.onSurfaceVariant,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SliverToBoxAdapter(child: Gap(16)),
-
               // ── 6. Service menu items list ─────────────────────────────────
               if (_tabController.index == 0)
                 SliverPadding(
-                padding: EdgeInsets.symmetric(horizontal: 20.w),
-                sliver: SliverList(
-                  delegate: SliverChildBuilderDelegate(
-                    (context, idx) {
-                      final svc = cartState.services[idx];
-                      final item = cartState.items.firstWhere(
-                        (i) => i.serviceId == svc.id,
-                        orElse: () => const CartItem(id: '', serviceId: '', quantity: 0),
-                      );
+                  padding: EdgeInsets.symmetric(horizontal: 20.w),
+                  sliver: SliverList(
+                    delegate: SliverChildBuilderDelegate(
+                      (context, idx) {
+                        final svc = cartState.services[idx];
+                        final item = cartState.items.firstWhere(
+                          (i) => i.serviceId == svc.id,
+                          orElse: () => const CartItem(
+                              id: '', serviceId: '', quantity: 0),
+                        );
 
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 12),
-                        child: ServiceCard(
-                          service: svc,
-                          quantity: item.quantity,
-                          onAdd: () => ref.read(vendorCartProvider.notifier).updateQuantity(svc.id, 1),
-                          onRemove: () => ref.read(vendorCartProvider.notifier).updateQuantity(svc.id, -1),
-                        ),
-                      );
-                    },
-                    childCount: cartState.services.length,
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: ServiceCard(
+                            service: svc,
+                            quantity: item.quantity,
+                            onAdd: () => ref
+                                .read(vendorCartProvider.notifier)
+                                .updateQuantity(svc.id, 1),
+                            onRemove: () => ref
+                                .read(vendorCartProvider.notifier)
+                                .updateQuantity(svc.id, -1),
+                          ),
+                        );
+                      },
+                      childCount: cartState.services.length,
+                    ),
                   ),
                 ),
-              ),
 
               // ── 7. Weekly Essentials popular combo banner ─────────────────
               if (_tabController.index == 0)
                 SliverToBoxAdapter(
-                child: Padding(
-                  padding: EdgeInsets.all(20.r),
-                  child: Container(
-                    padding: EdgeInsets.all(16.r),
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: isDark
-                            ? [const Color(0xFF1E1B4B), const Color(0xFF311042)]
-                            : [const Color(0xFFF0EDFF), const Color(0xFFF9EBFF)],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
+                  child: Padding(
+                    padding: EdgeInsets.all(20.r),
+                    child: Container(
+                      padding: EdgeInsets.all(16.r),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: isDark
+                              ? [
+                                  const Color(0xFF1E1B4B),
+                                  const Color(0xFF311042)
+                                ]
+                              : [
+                                  const Color(0xFFF0EDFF),
+                                  const Color(0xFFF9EBFF)
+                                ],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(16.r),
+                        border: Border.all(
+                          color: Theme.of(context)
+                              .colorScheme
+                              .primary
+                              .withOpacity(0.2),
+                        ),
                       ),
-                      borderRadius: BorderRadius.circular(16.r),
-                      border: Border.all(
-                        color: Theme.of(context).colorScheme.primary.withOpacity(0.2),
-                      ),
-                    ),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Left details column
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Left details column
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Container(
+                                  padding: EdgeInsets.symmetric(
+                                      horizontal: 8.w, vertical: 4.h),
+                                  decoration: BoxDecoration(
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .primary
+                                        .withOpacity(0.1),
+                                    borderRadius: BorderRadius.circular(4.r),
+                                  ),
+                                  child: Text(
+                                    'POPULAR COMBO',
+                                    style: AppTypography.badge.copyWith(
+                                      color:
+                                          Theme.of(context).colorScheme.primary,
+                                      fontSize: 9.sp,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                                const Gap(8),
+                                Text(
+                                  'Weekly Essentials',
+                                  style: AppTypography.titleMedium.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                    color:
+                                        Theme.of(context).colorScheme.onSurface,
+                                  ),
+                                ),
+                                const Gap(2),
+                                Text(
+                                  '5 kg Wash & Fold + 5 Steam Press items',
+                                  style: AppTypography.bodySmall.copyWith(
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .onSurfaceVariant,
+                                    fontSize: 11.sp,
+                                  ),
+                                ),
+                                const Gap(12),
+                                Row(
+                                  children: [
+                                    Text(
+                                      '₹649',
+                                      style: AppTypography.titleLarge.copyWith(
+                                        fontWeight: FontWeight.bold,
+                                        color: Theme.of(context)
+                                            .colorScheme
+                                            .onSurface,
+                                      ),
+                                    ),
+                                    const Gap(8),
+                                    Container(
+                                      padding: EdgeInsets.symmetric(
+                                          horizontal: 8.w, vertical: 4.h),
+                                      decoration: BoxDecoration(
+                                        color: AppColors.secondaryContainer,
+                                        borderRadius:
+                                            BorderRadius.circular(4.r),
+                                      ),
+                                      child: Text(
+                                        'Save ₹120',
+                                        style: AppTypography.badge.copyWith(
+                                          color: AppColors.secondaryDark,
+                                          fontSize: 9.sp,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                          const Gap(16),
+                          // Right column with product image and overlapping Add button
+                          Stack(
+                            clipBehavior: Clip.none,
+                            alignment: Alignment.bottomCenter,
                             children: [
                               Container(
-                                padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
+                                width: 80.w,
+                                height: 80.h,
                                 decoration: BoxDecoration(
-                                  color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
-                                  borderRadius: BorderRadius.circular(4.r),
-                                ),
-                                child: Text(
-                                  'POPULAR COMBO',
-                                  style: AppTypography.badge.copyWith(
-                                    color: Theme.of(context).colorScheme.primary,
-                                    fontSize: 9.sp,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ),
-                              const Gap(8),
-                              Text(
-                                'Weekly Essentials',
-                                style: AppTypography.titleMedium.copyWith(
-                                  fontWeight: FontWeight.bold,
-                                  color: Theme.of(context).colorScheme.onSurface,
-                                ),
-                              ),
-                              const Gap(2),
-                              Text(
-                                '5 kg Wash & Fold + 5 Steam Press items',
-                                style: AppTypography.bodySmall.copyWith(
-                                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                                  fontSize: 11.sp,
-                                ),
-                              ),
-                              const Gap(12),
-                              Row(
-                                children: [
-                                  Text(
-                                    '₹649',
-                                    style: AppTypography.titleLarge.copyWith(
-                                      fontWeight: FontWeight.bold,
-                                      color: Theme.of(context).colorScheme.onSurface,
+                                  borderRadius: BorderRadius.circular(12.r),
+                                  image: const DecorationImage(
+                                    image: CachedNetworkImageProvider(
+                                      'https://images.unsplash.com/photo-1545180856-f6d2e61df3fa?fit=crop&w=120&q=80',
                                     ),
+                                    fit: BoxFit.cover,
                                   ),
-                                  const Gap(8),
-                                  Container(
-                                    padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
-                                    decoration: BoxDecoration(
-                                      color: AppColors.secondaryContainer,
-                                      borderRadius: BorderRadius.circular(4.r),
+                                ),
+                              ),
+                              Positioned(
+                                bottom: -12.h,
+                                child: Container(
+                                  height: 28.h,
+                                  width: 64.w,
+                                  child: ElevatedButton(
+                                    onPressed: () {
+                                      for (final svc
+                                          in cartState.services.take(2)) {
+                                        ref
+                                            .read(vendorCartProvider.notifier)
+                                            .updateQuantity(svc.id, 1);
+                                      }
+                                      AppSnackBar.showSuccess(context,
+                                          'Weekly Essentials added to cart.');
+                                    },
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor:
+                                          Theme.of(context).colorScheme.primary,
+                                      foregroundColor: Theme.of(context)
+                                          .colorScheme
+                                          .onPrimary,
+                                      padding: EdgeInsets.zero,
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius:
+                                            BorderRadius.circular(8.r),
+                                      ),
+                                      elevation: 2,
                                     ),
                                     child: Text(
-                                      'Save ₹120',
-                                      style: AppTypography.badge.copyWith(
-                                        color: AppColors.secondaryDark,
-                                        fontSize: 9.sp,
+                                      'Add',
+                                      style: TextStyle(
+                                        fontSize: 11.sp,
                                         fontWeight: FontWeight.bold,
                                       ),
                                     ),
                                   ),
-                                ],
+                                ),
                               ),
                             ],
                           ),
-                        ),
-                        const Gap(16),
-                        // Right column with product image and overlapping Add button
-                        Stack(
-                          clipBehavior: Clip.none,
-                          alignment: Alignment.bottomCenter,
-                          children: [
-                            Container(
-                              width: 80.w,
-                              height: 80.h,
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(12.r),
-                                image: const DecorationImage(
-                                  image: CachedNetworkImageProvider(
-                                    'https://images.unsplash.com/photo-1545180856-f6d2e61df3fa?fit=crop&w=120&q=80',
-                                  ),
-                                  fit: BoxFit.cover,
-                                ),
-                              ),
-                            ),
-                            Positioned(
-                              bottom: -12.h,
-                              child: Container(
-                                height: 28.h,
-                                width: 64.w,
-                                child: ElevatedButton(
-                                  onPressed: () {
-                                    for (final svc in cartState.services.take(2)) {
-                                      ref.read(vendorCartProvider.notifier).updateQuantity(svc.id, 1);
-                                    }
-                                    AppSnackBar.showSuccess(context, 'Weekly Essentials added to cart.');
-                                  },
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: Theme.of(context).colorScheme.primary,
-                                    foregroundColor: Theme.of(context).colorScheme.onPrimary,
-                                    padding: EdgeInsets.zero,
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(8.r),
-                                    ),
-                                    elevation: 2,
-                                  ),
-                                  child: Text(
-                                    'Add',
-                                    style: TextStyle(
-                                      fontSize: 11.sp,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
                 ),
-              ),
 
               // ── 8. Pickup Slot Estimate summary card ───────────────────────
               if (_tabController.index == 0)
                 SliverToBoxAdapter(
-                child: Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 20.w),
-                  child: Container(
-                    padding: EdgeInsets.all(16.r),
-                    decoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.surface,
-                      borderRadius: BorderRadius.circular(12.r),
-                      border: Border.all(
-                        color: Theme.of(context).colorScheme.outlineVariant.withOpacity(0.5),
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 20.w),
+                    child: Container(
+                      padding: EdgeInsets.all(16.r),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.surface,
+                        borderRadius: BorderRadius.circular(12.r),
+                        border: Border.all(
+                          color: Theme.of(context)
+                              .colorScheme
+                              .outlineVariant
+                              .withOpacity(0.5),
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppColors.shadowColor.withOpacity(0.04),
+                            blurRadius: 6.r,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
                       ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppColors.shadowColor.withOpacity(0.04),
-                          blurRadius: 6.r,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    child: Row(
-                      children: [
-                        Container(
-                          padding: EdgeInsets.all(10.r),
-                          decoration: BoxDecoration(
-                            color: Theme.of(context).colorScheme.primaryContainer,
-                            shape: BoxShape.circle,
-                          ),
-                          child: Icon(
-                            AppIcons.calendar,
-                            color: Theme.of(context).colorScheme.primary,
-                            size: 20.r,
-                          ),
-                        ),
-                        const Gap(16),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Next pickup slot',
-                                style: TextStyle(
-                                  fontSize: 10.sp,
-                                  fontWeight: FontWeight.w600,
-                                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                                ),
-                              ),
-                              const Gap(2),
-                              Text(
-                                _pickupSlotLabel,
-                                style: TextStyle(
-                                  fontSize: 13.sp,
-                                  fontWeight: FontWeight.bold,
-                                  color: Theme.of(context).colorScheme.onSurface,
-                                ),
-                              ),
-                              const Gap(2),
-                              Text(
-                                'Delivery estimate: $_deliveryEstimate',
-                                style: TextStyle(
-                                  fontSize: 10.sp,
-                                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const Gap(8),
-                        OutlinedButton(
-                          onPressed: _showPickupSlotSheet,
-                          style: OutlinedButton.styleFrom(
-                            side: BorderSide(color: Theme.of(context).colorScheme.primary, width: 1.2),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(20.r),
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: EdgeInsets.all(10.r),
+                            decoration: BoxDecoration(
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .primaryContainer,
+                              shape: BoxShape.circle,
                             ),
-                            padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 6.h),
-                            minimumSize: Size(64.w, 32.h),
-                          ),
-                          child: Text(
-                            'Change',
-                            style: TextStyle(
+                            child: Icon(
+                              AppIcons.calendar,
                               color: Theme.of(context).colorScheme.primary,
-                              fontSize: 11.sp,
-                              fontWeight: FontWeight.bold,
+                              size: 20.r,
                             ),
                           ),
-                        ),
-                      ],
+                          const Gap(16),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Next pickup slot',
+                                  style: TextStyle(
+                                    fontSize: 10.sp,
+                                    fontWeight: FontWeight.w600,
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .onSurfaceVariant,
+                                  ),
+                                ),
+                                const Gap(2),
+                                Text(
+                                  _selectedSlot != null
+                                      ? _slotLabel(_selectedSlot!)
+                                      : 'Select a slot',
+                                  style: TextStyle(
+                                    fontSize: 13.sp,
+                                    fontWeight: FontWeight.bold,
+                                    color:
+                                        Theme.of(context).colorScheme.onSurface,
+                                  ),
+                                ),
+                                const Gap(2),
+                                Text(
+                                  'Delivery estimate: ${_deliveryEstimate()}',
+                                  style: TextStyle(
+                                    fontSize: 10.sp,
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .onSurfaceVariant,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const Gap(8),
+                          OutlinedButton(
+                            onPressed: _showPickupSlotSheet,
+                            style: OutlinedButton.styleFrom(
+                              side: BorderSide(
+                                  color: Theme.of(context).colorScheme.primary,
+                                  width: 1.2),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(20.r),
+                              ),
+                              padding: EdgeInsets.symmetric(
+                                  horizontal: 16.w, vertical: 6.h),
+                              minimumSize: Size(64.w, 32.h),
+                            ),
+                            child: Text(
+                              'Change',
+                              style: TextStyle(
+                                color: Theme.of(context).colorScheme.primary,
+                                fontSize: 11.sp,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
-              ),
               const SliverToBoxAdapter(child: Gap(24)),
 
               // ── 9. "What customers say" Section ────────────────────────────
               if (_tabController.index == 1)
                 SliverToBoxAdapter(
-                child: Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 20.w),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        'What customers say',
-                        style: AppTypography.titleLarge.copyWith(
-                          fontWeight: FontWeight.bold,
-                          color: Theme.of(context).colorScheme.onSurface,
-                        ),
-                      ),
-                      TextButton(
-                        onPressed: () => _tabController.animateTo(1),
-                        child: Text(
-                          'View all',
-                          style: AppTypography.labelMedium.copyWith(
-                            color: Theme.of(context).colorScheme.primary,
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 20.w),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'What customers say',
+                          style: AppTypography.titleLarge.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: Theme.of(context).colorScheme.onSurface,
                           ),
                         ),
-                      ),
-                    ],
+                        TextButton(
+                          onPressed: () => _tabController.animateTo(1),
+                          child: Text(
+                            'View all',
+                            style: AppTypography.labelMedium.copyWith(
+                              color: Theme.of(context).colorScheme.primary,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-              ),
               if (_tabController.index == 1)
                 SliverToBoxAdapter(
                   child: SizedBox(
@@ -923,15 +986,19 @@ class _VendorDetailsPageState extends ConsumerState<VendorDetailsPage>
                         _ReviewCard(
                           author: 'Aarav S.',
                           rating: 5.0,
-                          comment: 'Excellent service! Clothes came back spotless and crisp.',
-                          avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?fit=crop&w=50&q=80',
+                          comment:
+                              'Excellent service! Clothes came back spotless and crisp.',
+                          avatarUrl:
+                              'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?fit=crop&w=50&q=80',
                         ),
                         const Gap(12),
                         _ReviewCard(
                           author: 'Neha R.',
                           rating: 4.7,
-                          comment: 'Very happy with the quality and on-time pickup.',
-                          avatarUrl: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?fit=crop&w=50&q=80',
+                          comment:
+                              'Very happy with the quality and on-time pickup.',
+                          avatarUrl:
+                              'https://images.unsplash.com/photo-1494790108377-be9c29b29330?fit=crop&w=50&q=80',
                         ),
                       ],
                     ),
@@ -955,7 +1022,10 @@ class _VendorDetailsPageState extends ConsumerState<VendorDetailsPage>
                   color: Theme.of(context).colorScheme.surface,
                   borderRadius: BorderRadius.circular(30.r),
                   border: Border.all(
-                    color: Theme.of(context).colorScheme.outlineVariant.withOpacity(0.5),
+                    color: Theme.of(context)
+                        .colorScheme
+                        .outlineVariant
+                        .withOpacity(0.5),
                   ),
                   boxShadow: [
                     BoxShadow(
@@ -974,7 +1044,8 @@ class _VendorDetailsPageState extends ConsumerState<VendorDetailsPage>
                         Container(
                           padding: EdgeInsets.all(10.r),
                           decoration: BoxDecoration(
-                            color: Theme.of(context).colorScheme.primaryContainer,
+                            color:
+                                Theme.of(context).colorScheme.primaryContainer,
                             shape: BoxShape.circle,
                           ),
                           child: Icon(
@@ -1011,7 +1082,9 @@ class _VendorDetailsPageState extends ConsumerState<VendorDetailsPage>
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Text(
-                            '${cartState.totalQuantity} items  •  ${stickySubtotal.toCurrency}',
+                            cartState.subtotal > 0
+                                ? '${cartState.totalQuantity} items  •  ${cartState.subtotal.toCurrency}'
+                                : '${cartState.totalQuantity} items',
                             style: TextStyle(
                               fontWeight: FontWeight.bold,
                               fontSize: 13.sp,
@@ -1022,7 +1095,9 @@ class _VendorDetailsPageState extends ConsumerState<VendorDetailsPage>
                             'Final price after item verification',
                             style: TextStyle(
                               fontSize: 9.sp,
-                              color: Theme.of(context).colorScheme.onSurfaceVariant,
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .onSurfaceVariant,
                             ),
                           ),
                         ],
@@ -1030,18 +1105,19 @@ class _VendorDetailsPageState extends ConsumerState<VendorDetailsPage>
                     ),
                     ElevatedButton(
                       onPressed: () async {
-                        await ref.read(cartStateProvider.notifier).init();
+                        await ref.read(cartStateProvider.notifier).refresh();
                         if (!context.mounted) return;
-                        final navShell = StatefulNavigationShell.of(context);
-                        navShell.goBranch(2);
+                        context.push(AppRoutes.checkout);
                       },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Theme.of(context).colorScheme.primary,
-                        foregroundColor: Theme.of(context).colorScheme.onPrimary,
+                        foregroundColor:
+                            Theme.of(context).colorScheme.onPrimary,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(20.r),
                         ),
-                        padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 12.h),
+                        padding: EdgeInsets.symmetric(
+                            horizontal: 24.w, vertical: 12.h),
                         minimumSize: Size(0, 40.h),
                       ),
                       child: Text(
@@ -1087,7 +1163,10 @@ class _QualityItem extends StatelessWidget {
             width: 44.r,
             height: 44.r,
             decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.primaryContainer.withOpacity(0.4),
+              color: Theme.of(context)
+                  .colorScheme
+                  .primaryContainer
+                  .withOpacity(0.4),
               shape: BoxShape.circle,
             ),
             child: Center(

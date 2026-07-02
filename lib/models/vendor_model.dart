@@ -26,6 +26,8 @@ class VendorModel with _$VendorModel {
     @Default(10.0) double deliveryRadiusKm,
     @Default(24) int estimatedTurnaroundHours,
     @Default([]) List<String> tags,
+    /// Distance from user's default address (km). Populated by discovery API.
+    double? distanceKm,
     DateTime? createdAt,
   }) = _VendorModel;
 

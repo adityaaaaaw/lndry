@@ -2,12 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gap/gap.dart';
-import 'package:go_router/go_router.dart';
 import '../../../../core/design/design_system.dart';
 import '../../../../core/widgets/app_button.dart';
 import '../../../../core/widgets/app_otp_input.dart';
 import '../../../../core/widgets/app_loading.dart';
 import '../../../../core/widgets/app_snackbar.dart';
+import '../../../../core/constants/app_constants.dart';
 import '../../../../core/router/app_routes.dart';
 import '../../../../providers/auth_provider.dart';
 
@@ -22,8 +22,13 @@ class _OtpPageState extends ConsumerState<OtpPage> {
   String _otpCode = '';
   bool _isLoading = false;
   String? _errorText;
-  late int _timerSeconds;
+  int _timerSeconds = 0;
   bool _canResend = false;
+
+  // Cached values from the OtpSent state so we can restore after an error.
+  String _cachedPhone = '';
+  String _cachedChallengeId = '';
+  String? _cachedDevOtp;
 
   @override
   void initState() {
@@ -33,29 +38,26 @@ class _OtpPageState extends ConsumerState<OtpPage> {
 
   void _startResendTimer() {
     setState(() {
-      _timerSeconds = AppDurations.otpResend.inSeconds;
+      _timerSeconds = 30;
       _canResend = false;
     });
     _tick();
   }
 
   void _tick() async {
-    while (_timerSeconds > 0 && mounted && !_canResend) {
+    while (mounted && _timerSeconds > 0) {
       await Future.delayed(const Duration(seconds: 1));
-      if (mounted) {
-        setState(() {
-          _timerSeconds--;
-          if (_timerSeconds == 0) {
-            _canResend = true;
-          }
-        });
-      }
+      if (!mounted) return;
+      setState(() {
+        _timerSeconds--;
+        if (_timerSeconds == 0) _canResend = true;
+      });
     }
   }
 
-  void _onVerify() async {
-    if (_otpCode.length != 4) {
-      setState(() => _errorText = 'Please enter the 4-digit code');
+  Future<void> _onVerify() async {
+    if (_otpCode.length < 4) {
+      setState(() => _errorText = 'Please enter the complete verification code');
       return;
     }
 
@@ -64,60 +66,60 @@ class _OtpPageState extends ConsumerState<OtpPage> {
       _errorText = null;
     });
 
-    try {
-      await ref.read(authProvider.notifier).verifyOtp(_otpCode);
-      final authState = ref.read(authProvider);
+    await ref.read(authProvider.notifier).verifyOtp(_otpCode);
 
-      if (mounted) {
-        if (authState is AuthNeedsProfileSetup) {
-          context.go(AppRoutes.profileSetup);
-        } else if (authState is AuthNeedsLocationPermission) {
-          context.go(AppRoutes.locationPermission);
-        } else if (authState is AuthNeedsAddressSelection) {
-          context.go(AppRoutes.mapAddress);
-        } else if (authState is AuthAuthenticated) {
-          context.go(AppRoutes.home);
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() => _errorText = e.toString());
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
+    if (!mounted) return;
+
+    final authState = ref.read(authProvider);
+    if (authState is AuthError) {
+      // Show error in-place; restore OtpSent so user can retry.
+      setState(() {
+        _isLoading = false;
+        _errorText = authState.message;
+      });
+      // Restore OTP state so the user doesn't get stuck.
+      ref.read(authProvider.notifier).restoreOtpState(
+            _cachedPhone,
+            _cachedChallengeId,
+            devOtp: _cachedDevOtp,
+          );
+    } else {
+      setState(() => _isLoading = false);
+      // All other auth states are handled by the GoRouter redirect.
     }
   }
 
-  void _onResend() async {
+  Future<void> _onResend() async {
+    if (!_canResend) return;
     final authState = ref.read(authProvider);
-    if (authState is AuthOtpSent) {
-      setState(() => _isLoading = true);
-      try {
-        await ref.read(authProvider.notifier).sendOtp(authState.phone);
-        _startResendTimer();
-        if (mounted) {
-          AppSnackBar.showSuccess(context, 'Verification code sent again (1234).');
-        }
-      } catch (e) {
-        if (mounted) {
-          AppSnackBar.showError(context, e.toString());
-        }
-      } finally {
-        if (mounted) {
-          setState(() => _isLoading = false);
-        }
-      }
+    if (authState is! AuthOtpSent) return;
+
+    setState(() => _isLoading = true);
+    try {
+      await ref.read(authProvider.notifier).sendOtp(authState.phone);
+      _startResendTimer();
+      if (mounted) AppSnackBar.showSuccess(context, 'A new verification code has been sent.');
+    } catch (e) {
+      if (mounted) AppSnackBar.showError(context, e.toString());
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final authState = ref.watch(authProvider);
-    final phone = authState is AuthOtpSent ? authState.phone : '';
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
+
+    // Cache phone/challengeId for error recovery.
+    if (authState is AuthOtpSent) {
+      _cachedPhone = authState.phone;
+      _cachedChallengeId = authState.challengeId;
+      _cachedDevOtp = authState.devOtp;
+    }
+
+    final phone = _cachedPhone;
 
     return Scaffold(
       backgroundColor: isDark ? AppColors.darkBackground : AppColors.background,
@@ -126,7 +128,11 @@ class _OtpPageState extends ConsumerState<OtpPage> {
         elevation: 0,
         leading: IconButton(
           icon: const Icon(AppIcons.back),
-          onPressed: () => context.go(AppRoutes.login),
+          onPressed: () {
+            // Cancel OTP flow and return to login.
+            ref.read(authProvider.notifier).clearError();
+            if (context.mounted) context.go(AppRoutes.login);
+          },
         ),
       ),
       body: SafeArea(
@@ -150,25 +156,18 @@ class _OtpPageState extends ConsumerState<OtpPage> {
                     ),
                     const Gap(12),
                     Text(
-                      'We have sent a verification code to +91 $phone. Enter the code below.',
+                      phone.isNotEmpty
+                          ? 'We have sent a verification code to +91 $phone.'
+                          : 'Enter the verification code sent to your number.',
                       style: AppTypography.bodyMedium.copyWith(
                         color: AppColors.textSecondary,
                         height: 1.5,
                       ),
                     ),
-                    const Gap(8),
-                    Text(
-                      'Use code: 1234',
-                      style: AppTypography.labelMedium.copyWith(
-                        color: AppColors.primary,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
                     const Gap(48),
 
-                    // Custom OTP Input Component
                     AppOtpInput(
-                      length: 4,
+                      length: AppConstants.otpLength,
                       errorText: _errorText,
                       onChanged: (val) => setState(() {
                         _otpCode = val;
@@ -181,13 +180,15 @@ class _OtpPageState extends ConsumerState<OtpPage> {
                     ),
                     const Gap(40),
 
-                    // Timer & Resend Option
+                    // Resend row
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Text(
                           "Didn't receive the code? ",
-                          style: AppTypography.bodySmall.copyWith(color: AppColors.textSecondary),
+                          style: AppTypography.bodySmall.copyWith(
+                            color: AppColors.textSecondary,
+                          ),
                         ),
                         if (_canResend)
                           GestureDetector(
@@ -211,7 +212,6 @@ class _OtpPageState extends ConsumerState<OtpPage> {
                     ),
                     const Gap(48),
 
-                    // Submit Verification Button
                     AppButton(
                       label: 'Verify & Continue',
                       onPressed: _onVerify,

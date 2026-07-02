@@ -582,11 +582,11 @@ class _StepButton extends StatelessWidget {
 
 
 // ═════════════════════════════════════════════════════════════════════════════
-// PRICE CARD
+// PRICE BREAKDOWN CARD
 // ═════════════════════════════════════════════════════════════════════════════
 
-class PriceCard extends StatelessWidget {
-  const PriceCard({
+class PriceBreakdownCard extends StatelessWidget {
+  const PriceBreakdownCard({
     super.key,
     required this.subtotal,
     required this.platformFee,

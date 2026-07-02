@@ -35,8 +35,11 @@ extension ContextExt on BuildContext {
   }
 
   // ── Navigation ────────────────────────────────────────────────────────────
-  void pop<T>([T? result]) => Navigator.of(this).pop(result);
-  bool canPop()            => Navigator.of(this).canPop();
+  // NOTE: pop()/canPop() intentionally NOT defined here.
+  // GoRouterHelper (from go_router) defines context.pop() and context.canPop()
+  // which are the canonical navigation methods for this app.
+  // For non-GoRouter pop (dialogs/bottom sheets), use Navigator.of(context).pop()
+  // explicitly.
 
   // ── Keyboard ──────────────────────────────────────────────────────────────
   void hideKeyboard() => FocusScope.of(this).unfocus();

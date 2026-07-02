@@ -70,7 +70,7 @@ extension DoubleExt on double {
   BorderRadius get circular        => BorderRadius.circular(r);
 
   // ── Clamp helpers ─────────────────────────────────────────────────────────
-  double clampToPositive() => clamp(0.0, double.infinity);
+  double clampToPositive() => clamp(0.0, double.infinity).toDouble();
 }
 
 extension IntExt on int {

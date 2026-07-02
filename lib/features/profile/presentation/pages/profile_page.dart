@@ -1,3 +1,5 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../../../../core/design/design_system.dart';
 import '../../../../core/widgets/widgets.dart';
 import '../../../../core/extensions/extensions.dart';
@@ -7,7 +9,7 @@ import '../../../../providers/auth_provider.dart';
 class ProfilePage extends ConsumerWidget {
   const ProfilePage({super.key});
 
-  void _onLogout(BuildContext context, WidgetRef ref) async {
+  Future<void> _onLogout(BuildContext context, WidgetRef ref) async {
     final confirm = await AppDialog.show(
       context,
       title: 'Confirm Logout',
@@ -30,10 +32,30 @@ class ProfilePage extends ConsumerWidget {
     final isDark = theme.brightness == Brightness.dark;
     final user = ref.watch(currentUserProvider);
 
+    // Build initials for avatar fallback.
+    final displayName = user?.name ?? '';
+    final initials = displayName.trim().isNotEmpty
+        ? displayName
+            .trim()
+            .split(' ')
+            .where((p) => p.isNotEmpty)
+            .take(2)
+            .map((p) => p[0].toUpperCase())
+            .join()
+        : '?';
+
+    // Email: show verified phone if no email, never fallback to vendor address.
+    final userPhone = user?.phone ?? '';
+    final emailOrPhone = (user?.email != null && user!.email!.isNotEmpty)
+        ? user.email!
+        : userPhone.isNotEmpty
+            ? '+91 $userPhone'
+            : 'No contact info';
+
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
-        title: Text('Account Profile', style: AppTypography.titleLarge),
+        title: Text('Account', style: AppTypography.titleLarge),
         centerTitle: true,
         backgroundColor: isDark ? AppColors.darkSurface : AppColors.surface,
         elevation: 0,
@@ -47,15 +69,29 @@ class ProfilePage extends ConsumerWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // ── 1. User Header Box ─────────────────────────────────────────
+              // ── User Header ─────────────────────────────────────────────────
               AppCard.outlined(
                 padding: EdgeInsets.all(AppSpacing.md.r),
                 child: Row(
                   children: [
+                    // Avatar: show photo URL when available, else initials.
                     CircleAvatar(
                       radius: 36.r,
                       backgroundColor: AppColors.primaryContainer,
-                      child: Icon(AppIcons.profile, size: 32.r, color: AppColors.primary),
+                      backgroundImage: (user?.avatarUrl != null &&
+                              user!.avatarUrl!.isNotEmpty)
+                          ? NetworkImage(user.avatarUrl!)
+                          : null,
+                      child: (user?.avatarUrl == null ||
+                              user!.avatarUrl!.isEmpty)
+                          ? Text(
+                              initials,
+                              style: AppTypography.titleLarge.copyWith(
+                                color: AppColors.primary,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            )
+                          : null,
                     ),
                     const Gap(16),
                     Expanded(
@@ -63,12 +99,19 @@ class ProfilePage extends ConsumerWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            user?.name ?? 'Guest Customer',
-                            style: AppTypography.titleMedium,
+                            displayName.isNotEmpty ? displayName : 'Guest',
+                            style: AppTypography.titleMedium.copyWith(
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
+                          const Gap(2),
                           Text(
-                            user?.email ?? 'laundry.partner@lndry.com',
-                            style: AppTypography.bodySmall,
+                            emailOrPhone,
+                            style: AppTypography.bodySmall.copyWith(
+                              color: AppColors.textSecondary,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ],
                       ),
@@ -78,29 +121,32 @@ class ProfilePage extends ConsumerWidget {
               ),
               const Gap(16),
 
-              // ── 2. Order History Shortcut ──────────────────────────────────
+              // ── Orders shortcut ──────────────────────────────────────────────
               AppCard.outlined(
                 borderColor: AppColors.primary.withOpacity(0.3),
                 backgroundColor: AppColors.primaryContainer.withOpacity(0.12),
                 onTap: () {
-                  // Switch to Orders branch Tab 4
                   final navShell = StatefulNavigationShell.of(context);
-                  navShell.goBranch(3); // 3 = Orders branch index
+                  navShell.goBranch(3);
                 },
                 child: Row(
                   children: [
-                    Icon(AppIcons.ordersOutlined, color: AppColors.primary, size: 24.r),
+                    Icon(AppIcons.ordersOutlined,
+                        color: AppColors.primary, size: 24.r),
                     const Gap(16),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('View Order History', style: AppTypography.labelLarge),
-                          Text('Track your active orders and history', style: AppTypography.caption),
+                          Text('View Order History',
+                              style: AppTypography.labelLarge),
+                          Text('Track active orders and history',
+                              style: AppTypography.caption),
                         ],
                       ),
                     ),
-                    Icon(AppIcons.forward, color: AppColors.primary, size: 16.r),
+                    Icon(AppIcons.forward,
+                        color: AppColors.primary, size: 16.r),
                   ],
                 ),
               ),
@@ -109,52 +155,51 @@ class ProfilePage extends ConsumerWidget {
               Text('Account Details', style: AppTypography.titleMedium),
               const Gap(12),
 
-              // ── 3. Navigation Settings Options list ────────────────────────
               AppCard.outlined(
                 padding: EdgeInsets.zero,
                 child: Column(
                   children: [
                     _SettingsTile(
                       icon: AppIcons.profile,
-                      label: 'Edit Profile Details',
-                      onTap: () => context.go('/profile/edit'),
+                      label: 'Edit Profile',
+                      onTap: () => context.push(AppRoutes.editProfile),
                     ),
                     const Divider(height: 1),
                     _SettingsTile(
                       icon: AppIcons.location,
-                      label: 'Saved Delivery Addresses',
-                      onTap: () => context.go('/profile/address'),
+                      label: 'Saved Addresses',
+                      onTap: () => context.push(AppRoutes.address),
                     ),
                     const Divider(height: 1),
                     _SettingsTile(
                       icon: AppIcons.notificationsOutlined,
-                      label: 'Notifications History',
-                      onTap: () => context.go('/profile/notifications'),
+                      label: 'Notifications',
+                      onTap: () => context.push(AppRoutes.notifications),
                     ),
                     const Divider(height: 1),
                     _SettingsTile(
                       icon: AppIcons.settings,
-                      label: 'Application Settings',
-                      onTap: () => context.go('/profile/settings'),
+                      label: 'Settings',
+                      onTap: () => context.push(AppRoutes.settings),
                     ),
                     const Divider(height: 1),
                     _SettingsTile(
                       icon: AppIcons.info,
-                      label: 'Help & FAQ Support',
-                      onTap: () => context.go('/profile/help'),
+                      label: 'Help & Support',
+                      onTap: () => context.push(AppRoutes.help),
                     ),
                   ],
                 ),
               ),
               const Gap(32),
 
-              // ── 4. Logout trigger Button ────────────────────────────────────
               AppButton.outlined(
-                label: 'Logout Account',
+                label: 'Sign Out',
                 icon: const Icon(AppIcons.close, color: AppColors.error),
                 foregroundColor: AppColors.error,
                 onPressed: () => _onLogout(context, ref),
               ),
+              const Gap(24),
             ],
           ),
         ),
@@ -164,7 +209,12 @@ class ProfilePage extends ConsumerWidget {
 }
 
 class _SettingsTile extends StatelessWidget {
-  const _SettingsTile({required this.icon, required this.label, required this.onTap});
+  const _SettingsTile({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
   final IconData icon;
   final String label;
   final VoidCallback onTap;
@@ -172,9 +222,11 @@ class _SettingsTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListTile(
-      leading: Icon(icon, color: AppColors.onSurfaceVariant, size: 20.r),
+      leading:
+          Icon(icon, color: AppColors.onSurfaceVariant, size: 20.r),
       title: Text(label, style: AppTypography.bodyMedium),
-      trailing: Icon(AppIcons.forward, color: AppColors.outline, size: 14.r),
+      trailing:
+          Icon(AppIcons.forward, color: AppColors.outline, size: 14.r),
       onTap: onTap,
     );
   }

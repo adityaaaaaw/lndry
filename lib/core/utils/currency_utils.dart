@@ -24,19 +24,9 @@ abstract final class CurrencyUtils {
   static String formatDecimal(num amount) =>
       _inrFormatterDecimal.format(amount);
 
-  /// Returns amount with GST applied.
-  static double addGst(double amount) =>
-      amount + (amount * AppConstants.gstPercent);
-
-  /// Returns platform fee amount.
-  static double platformFee(double amount) =>
-      amount * AppConstants.platformFeePercent;
-
-  /// Returns grand total including platform fee and GST.
-  static double grandTotal(double subtotal) {
-    final fee = platformFee(subtotal);
-    return addGst(subtotal + fee);
-  }
+  /// All money calculations are performed server-side per spec §6 / §11.
+  /// The client only formats and displays server-provided amounts.
+  /// GST and platform fee functions have been intentionally removed.
 
   /// Compact format: ₹1.2K, ₹3.4M
   static String compact(num amount) {

@@ -12,8 +12,22 @@ final homeCategoriesProvider = FutureProvider<List<CategoryModel>>((ref) async {
 /// Provider for nearby/recommended vendors list on Home screen
 final homeVendorsProvider = FutureProvider<List<VendorModel>>((ref) async {
   final repo = ref.watch(customerRepositoryProvider);
+  final addresses = await repo.getAddresses();
+  double? lat;
+  double? lng;
+  if (addresses.isNotEmpty) {
+    final addr = addresses.firstWhere(
+      (a) => a.isDefault,
+      orElse: () => addresses.first,
+    );
+    lat = addr.coordinates?.latitude;
+    lng = addr.coordinates?.longitude;
+  }
+
   final response = await repo.getVendors(
-    params: const PaginationParams(pageSize: 10),
+    categoryId: null,
+    search: null,
+    params: PaginationParams(pageSize: 10, lat: lat, lng: lng),
   );
   return response.items;
 });
@@ -21,8 +35,13 @@ final homeVendorsProvider = FutureProvider<List<VendorModel>>((ref) async {
 /// Provider for recommended services on Home screen
 final homeRecommendedServicesProvider = FutureProvider<List<ServiceModel>>((ref) async {
   final repo = ref.watch(customerRepositoryProvider);
-  // Fetch services for first vendor as recommendation mock
-  return repo.getServicesByVendor('vndr_001');
+  try {
+    final vendors = await ref.watch(homeVendorsProvider.future);
+    if (vendors.isNotEmpty) {
+      return repo.getServicesByVendor(vendors.first.id);
+    }
+  } catch (_) {}
+  return [];
 });
 
 /// Provider for active orders tracker on Home screen
@@ -31,7 +50,6 @@ final activeOrdersProvider = FutureProvider<List<OrderModel>>((ref) async {
   final response = await repo.getMyOrders(
     params: const PaginationParams(pageSize: 5),
   );
-  // Filter active statuses
   return response.items.where((o) => o.status.isActive).toList();
 });
 
@@ -41,7 +59,6 @@ final pastOrdersProvider = FutureProvider<List<OrderModel>>((ref) async {
   final response = await repo.getMyOrders(
     params: const PaginationParams(pageSize: 10),
   );
-  // Filter final statuses
   return response.items.where((o) => !o.status.isActive).toList();
 });
 
