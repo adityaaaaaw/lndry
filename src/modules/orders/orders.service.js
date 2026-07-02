@@ -999,6 +999,101 @@ export class OrdersService {
     }
   }
 
+  _rupeesToPaise(value) {
+    const amount = Number(value)
+    return Number.isFinite(amount) ? Math.round(amount * 100) : 0
+  }
+
+  _paiseToRupees(value) {
+    const amount = Number(value)
+    return Number.isFinite(amount) ? amount / 100 : 0
+  }
+
+  _assertFeeBreakdownConsistency(feeBreakdown) {
+    const subtotal = Number(feeBreakdown.subtotal_paise || 0)
+    const deliveryFee = Number(feeBreakdown.delivery_fee_paise || 0)
+    const platformFee = Number(feeBreakdown.platform_fee_paise || 0)
+    const tax = Number(feeBreakdown.tax_paise || 0)
+    const discount = Number(feeBreakdown.discount_paise || 0)
+    const totalPayable = Number(feeBreakdown.total_payable_paise || 0)
+    const expected = subtotal + deliveryFee + platformFee + tax - discount
+
+    if (expected !== totalPayable) {
+      throw {
+        statusCode: 500,
+        message: 'Checkout pricing breakdown is internally inconsistent',
+        code: 'PRICING_BREAKDOWN_MISMATCH'
+      }
+    }
+  }
+
+  async _buildDraftFeeBreakdown({ quote, vendor, distanceKm }) {
+    const subtotalPaise = Number(quote.estimate_paise || 0)
+    const subtotalRupees = this._paiseToRupees(subtotalPaise)
+    const { config, source } = await this.feeSettingsService.resolveForShop(quote.vendor_id)
+    const canonical = this.totalsEngine.computeBreakdown({
+      config,
+      itemsSubtotal: subtotalRupees,
+      couponDiscount: 0,
+      distanceKm: Number.isFinite(Number(distanceKm)) ? Number(distanceKm) : null,
+      tax: 0,
+      tipAmount: 0,
+      storeName: vendor?.business_name || vendor?.name || null,
+    })
+
+    const deliveryFeePaise = this._rupeesToPaise(canonical.deliveryFee)
+    const platformFeePaise = this._rupeesToPaise(
+      Number(canonical.platformFee || 0) +
+        Number(canonical.handlingFee || 0) +
+        Number(canonical.smallCartFee || 0) +
+        Number(canonical.surgeFee || 0) +
+        Number(canonical.packagingFee || 0)
+    )
+    const taxPaise = this._rupeesToPaise(canonical.tax)
+    const discountPaise = this._rupeesToPaise(canonical.couponDiscount)
+    const totalPayablePaise =
+      subtotalPaise + deliveryFeePaise + platformFeePaise + taxPaise - discountPaise
+
+    const feeBreakdown = {
+      subtotal_paise: subtotalPaise,
+      delivery_fee_paise: deliveryFeePaise,
+      platform_fee_paise: platformFeePaise,
+      tax_paise: taxPaise,
+      discount_paise: discountPaise,
+      total_payable_paise: totalPayablePaise,
+      pricing_source: source,
+      canonical_breakdown: canonical,
+    }
+    this._assertFeeBreakdownConsistency(feeBreakdown)
+    return feeBreakdown
+  }
+
+  _normalizeDraftFeeBreakdown(rawFeeBreakdown) {
+    if (!rawFeeBreakdown) {
+      throw {
+        statusCode: 409,
+        message: 'Order draft is missing backend pricing breakdown. Please restart checkout.',
+        code: 'DRAFT_PRICING_MISSING'
+      }
+    }
+
+    const parsed =
+      typeof rawFeeBreakdown === 'string'
+        ? JSON.parse(rawFeeBreakdown)
+        : rawFeeBreakdown
+    const feeBreakdown = {
+      ...parsed,
+      subtotal_paise: Number(parsed.subtotal_paise || 0),
+      delivery_fee_paise: Number(parsed.delivery_fee_paise || 0),
+      platform_fee_paise: Number(parsed.platform_fee_paise || 0),
+      tax_paise: Number(parsed.tax_paise || 0),
+      discount_paise: Number(parsed.discount_paise || 0),
+      total_payable_paise: Number(parsed.total_payable_paise || 0),
+    }
+    this._assertFeeBreakdownConsistency(feeBreakdown)
+    return feeBreakdown
+  }
+
   async prepareOrder(userId, body) {
     const quoteId = body.quoteId || body.quote_id
     const addressId = body.addressId || body.address_id
@@ -1075,22 +1170,21 @@ export class OrdersService {
     }
     const bookingDate = holdRes.rows[0].booking_date
 
-    // 5. Calculations
-    const subtotal = quote.estimate_paise
-    const deliveryFee = 2900 // 29 INR in paise
-    const platformFee = 500  // 5 INR in paise
-    const payableAmount = subtotal + deliveryFee + platformFee
+    // 5. Canonical backend pricing. Quote owns item pricing; TotalsEngine owns
+    // fees/taxes/discount math so draft and final order use the same snapshot.
+    const feeBreakdown = await this._buildDraftFeeBreakdown({
+      quote,
+      vendor,
+      distanceKm: distance,
+    })
+    const payableAmount = feeBreakdown.total_payable_paise
 
     const snapshot = {
       quote,
       address,
       slot_id: slotId,
       booking_date: bookingDate,
-      fee_breakdown: {
-        subtotal_paise: subtotal,
-        delivery_fee_paise: deliveryFee,
-        platform_fee_paise: platformFee
-      }
+      fee_breakdown: feeBreakdown
     }
 
     // 6. Write draft
@@ -1195,10 +1289,21 @@ export class OrdersService {
       const randSuffix = Math.random().toString(36).substring(2, 5).toUpperCase()
       const orderNumber = `LNDR-${today}-${randSuffix}`
 
-      const subtotalRupees = (draft.payable_amount_paise - 2900 - 500) / 100
-      const deliveryFeeRupees = 29.00
-      const platformFeeRupees = 5.00
-      const totalRupees = draft.payable_amount_paise / 100
+      const feeBreakdown = this._normalizeDraftFeeBreakdown(snapshot.fee_breakdown)
+      if (feeBreakdown.total_payable_paise !== Number(draft.payable_amount_paise)) {
+        throw {
+          statusCode: 409,
+          message: 'Order draft pricing no longer matches payable amount. Please restart checkout.',
+          code: 'DRAFT_PRICING_MISMATCH'
+        }
+      }
+
+      const subtotalRupees = this._paiseToRupees(feeBreakdown.subtotal_paise)
+      const deliveryFeeRupees = this._paiseToRupees(feeBreakdown.delivery_fee_paise)
+      const platformFeeRupees = this._paiseToRupees(feeBreakdown.platform_fee_paise)
+      const taxRupees = this._paiseToRupees(feeBreakdown.tax_paise)
+      const discountRupees = this._paiseToRupees(feeBreakdown.discount_paise)
+      const totalRupees = this._paiseToRupees(feeBreakdown.total_payable_paise)
 
       // 7. Insert the order
       const orderInsertRes = await client.query(
@@ -1219,19 +1324,19 @@ export class OrdersService {
           'WAITING_VENDOR_CONFIRMATION',
           JSON.stringify(draft.garment_lines),
           subtotalRupees,
-          0,
+          discountRupees,
           deliveryFeeRupees,
           platformFeeRupees,
-          0,
+          taxRupees,
           totalRupees,
           'ONLINE',
           'PAID',
           JSON.stringify(snapshot.address),
           draft.slot_id,
           snapshot.booking_date,
-          draft.payable_amount_paise - 2900 - 500,
-          draft.payable_amount_paise,
-          JSON.stringify(snapshot.fee_breakdown)
+          feeBreakdown.subtotal_paise,
+          feeBreakdown.total_payable_paise,
+          JSON.stringify(feeBreakdown)
         ]
       )
       const order = orderInsertRes.rows[0]
