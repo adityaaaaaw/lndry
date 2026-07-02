@@ -2,14 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gap/gap.dart';
-import 'package:go_router/go_router.dart';
 import '../../../../core/theme/theme.dart';
 import '../../../../core/widgets/app_button.dart';
 import '../../../../core/widgets/app_text_field.dart';
 import '../../../../core/widgets/app_loading.dart';
 import '../../../../core/widgets/app_snackbar.dart';
 import '../../../../core/utils/validators.dart';
-import '../../../../core/router/app_routes.dart';
 import '../../../../providers/auth_provider.dart';
 
 class ProfileSetupPage extends ConsumerStatefulWidget {
@@ -89,28 +87,6 @@ class _ProfileSetupPageState extends ConsumerState<ProfileSetupPage> {
                               backgroundColor: AppColors.primaryContainer,
                               child: Icon(AppIcons.profile,
                                   size: 48.r, color: AppColors.primary),
-                            ),
-                            Positioned(
-                              bottom: 0,
-                              right: 0,
-                              child: GestureDetector(
-                                onTap: () {
-                                  // TODO(backend): wire image_picker + upload
-                                  AppSnackBar.showInfo(
-                                    context,
-                                    'Photo upload available after backend integration.',
-                                  );
-                                },
-                                child: Container(
-                                  padding: EdgeInsets.all(8.r),
-                                  decoration: const BoxDecoration(
-                                    color: AppColors.primary,
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: Icon(AppIcons.camera,
-                                      color: AppColors.white, size: 16.r),
-                                ),
-                              ),
                             ),
                           ],
                         ),

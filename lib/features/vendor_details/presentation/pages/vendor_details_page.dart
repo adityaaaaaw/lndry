@@ -2,13 +2,11 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gap/gap.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/theme/theme.dart';
 import '../../../../core/widgets/widgets.dart';
 import '../../../../core/extensions/extensions.dart';
-import '../../../../shared/widgets/shared_widgets.dart';
 import '../../../../shared/widgets/domain_cards.dart';
 import '../../../../models/models.dart';
 import '../../../../repositories/repositories.dart';
@@ -28,6 +26,8 @@ class _VendorDetailsPageState extends ConsumerState<VendorDetailsPage>
     with SingleTickerProviderStateMixin {
   bool _isLoading = true;
   VendorModel? _vendor;
+  List<ReviewModel> _reviews = [];
+  bool _reviewsLoading = false;
   late TabController _tabController;
 
   // Pickup slot state
@@ -104,7 +104,7 @@ class _VendorDetailsPageState extends ConsumerState<VendorDetailsPage>
   }
 
   void _showPickupSlotSheet() {
-    AppBottomSheet.show(
+    AppBottomSheet.show<void>(
       context: context,
       title: 'Select pickup slot',
       child: _slotsLoading
@@ -186,11 +186,14 @@ class _VendorDetailsPageState extends ConsumerState<VendorDetailsPage>
     final repo = ref.read(customerRepositoryProvider);
     try {
       final v = await repo.getVendorById(widget.vendorId);
+      final reviewsFuture = repo.getVendorReviews(widget.vendorId);
       await ref.read(vendorCartProvider.notifier).init(widget.vendorId);
+      final reviews = await reviewsFuture;
 
       if (mounted) {
         setState(() {
           _vendor = v;
+          _reviews = reviews.items;
           _isLoading = false;
         });
         // Load pickup slots in background
@@ -198,6 +201,23 @@ class _VendorDetailsPageState extends ConsumerState<VendorDetailsPage>
       }
     } catch (_) {
       if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _loadVendorReviews() async {
+    setState(() => _reviewsLoading = true);
+    try {
+      final reviews = await ref
+          .read(customerRepositoryProvider)
+          .getVendorReviews(widget.vendorId);
+      if (mounted) {
+        setState(() {
+          _reviews = reviews.items;
+          _reviewsLoading = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _reviewsLoading = false);
     }
   }
 
@@ -963,9 +983,9 @@ class _VendorDetailsPageState extends ConsumerState<VendorDetailsPage>
                           ),
                         ),
                         TextButton(
-                          onPressed: () => _tabController.animateTo(1),
+                          onPressed: _loadVendorReviews,
                           child: Text(
-                            'View all',
+                            'Refresh',
                             style: AppTypography.labelMedium.copyWith(
                               color: Theme.of(context).colorScheme.primary,
                             ),
@@ -977,32 +997,38 @@ class _VendorDetailsPageState extends ConsumerState<VendorDetailsPage>
                 ),
               if (_tabController.index == 1)
                 SliverToBoxAdapter(
-                  child: SizedBox(
-                    height: 120.h,
-                    child: ListView(
-                      scrollDirection: Axis.horizontal,
-                      padding: EdgeInsets.symmetric(horizontal: 20.w),
-                      children: [
-                        _ReviewCard(
-                          author: 'Aarav S.',
-                          rating: 5.0,
-                          comment:
-                              'Excellent service! Clothes came back spotless and crisp.',
-                          avatarUrl:
-                              'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?fit=crop&w=50&q=80',
-                        ),
-                        const Gap(12),
-                        _ReviewCard(
-                          author: 'Neha R.',
-                          rating: 4.7,
-                          comment:
-                              'Very happy with the quality and on-time pickup.',
-                          avatarUrl:
-                              'https://images.unsplash.com/photo-1494790108377-be9c29b29330?fit=crop&w=50&q=80',
-                        ),
-                      ],
-                    ),
-                  ),
+                  child: _reviewsLoading
+                      ? const Padding(
+                          padding: EdgeInsets.all(24),
+                          child: Center(child: CircularProgressIndicator()),
+                        )
+                      : _reviews.isEmpty
+                          ? Padding(
+                              padding: EdgeInsets.symmetric(horizontal: 20.w),
+                              child: const AppEmptyState(
+                                icon: Icons.star_border_rounded,
+                                title: 'No Reviews Yet',
+                                subtitle: 'Customer reviews will appear here.',
+                              ),
+                            )
+                          : SizedBox(
+                              height: 120.h,
+                              child: ListView.separated(
+                                scrollDirection: Axis.horizontal,
+                                padding: EdgeInsets.symmetric(horizontal: 20.w),
+                                itemCount: _reviews.length,
+                                separatorBuilder: (_, __) => const Gap(12),
+                                itemBuilder: (context, index) {
+                                  final review = _reviews[index];
+                                  return _ReviewCard(
+                                    author: review.userName ?? 'Customer',
+                                    rating: review.vendorRating.toDouble(),
+                                    comment: review.comment ?? '',
+                                    avatarUrl: review.userAvatarUrl ?? '',
+                                  );
+                                },
+                              ),
+                            ),
                 ),
 
               // Bottom padding spacing
@@ -1245,7 +1271,12 @@ class _ReviewCard extends StatelessWidget {
             children: [
               CircleAvatar(
                 radius: 14.r,
-                backgroundImage: CachedNetworkImageProvider(avatarUrl),
+                backgroundImage: avatarUrl.isNotEmpty
+                    ? CachedNetworkImageProvider(avatarUrl)
+                    : null,
+                child: avatarUrl.isEmpty
+                    ? Icon(AppIcons.profile, size: 14.r)
+                    : null,
               ),
               const Gap(8),
               Expanded(

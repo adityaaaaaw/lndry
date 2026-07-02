@@ -1,3 +1,7 @@
+// ignore_for_file: inference_failure_on_function_invocation
+
+import 'dart:typed_data';
+
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -33,6 +37,34 @@ class ApiCustomerRepository implements CustomerRepository {
   /// Extract `data` as a list from the API envelope.
   List<dynamic> _extractList(Map<String, dynamic> body) =>
       body['data'] as List<dynamic>? ?? [];
+
+  List<dynamic> _extractNestedList(
+    Map<String, dynamic> body,
+    String key,
+  ) {
+    final data = body['data'];
+    if (data is List<dynamic>) return data;
+    if (data is Map<String, dynamic>) {
+      return data[key] as List<dynamic>? ?? [];
+    }
+    return [];
+  }
+
+  Map<String, dynamic>? _extractNestedMap(
+    Map<String, dynamic> body,
+    String key,
+  ) {
+    final data = body['data'];
+    if (data is Map<String, dynamic>) {
+      return data[key] as Map<String, dynamic>?;
+    }
+    return null;
+  }
+
+  double? _paiseToRupees(dynamic value) {
+    final amount = value as num?;
+    return amount == null ? null : amount.toDouble() / 100.0;
+  }
 
   // ── Auth (CustomerRepository interface) ─────────────────────────────────────
 
@@ -327,24 +359,10 @@ class ApiCustomerRepository implements CustomerRepository {
       return _parseOrder(orderData);
     }
 
-    // Legacy direct placement (mock cart flow)
-    final data = <String, dynamic>{
-      if (request.deliveryAddressId != null)
-        'addressId': request.deliveryAddressId,
-      if (request.paymentMethod != null)
-        'paymentMethod': _paymentMethodForBackend(request.paymentMethod!),
-      if (request.vendorSlotId != null) 'vendorSlotId': request.vendorSlotId,
-      'pickupDate': request.scheduledPickupAt?.toIso8601String() ??
-          DateTime.now().toIso8601String(),
-      if (request.notes != null) 'deliveryNotes': request.notes,
-    };
-
-    final resp = await _dio.post(ApiEndpoints.orders, data: data);
-    final body = resp.data as Map<String, dynamic>;
-    final responseData = body['data'] as Map<String, dynamic>?;
-    final orderData =
-        (responseData?['order'] ?? responseData) as Map<String, dynamic>;
-    return _parseOrder(orderData);
+    throw ApiException(
+      message: 'Order draft is required before placing an API-mode order.',
+      code: 'ORDER_DRAFT_REQUIRED',
+    );
   }
 
   @override
@@ -361,7 +379,7 @@ class ApiCustomerRepository implements CustomerRepository {
 
   @override
   Future<UserModel> getProfile() async {
-    final resp = await _dio.get(ApiEndpoints.customerProfile);
+    final resp = await _dio.get(ApiEndpoints.userProfile);
     final json = _extractData(resp.data as Map<String, dynamic>);
     return _parseUser(json);
   }
@@ -371,9 +389,9 @@ class ApiCustomerRepository implements CustomerRepository {
     final data = <String, dynamic>{};
     if (request.name != null) data['name'] = request.name;
     if (request.email != null) data['email'] = request.email;
-    if (request.avatarUrl != null) data['photo_url'] = request.avatarUrl;
+    if (request.avatarUrl != null) data['avatar_url'] = request.avatarUrl;
 
-    final resp = await _dio.patch(ApiEndpoints.customerProfile, data: data);
+    final resp = await _dio.put(ApiEndpoints.userProfile, data: data);
     final json = _extractData(resp.data as Map<String, dynamic>);
     return _parseUser(json);
   }
@@ -734,10 +752,11 @@ class ApiCustomerRepository implements CustomerRepository {
       queryParameters: {'page': params.page, 'limit': params.pageSize},
     );
     final body = resp.data as Map<String, dynamic>;
-    final list = _extractList(body);
+    final list = _extractNestedList(body, 'reviews');
     final reviews =
         list.map((e) => _parseReview(e as Map<String, dynamic>)).toList();
-    final pagination = body['pagination'] as Map<String, dynamic>?;
+    final pagination = _extractNestedMap(body, 'pagination') ??
+        body['pagination'] as Map<String, dynamic>?;
     return PaginatedResponse(
       items: reviews,
       meta: PaginationMeta(
@@ -759,10 +778,11 @@ class ApiCustomerRepository implements CustomerRepository {
       queryParameters: {'page': params.page, 'limit': params.pageSize},
     );
     final body = resp.data as Map<String, dynamic>;
-    final list = _extractList(body);
+    final list = _extractNestedList(body, 'reviews');
     final reviews =
         list.map((e) => _parseReview(e as Map<String, dynamic>)).toList();
-    final pagination = body['pagination'] as Map<String, dynamic>?;
+    final pagination = _extractNestedMap(body, 'pagination') ??
+        body['pagination'] as Map<String, dynamic>?;
     return PaginatedResponse(
       items: reviews,
       meta: PaginationMeta(
@@ -818,39 +838,59 @@ class ApiCustomerRepository implements CustomerRepository {
   // ── Order Actions (reorder / invoice / OTP) ────────────────────────────────
 
   @override
-  Future<OrderModel> reorder(String orderId) async {
+  Future<ReorderResult> reorder(String orderId) async {
     final resp = await _dio.post(ApiEndpoints.reorder(orderId));
-    final data = _extractData(resp.data as Map<String, dynamic>);
-    final orderData = (data['order'] ?? data) as Map<String, dynamic>;
-    return _parseOrder(orderData);
-  }
-
-  @override
-  Future<InvoiceResult> getOrderInvoice(String orderId) async {
-    final resp = await _dio.get(ApiEndpoints.orderInvoice(orderId));
-    final data = _extractData(resp.data as Map<String, dynamic>);
-    return InvoiceResult(
-      id: data['id'] as String? ?? '',
-      orderId: orderId,
-      invoiceUrl:
-          data['invoice_url'] as String? ?? data['invoiceUrl'] as String? ?? '',
-      amount: (data['amount'] as num?)?.toDouble() ?? 0.0,
-      gst: (data['gst'] as num?)?.toDouble() ?? 0.0,
-      platformFee: (data['platform_fee'] as num?)?.toDouble() ??
-          (data['platformFee'] as num?)?.toDouble() ??
-          0.0,
-      total: (data['total'] as num?)?.toDouble() ?? 0.0,
-      generatedAt: DateTime.tryParse(data['generated_at'] as String? ??
-              data['generatedAt'] as String? ??
-              '') ??
-          DateTime.now(),
-      pdfUrl: data['pdf_url'] as String? ?? data['pdfUrl'] as String?,
+    final body = resp.data as Map<String, dynamic>;
+    final data = _extractData(body);
+    final warnings = (body['warnings'] as List<dynamic>? ?? [])
+        .map((e) => e.toString())
+        .toList();
+    final items = data['items'] as List<dynamic>? ?? [];
+    return ReorderResult(
+      success: body['success'] as bool? ?? true,
+      message: body['message'] as String? ?? 'Items added for reorder.',
+      itemCount: (data['itemCount'] as num?)?.toInt() ??
+          (data['item_count'] as num?)?.toInt() ??
+          items.length,
+      warnings: warnings,
     );
   }
 
   @override
-  Future<OtpResult> getOrderOtp(String orderId) async {
-    final resp = await _dio.get(ApiEndpoints.orderOtp(orderId));
+  Future<InvoiceResult> getOrderInvoice(String orderId) async {
+    final resp = await _dio.get<List<int>>(
+      ApiEndpoints.orderInvoice(orderId),
+      options: Options(responseType: ResponseType.bytes),
+    );
+    final disposition = resp.headers.value('content-disposition') ?? '';
+    final filenameMatch =
+        RegExp(r'filename="?([^";]+)"?').firstMatch(disposition);
+    final fileName = filenameMatch?.group(1) ?? 'invoice-$orderId.pdf';
+    final bytes = Uint8List.fromList(resp.data ?? const <int>[]);
+    return InvoiceResult(
+      id: orderId,
+      orderId: orderId,
+      invoiceUrl: '',
+      amount: 0.0,
+      gst: 0.0,
+      platformFee: 0.0,
+      total: 0.0,
+      generatedAt: DateTime.now(),
+      pdfBytes: bytes,
+      fileName: fileName,
+    );
+  }
+
+  @override
+  Future<OtpResult> getOrderOtp(
+    String orderId, {
+    required String purpose,
+  }) async {
+    final normalizedPurpose = purpose.toUpperCase();
+    final resp = await _dio.get(
+      ApiEndpoints.orderOtp(orderId),
+      queryParameters: {'purpose': normalizedPurpose},
+    );
     final data = _extractData(resp.data as Map<String, dynamic>);
     return OtpResult(
       otp: data['otp'] as String? ?? '',
@@ -858,7 +898,8 @@ class ApiCustomerRepository implements CustomerRepository {
               data['expiresAt'] as String? ??
               '') ??
           DateTime.now().add(const Duration(minutes: 10)),
-      type: data['type'] as String? ?? 'pickup',
+      type: (data['purpose'] as String? ?? data['type'] as String? ?? purpose)
+          .toLowerCase(),
       isVerified:
           data['is_verified'] as bool? ?? data['isVerified'] as bool? ?? false,
     );
@@ -950,7 +991,8 @@ class ApiCustomerRepository implements CustomerRepository {
         'limit': params.pageSize,
       },
     );
-    final list = _extractList(resp.data as Map<String, dynamic>);
+    final list =
+        _extractNestedList(resp.data as Map<String, dynamic>, 'notifications');
     return list.map((e) {
       final json = e as Map<String, dynamic>;
       return NotificationModel(
@@ -980,6 +1022,29 @@ class ApiCustomerRepository implements CustomerRepository {
   @override
   Future<void> deleteNotification(String notificationId) async {
     await _dio.delete('${ApiEndpoints.notifications}/$notificationId');
+  }
+
+  @override
+  Future<void> registerDevice({
+    required String deviceId,
+    required String platform,
+    required String fcmToken,
+    String? appVersion,
+  }) async {
+    await _dio.post(
+      ApiEndpoints.devices,
+      data: {
+        'device_id': deviceId,
+        'platform': platform,
+        'fcm_token': fcmToken,
+        if (appVersion != null) 'app_version': appVersion,
+      },
+    );
+  }
+
+  @override
+  Future<void> unregisterDevice(String deviceId) async {
+    await _dio.delete(ApiEndpoints.deviceById(deviceId));
   }
 
   // ── JSON Mappers ─────────────────────────────────────────────────────────────
@@ -1018,7 +1083,7 @@ class ApiCustomerRepository implements CustomerRepository {
       phone: json['phone'] as String? ?? '',
       email: json['email'] as String?,
       address: AddressModel(
-        id: 'addr_${json['id']}',
+        id: json['address_id'] as String? ?? '',
         userId: '',
         line1: json['address_line1'] as String? ?? '',
         line2: json['address_line2'] as String?,
@@ -1041,7 +1106,7 @@ class ApiCustomerRepository implements CustomerRepository {
       isOpen: true,
       isVerified: true,
       deliveryRadiusKm:
-          (json['approved_service_radius_km'] as num?)?.toDouble() ?? 10.0,
+          (json['approved_service_radius_km'] as num?)?.toDouble() ?? 0.0,
       estimatedTurnaroundHours: 24,
     );
   }
@@ -1072,44 +1137,73 @@ class ApiCustomerRepository implements CustomerRepository {
           json['shop_id'] as String? ?? json['vendor_id'] as String? ?? '',
       items: itemsList,
       status: _parseOrderStatus(json['status'] as String?),
-      subtotal: (json['subtotal'] as num?)?.toDouble() ?? 0.0,
+      subtotal: (json['subtotal'] as num?)?.toDouble() ??
+          _paiseToRupees(json['subtotal_paise']) ??
+          0.0,
       platformFee: (json['platformFee'] as num?)?.toDouble() ??
           (json['platform_fee'] as num?)?.toDouble() ??
+          _paiseToRupees(json['platform_fee_paise']) ??
           0.0,
       gstAmount: (json['taxAmount'] as num?)?.toDouble() ??
           (json['tax_amount'] as num?)?.toDouble() ??
+          _paiseToRupees(json['tax_paise']) ??
           0.0,
       total: (json['totalAmount'] as num?)?.toDouble() ??
           (json['total_amount'] as num?)?.toDouble() ??
+          _paiseToRupees(json['total_payable_paise']) ??
           0.0,
-      paymentMethod: _parsePaymentMethod(json['paymentMethod'] as String?),
+      paymentMethod: _parsePaymentMethod(json['paymentMethod'] as String? ??
+          json['payment_method'] as String?),
       isPaid: (json['paymentStatus'] as String?) == 'PAID' ||
           (json['payment_status'] as String?) == 'PAID' ||
           json['is_paid'] == true,
       pickupAddressId: '',
       deliveryAddressId: '',
-      scheduledPickupAt:
-          DateTime.tryParse(json['scheduledPickupAt'] as String? ?? ''),
-      estimatedDeliveryAt:
-          DateTime.tryParse(json['estimatedDelivery'] as String? ?? ''),
-      deliveredAt: DateTime.tryParse(json['deliveredAt'] as String? ?? ''),
-      cancellationReason: json['cancellationReason'] as String?,
-      customerNotes:
-          json['deliveryNotes'] as String? ?? json['customerNotes'] as String?,
-      createdAt: DateTime.tryParse(json['createdAt'] as String? ?? '') ??
+      scheduledPickupAt: DateTime.tryParse(
+          json['scheduledPickupAt'] as String? ??
+              json['pickup_date'] as String? ??
+              ''),
+      estimatedDeliveryAt: DateTime.tryParse(
+          json['estimatedDelivery'] as String? ??
+              json['estimated_delivery_at'] as String? ??
+              ''),
+      deliveredAt: DateTime.tryParse(json['deliveredAt'] as String? ??
+          json['delivered_at'] as String? ??
+          ''),
+      cancellationReason: json['cancellationReason'] as String? ??
+          json['cancelled_reason'] as String?,
+      customerNotes: json['deliveryNotes'] as String? ??
+          json['customerNotes'] as String? ??
+          json['customer_notes'] as String?,
+      createdAt: DateTime.tryParse(json['createdAt'] as String? ??
+              json['created_at'] as String? ??
+              '') ??
           DateTime.now(),
-      updatedAt: DateTime.tryParse(json['updatedAt'] as String? ?? ''),
+      updatedAt: DateTime.tryParse(
+          json['updatedAt'] as String? ?? json['updated_at'] as String? ?? ''),
     );
   }
 
   OrderItem _parseOrderItem(Map<String, dynamic> json) {
     return OrderItem(
-      serviceId:
-          json['productId'] as String? ?? json['product_id'] as String? ?? '',
-      serviceName: json['name'] as String? ?? '',
-      quantity: json['quantity'] as int? ?? 1,
-      unitPrice: (json['price'] as num?)?.toDouble() ?? 0.0,
-      totalPrice: (json['total'] as num?)?.toDouble() ?? 0.0,
+      serviceId: json['productId'] as String? ??
+          json['product_id'] as String? ??
+          json['garment_type_id'] as String? ??
+          json['garment_rate_id'] as String? ??
+          '',
+      serviceName: json['name'] as String? ??
+          json['garment_name'] as String? ??
+          json['garment_type_name'] as String? ??
+          '',
+      quantity: (json['quantity'] as num?)?.toInt() ?? 1,
+      unitPrice: (json['price'] as num?)?.toDouble() ??
+          (json['unit_price'] as num?)?.toDouble() ??
+          _paiseToRupees(json['rate_paise']) ??
+          0.0,
+      totalPrice: (json['total'] as num?)?.toDouble() ??
+          (json['total_price'] as num?)?.toDouble() ??
+          _paiseToRupees(json['total_paise']) ??
+          0.0,
       notes: json['notes'] as String?,
     );
   }
@@ -1159,23 +1253,27 @@ class ApiCustomerRepository implements CustomerRepository {
 
   OrderStatus _parseOrderStatus(String? status) {
     if (status == null) return OrderStatus.paymentPending;
+    switch (status.toUpperCase()) {
+      case 'PAYMENT_CONFIRMED':
+      case 'WAITING_VENDOR_CONFIRMATION':
+      case 'WAITING_FOR_VENDOR_CONFIRMATION':
+        return OrderStatus.waitingForVendorConfirmation;
+      case 'WASHING':
+      case 'DRYING':
+      case 'IRONING':
+      case 'PREPARING':
+        return OrderStatus.processing;
+      case 'PENDING':
+        return OrderStatus.paymentPending;
+      case 'CONFIRMED':
+        return OrderStatus.vendorAccepted;
+      case 'CANCELLED':
+        return OrderStatus.customerCancelled;
+    }
     return OrderStatus.values.firstWhere(
       (s) => s.name == _toCamelCase(status),
       orElse: () => OrderStatus.paymentPending,
     );
-  }
-
-  /// Map Flutter PaymentMethod to the backend's accepted values.
-  /// The backend schema accepts: 'COD', 'ONLINE', 'WALLET'.
-  /// We map UPI/CARD → ONLINE, WALLET → WALLET.
-  String _paymentMethodForBackend(PaymentMethod method) {
-    switch (method) {
-      case PaymentMethod.upi:
-      case PaymentMethod.card:
-        return 'ONLINE';
-      case PaymentMethod.wallet:
-        return 'WALLET';
-    }
   }
 
   PaymentMethod _parsePaymentMethod(String? method) {

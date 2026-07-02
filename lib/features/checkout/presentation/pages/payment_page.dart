@@ -317,21 +317,26 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
     } else {
       final addressId = session?.deliveryAddressId;
       final currentCart = cart;
-      if (addressId == null || addressId.isEmpty || currentCart == null) {
+      final selectedSlot = session?.selectedSlot;
+      if (!Env.useMocksForVisualTestsOnly ||
+          addressId == null ||
+          addressId.isEmpty ||
+          selectedSlot == null ||
+          selectedSlot.isEmpty ||
+          currentCart == null ||
+          currentCart.services.isEmpty) {
         if (mounted) {
           setState(() => _isProcessing = false);
           AppSnackBar.showError(
             context,
-            'Delivery address is unavailable. Please retry checkout.',
+            'Checkout session is unavailable. Please retry checkout.',
           );
         }
         return;
       }
       placeRequest = PlaceOrderRequest(
-        vendorId: currentCart.services.isNotEmpty
-            ? currentCart.services.first.vendorId
-            : 'vndr_demo',
-        vendorSlotId: 'slot_mock_001',
+        vendorId: currentCart.services.first.vendorId,
+        vendorSlotId: selectedSlot,
         items: currentCart.cart.items
             .map((i) => OrderItemRequest(
                   serviceId: i.serviceId,

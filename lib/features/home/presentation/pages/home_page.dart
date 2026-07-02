@@ -5,8 +5,6 @@ import '../../../../core/router/app_routes.dart';
 import '../../../../shared/widgets/shared_widgets.dart';
 import '../../../../shared/widgets/domain_cards.dart';
 import '../../../../models/models.dart';
-import '../../../../repositories/repositories.dart';
-import '../../../cart/presentation/providers/cart_providers.dart';
 import '../providers/home_providers.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../../../../providers/providers.dart';
@@ -20,7 +18,6 @@ class HomePage extends ConsumerStatefulWidget {
 
 class _HomePageState extends ConsumerState<HomePage> {
   int _selectedCategoryIdx = 0;
-  int _carouselIdx = 0;
 
   int _activeOrderStep(OrderStatus status) {
     // Map canonical statuses to 4-step visual tracker index.
@@ -47,8 +44,6 @@ class _HomePageState extends ConsumerState<HomePage> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = context.theme;
-
     final addressAsync = ref.watch(currentAddressProvider);
     final categoriesAsync = ref.watch(homeCategoriesProvider);
     final vendorsAsync = ref.watch(homeVendorsProvider);
@@ -119,7 +114,8 @@ class _HomePageState extends ConsumerState<HomePage> {
                                       height: 12.h,
                                       decoration: BoxDecoration(
                                         color: AppColors.shimmerBase,
-                                        borderRadius: BorderRadius.circular(4.r),
+                                        borderRadius:
+                                            BorderRadius.circular(4.r),
                                       ),
                                     ),
                                     error: (_, __) => Text(
@@ -150,7 +146,8 @@ class _HomePageState extends ConsumerState<HomePage> {
                               color: AppColors.textBlack,
                               size: 26.r,
                             ),
-                            onPressed: () => context.push(AppRoutes.notifications),
+                            onPressed: () =>
+                                context.push(AppRoutes.notifications),
                           ),
                           Positioned(
                             top: 8.h,
@@ -183,9 +180,10 @@ class _HomePageState extends ConsumerState<HomePage> {
                           return CircleAvatar(
                             radius: 20.r,
                             backgroundColor: AppColors.primaryContainer,
-                            backgroundImage: (avatarUrl != null && avatarUrl.isNotEmpty)
-                                ? NetworkImage(avatarUrl)
-                                : null,
+                            backgroundImage:
+                                (avatarUrl != null && avatarUrl.isNotEmpty)
+                                    ? NetworkImage(avatarUrl)
+                                    : null,
                             child: (avatarUrl == null || avatarUrl.isEmpty)
                                 ? Text(
                                     initials.isNotEmpty ? initials : '?',
@@ -207,8 +205,10 @@ class _HomePageState extends ConsumerState<HomePage> {
                   padding: EdgeInsets.symmetric(horizontal: 20.w),
                   child: Builder(builder: (context) {
                     final user = ref.watch(currentUserProvider);
-                    final firstName = (user?.name ?? '').trim().split(' ').first;
-                    final displayName = firstName.isNotEmpty ? firstName : 'there';
+                    final firstName =
+                        (user?.name ?? '').trim().split(' ').first;
+                    final displayName =
+                        firstName.isNotEmpty ? firstName : 'there';
                     final hour = DateTime.now().hour;
                     final greeting = hour < 12
                         ? 'Good morning'
@@ -246,24 +246,30 @@ class _HomePageState extends ConsumerState<HomePage> {
                       Expanded(
                         child: GestureDetector(
                           onTap: () {
-                            final navShell = StatefulNavigationShell.of(context);
+                            final navShell =
+                                StatefulNavigationShell.of(context);
                             navShell.goBranch(1);
                           },
                           child: Container(
-                            padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
+                            padding: EdgeInsets.symmetric(
+                                horizontal: 16.w, vertical: 12.h),
                             decoration: BoxDecoration(
                               color: AppColors.surface,
-                              borderRadius: BorderRadius.circular(AppRadius.full.r),
-                              border: Border.all(color: AppColors.outline.withOpacity(0.5)),
+                              borderRadius:
+                                  BorderRadius.circular(AppRadius.full.r),
+                              border: Border.all(
+                                  color: AppColors.outline.withOpacity(0.5)),
                             ),
                             child: Row(
                               children: [
-                                Icon(AppIcons.search, color: AppColors.textSecondary, size: 20.r),
+                                Icon(AppIcons.search,
+                                    color: AppColors.textSecondary, size: 20.r),
                                 const Gap(10),
                                 Expanded(
                                   child: Text(
                                     'Search services or nearby laundries',
-                                    style: AppTypography.inputHint.copyWith(fontSize: 14.sp),
+                                    style: AppTypography.inputHint
+                                        .copyWith(fontSize: 14.sp),
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
                                   ),
@@ -317,7 +323,8 @@ class _HomePageState extends ConsumerState<HomePage> {
                         },
                         child: Text(
                           'View all',
-                          style: AppTypography.labelMedium.copyWith(color: AppColors.primary),
+                          style: AppTypography.labelMedium
+                              .copyWith(color: AppColors.primary),
                         ),
                       ),
                     ],
@@ -328,7 +335,8 @@ class _HomePageState extends ConsumerState<HomePage> {
                   height: 124.h,
                   child: categoriesAsync.when(
                     data: (cats) => ListView.separated(
-                      padding: EdgeInsets.only(left: 20.w, right: 20.w, top: 10.h, bottom: 4.h),
+                      padding: EdgeInsets.only(
+                          left: 20.w, right: 20.w, top: 10.h, bottom: 4.h),
                       clipBehavior: Clip.none,
                       scrollDirection: Axis.horizontal,
                       itemCount: cats.length,
@@ -347,12 +355,14 @@ class _HomePageState extends ConsumerState<HomePage> {
                       },
                     ),
                     loading: () => ListView.separated(
-                      padding: EdgeInsets.only(left: 20.w, right: 20.w, top: 10.h, bottom: 4.h),
+                      padding: EdgeInsets.only(
+                          left: 20.w, right: 20.w, top: 10.h, bottom: 4.h),
                       clipBehavior: Clip.none,
                       scrollDirection: Axis.horizontal,
                       itemCount: 5,
                       separatorBuilder: (_, __) => const Gap(12),
-                      itemBuilder: (_, __) => const AppSkeletonCard(width: 90, height: 100),
+                      itemBuilder: (_, __) =>
+                          const AppSkeletonCard(width: 90, height: 100),
                     ),
                     error: (_, __) => const SizedBox.shrink(),
                   ),
@@ -384,7 +394,8 @@ class _HomePageState extends ConsumerState<HomePage> {
                                 ),
                               ),
                               GestureDetector(
-                                onTap: () => context.push('/orders/details/${order.id}'),
+                                onTap: () =>
+                                    context.push('/orders/details/${order.id}'),
                                 child: Text(
                                   'Track',
                                   style: AppTypography.labelMedium.copyWith(
@@ -450,7 +461,8 @@ class _HomePageState extends ConsumerState<HomePage> {
                       scrollDirection: Axis.horizontal,
                       itemCount: 2,
                       separatorBuilder: (_, __) => const Gap(16),
-                      itemBuilder: (_, __) => const AppSkeletonCard(width: 300, height: 260),
+                      itemBuilder: (_, __) =>
+                          const AppSkeletonCard(width: 300, height: 260),
                     ),
                     error: (_, __) => const SizedBox.shrink(),
                   ),
@@ -468,7 +480,8 @@ class _HomePageState extends ConsumerState<HomePage> {
 // ── Active Order checklist status tracker card ───────────────────────────────
 
 class _ActiveOrderTrackerCard extends StatelessWidget {
-  const _ActiveOrderTrackerCard({required this.order, required this.currentStep});
+  const _ActiveOrderTrackerCard(
+      {required this.order, required this.currentStep});
   final OrderModel order;
   final int currentStep;
 
@@ -507,7 +520,8 @@ class _ActiveOrderTrackerCard extends StatelessWidget {
                   children: [
                     Text(
                       'Order #LN${(order.id.length >= 4 ? order.id.substring(order.id.length - 4) : order.id).toUpperCase()}',
-                      style: AppTypography.caption.copyWith(color: AppColors.textMuted),
+                      style: AppTypography.caption
+                          .copyWith(color: AppColors.textMuted),
                     ),
                     GestureDetector(
                       onTap: () => context.go('/orders/details/${order.id}'),
@@ -550,10 +564,12 @@ class _ActiveOrderTrackerCard extends StatelessWidget {
                           ),
                           Text(
                             '${order.items.length} items  •  ${order.items.isNotEmpty ? order.items.first.serviceName : 'Laundry'}',
-                            style: AppTypography.bodySmall.copyWith(color: AppColors.textSecondary),
+                            style: AppTypography.bodySmall
+                                .copyWith(color: AppColors.textSecondary),
                           ),
                           Text(
-                            order.estimatedDeliveryAt?.toDayDate ?? 'Delivery estimate pending',
+                            order.estimatedDeliveryAt?.toDayDate ??
+                                'Delivery estimate pending',
                             style: AppTypography.labelSmall.copyWith(
                               color: AppColors.success,
                               fontWeight: FontWeight.bold,
@@ -581,7 +597,8 @@ class _ActiveOrderTrackerCard extends StatelessWidget {
 
 class _ActiveOrderTimelineRow extends StatelessWidget {
   const _ActiveOrderTimelineRow({required this.currentStep});
-  final int currentStep; // 0: Picked up, 1: Cleaning, 2: Quality check, 3: Out for delivery
+  final int
+      currentStep; // 0: Picked up, 1: Cleaning, 2: Quality check, 3: Out for delivery
 
   @override
   Widget build(BuildContext context) {
@@ -611,7 +628,9 @@ class _ActiveOrderTimelineRow extends StatelessWidget {
                       height: 14.r,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        color: isCompleted ? AppColors.secondary : AppColors.outline.withOpacity(0.6),
+                        color: isCompleted
+                            ? AppColors.secondary
+                            : AppColors.outline.withOpacity(0.6),
                       ),
                       child: isCompleted && index == 0
                           ? Center(
@@ -627,7 +646,9 @@ class _ActiveOrderTimelineRow extends StatelessWidget {
                       Expanded(
                         child: Container(
                           height: 2.h,
-                          color: isCompleted ? AppColors.secondary : AppColors.outline.withOpacity(0.6),
+                          color: isCompleted
+                              ? AppColors.secondary
+                              : AppColors.outline.withOpacity(0.6),
                         ),
                       ),
                   ],
@@ -639,8 +660,11 @@ class _ActiveOrderTimelineRow extends StatelessWidget {
                     steps[index],
                     style: AppTypography.caption.copyWith(
                       fontSize: 8.sp,
-                      fontWeight: isCurrent ? FontWeight.bold : FontWeight.normal,
-                      color: isCompleted ? AppColors.secondary : AppColors.textMuted,
+                      fontWeight:
+                          isCurrent ? FontWeight.bold : FontWeight.normal,
+                      color: isCompleted
+                          ? AppColors.secondary
+                          : AppColors.textMuted,
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -665,7 +689,8 @@ class _HorizontalVendorCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     // Use distance from backend, or fallback for mock mode
-    final double displayDistance = vendor.distanceKm ?? ((vendor.id.hashCode.abs() % 20) + 5) / 10;
+    final double displayDistance =
+        vendor.distanceKm ?? ((vendor.id.hashCode.abs() % 20) + 5) / 10;
 
     return AppCard.outlined(
       onTap: onTap,
@@ -693,7 +718,8 @@ class _HorizontalVendorCard extends StatelessWidget {
                         )
                       : Container(
                           color: AppColors.primaryContainer,
-                          child: Icon(AppIcons.store, size: 36.r, color: AppColors.primary),
+                          child: Icon(AppIcons.store,
+                              size: 36.r, color: AppColors.primary),
                         ),
                 ),
               ),
@@ -744,7 +770,8 @@ class _HorizontalVendorCard extends StatelessWidget {
                     const Gap(6),
                     Text(
                       '•',
-                      style: TextStyle(color: AppColors.textMuted, fontSize: 8.sp),
+                      style:
+                          TextStyle(color: AppColors.textMuted, fontSize: 8.sp),
                     ),
                     const Gap(6),
                     Text(
@@ -760,7 +787,8 @@ class _HorizontalVendorCard extends StatelessWidget {
                 const Gap(8),
                 const Gap(10),
                 // Divider
-                Container(height: 1.h, color: AppColors.outline.withOpacity(0.5)),
+                Container(
+                    height: 1.h, color: AppColors.outline.withOpacity(0.5)),
                 const Gap(8),
                 // Bottom row: Verified badge & Action button
                 Row(
@@ -809,6 +837,4 @@ class _HorizontalVendorCard extends StatelessWidget {
       ),
     );
   }
-
 }
-

@@ -1,5 +1,3 @@
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../../../../core/design/design_system.dart';
 import '../../../../core/widgets/widgets.dart';
 import '../../../../core/extensions/extensions.dart';
@@ -44,7 +42,8 @@ class OrderConfirmationPage extends StatelessWidget {
                     color: AppColors.success.withOpacity(0.1),
                     shape: BoxShape.circle,
                   ),
-                  child: Icon(AppIcons.success, size: 80.r, color: AppColors.success),
+                  child: Icon(AppIcons.success,
+                      size: 80.r, color: AppColors.success),
                 ),
               ),
               const Gap(32),
@@ -84,8 +83,7 @@ class OrderConfirmationPage extends StatelessWidget {
                             horizontal: 14.w, vertical: 7.h),
                         decoration: BoxDecoration(
                           color: AppColors.primary.withOpacity(0.12),
-                          borderRadius:
-                              BorderRadius.circular(AppRadius.full.r),
+                          borderRadius: BorderRadius.circular(AppRadius.full.r),
                         ),
                         child: Text(
                           'Waiting for Vendor Confirmation',
@@ -134,10 +132,10 @@ class OrderConfirmationPage extends StatelessWidget {
 }
 
 class _Row extends StatelessWidget {
-  const _Row({required this.label, required this.value, this.valueColor});
+  const _Row({required this.label, required this.value});
+
   final String label;
   final String value;
-  final Color? valueColor;
 
   @override
   Widget build(BuildContext context) {
@@ -153,7 +151,7 @@ class _Row extends StatelessWidget {
           child: Text(
             value,
             style: AppTypography.bodySmall.copyWith(
-              color: valueColor ?? AppColors.textBlack,
+              color: AppColors.textBlack,
               fontWeight: FontWeight.w600,
             ),
           ),

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gap/gap.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/theme/theme.dart';
@@ -63,7 +62,8 @@ class HelpPage extends StatelessWidget {
                   children: [
                     Icon(AppIcons.info, color: AppColors.primary, size: 28.r),
                     const Gap(12),
-                    Text('Need immediate help?', style: AppTypography.titleMedium),
+                    Text('Need immediate help?',
+                        style: AppTypography.titleMedium),
                     const Gap(6),
                     Text(
                       'Contact LNDRY Support via Phone or Email. Operating 9:00 AM to 8:00 PM daily.',
@@ -77,7 +77,8 @@ class HelpPage extends StatelessWidget {
                           child: AppButton.outlined(
                             label: 'Call Us',
                             icon: const Icon(AppIcons.phone, size: 16),
-                            onPressed: () => AppSnackBar.showInfo(context, 'Mock Call: +91 9876543210'),
+                            onPressed: () => AppSnackBar.showInfo(
+                                context, 'Mock Call: +91 9876543210'),
                           ),
                         ),
                         const Gap(12),
@@ -85,7 +86,8 @@ class HelpPage extends StatelessWidget {
                           child: AppButton.outlined(
                             label: 'Email Support',
                             icon: const Icon(AppIcons.email, size: 16),
-                            onPressed: () => AppSnackBar.showInfo(context, 'Mock Email: support@lndry.com'),
+                            onPressed: () => AppSnackBar.showInfo(
+                                context, 'Mock Email: support@lndry.com'),
                           ),
                         ),
                       ],
@@ -95,7 +97,8 @@ class HelpPage extends StatelessWidget {
               ),
               const Gap(24),
 
-              Text('Frequently Asked Questions', style: AppTypography.titleMedium),
+              Text('Frequently Asked Questions',
+                  style: AppTypography.titleMedium),
               const Gap(12),
 
               // FAQ Accordions
@@ -108,7 +111,8 @@ class HelpPage extends StatelessWidget {
                   final faq = faqs[idx];
 
                   return AppCard.outlined(
-                    padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
+                    padding:
+                        EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
                     child: ExpansionTile(
                       tilePadding: EdgeInsets.zero,
                       title: Text(faq.q, style: AppTypography.labelLarge),

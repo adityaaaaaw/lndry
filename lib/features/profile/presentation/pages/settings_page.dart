@@ -1,11 +1,9 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../../../../core/design/design_system.dart';
 import '../../../../core/widgets/widgets.dart';
 import '../../../../core/extensions/extensions.dart';
-import '../../../../core/services/storage_service.dart';
-import '../../../../core/constants/app_constants.dart';
 import '../../../../providers/theme_provider.dart';
+import '../../../../repositories/repositories.dart';
 
 class SettingsPage extends ConsumerStatefulWidget {
   const SettingsPage({super.key});
@@ -15,10 +13,9 @@ class SettingsPage extends ConsumerStatefulWidget {
 }
 
 class _SettingsPageState extends ConsumerState<SettingsPage> {
-  // Loaded from StorageService in initState.
-  bool _pushNotifications = true;
-  bool _whatsappUpdates = false;
+  NotificationPreferences _notificationPrefs = const NotificationPreferences();
   bool _prefsLoaded = false;
+  bool _isSavingPrefs = false;
 
   @override
   void initState() {
@@ -26,27 +23,46 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     _loadPrefs();
   }
 
-  void _loadPrefs() {
-    final storage = ref.read(storageServiceProvider);
-    setState(() {
-      _pushNotifications =
-          storage.getBool(AppConstants.keyPushNotifications) ?? true;
-      _whatsappUpdates =
-          storage.getBool(AppConstants.keyWhatsappUpdates) ?? false;
-      _prefsLoaded = true;
-    });
+  Future<void> _loadPrefs() async {
+    try {
+      final prefs = await ref
+          .read(customerRepositoryProvider)
+          .getNotificationPreferences();
+      if (mounted) {
+        setState(() {
+          _notificationPrefs = prefs;
+          _prefsLoaded = true;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _prefsLoaded = true);
+    }
   }
 
-  Future<void> _setPushNotifications(bool value) async {
-    final storage = ref.read(storageServiceProvider);
-    await storage.saveBool(AppConstants.keyPushNotifications, value: value);
-    setState(() => _pushNotifications = value);
-  }
-
-  Future<void> _setWhatsappUpdates(bool value) async {
-    final storage = ref.read(storageServiceProvider);
-    await storage.saveBool(AppConstants.keyWhatsappUpdates, value: value);
-    setState(() => _whatsappUpdates = value);
+  Future<void> _updateNotificationPrefs({
+    bool? orderUpdates,
+    bool? promotions,
+    bool? newProducts,
+    bool? deliveryUpdates,
+    bool? priceDrops,
+  }) async {
+    setState(() => _isSavingPrefs = true);
+    try {
+      final updated = await ref
+          .read(customerRepositoryProvider)
+          .updateNotificationPreferences(
+            orderUpdates: orderUpdates,
+            promotions: promotions,
+            newProducts: newProducts,
+            deliveryUpdates: deliveryUpdates,
+            priceDrops: priceDrops,
+          );
+      if (mounted) setState(() => _notificationPrefs = updated);
+    } catch (e) {
+      if (mounted) AppSnackBar.showError(context, e.toString());
+    } finally {
+      if (mounted) setState(() => _isSavingPrefs = false);
+    }
   }
 
   @override
@@ -140,27 +156,71 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                       child: Column(
                         children: [
                           SwitchListTile.adaptive(
-                            title: Text('Push Notifications',
+                            title: Text('Order Updates',
                                 style: AppTypography.bodyMedium),
                             subtitle: Text(
-                              'Order updates, pickups and delivery alerts',
+                              'Pickup, status and delivery alerts',
                               style: AppTypography.caption,
                             ),
-                            value: _pushNotifications,
+                            value: _notificationPrefs.orderUpdates,
                             activeColor: AppColors.primary,
-                            onChanged: _setPushNotifications,
+                            onChanged: _isSavingPrefs
+                                ? null
+                                : (value) => _updateNotificationPrefs(
+                                      orderUpdates: value,
+                                    ),
                           ),
                           const Divider(height: 1),
                           SwitchListTile.adaptive(
-                            title: Text('WhatsApp Updates',
+                            title: Text('Promotions',
                                 style: AppTypography.bodyMedium),
                             subtitle: Text(
-                              'Get order tracking messages on WhatsApp',
+                              'Offers and campaign updates',
                               style: AppTypography.caption,
                             ),
-                            value: _whatsappUpdates,
+                            value: _notificationPrefs.promotions,
                             activeColor: AppColors.primary,
-                            onChanged: _setWhatsappUpdates,
+                            onChanged: _isSavingPrefs
+                                ? null
+                                : (value) => _updateNotificationPrefs(
+                                      promotions: value,
+                                    ),
+                          ),
+                          const Divider(height: 1),
+                          SwitchListTile.adaptive(
+                            title: Text('New Products',
+                                style: AppTypography.bodyMedium),
+                            value: _notificationPrefs.newProducts,
+                            activeColor: AppColors.primary,
+                            onChanged: _isSavingPrefs
+                                ? null
+                                : (value) => _updateNotificationPrefs(
+                                      newProducts: value,
+                                    ),
+                          ),
+                          const Divider(height: 1),
+                          SwitchListTile.adaptive(
+                            title: Text('Delivery Updates',
+                                style: AppTypography.bodyMedium),
+                            value: _notificationPrefs.deliveryUpdates,
+                            activeColor: AppColors.primary,
+                            onChanged: _isSavingPrefs
+                                ? null
+                                : (value) => _updateNotificationPrefs(
+                                      deliveryUpdates: value,
+                                    ),
+                          ),
+                          const Divider(height: 1),
+                          SwitchListTile.adaptive(
+                            title: Text('Price Drops',
+                                style: AppTypography.bodyMedium),
+                            value: _notificationPrefs.priceDrops,
+                            activeColor: AppColors.primary,
+                            onChanged: _isSavingPrefs
+                                ? null
+                                : (value) => _updateNotificationPrefs(
+                                      priceDrops: value,
+                                    ),
                           ),
                         ],
                       ),

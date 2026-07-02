@@ -1,7 +1,6 @@
 import '../../../../core/design/design_system.dart';
 import '../../../../core/widgets/widgets.dart';
 import '../../../../core/extensions/extensions.dart';
-import '../../../../shared/widgets/shared_widgets.dart';
 import '../../../../shared/widgets/domain_cards.dart';
 import '../../../../models/models.dart';
 import '../../../../repositories/repositories.dart';
@@ -64,7 +63,8 @@ class _CategoryPageState extends ConsumerState<CategoryPage> {
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
-        title: Text(_category?.name ?? 'Category Details', style: AppTypography.titleLarge),
+        title: Text(_category?.name ?? 'Category Details',
+            style: AppTypography.titleLarge),
         centerTitle: true,
         leading: IconButton(
           icon: const Icon(AppIcons.back),
@@ -127,7 +127,8 @@ class _CategoryPageState extends ConsumerState<CategoryPage> {
                         ? AppEmptyState(
                             icon: AppIcons.store,
                             title: 'No Vendors Available',
-                            subtitle: 'We couldn\'t find any laundry vendors offering this service in your area currently.',
+                            subtitle:
+                                'We couldn\'t find any laundry vendors offering this service in your area currently.',
                             actionLabel: 'Go Back Home',
                             onAction: () => context.go(AppRoutes.home),
                           )

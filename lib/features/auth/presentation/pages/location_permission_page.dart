@@ -17,14 +17,15 @@ class LocationPermissionPage extends ConsumerStatefulWidget {
       _LocationPermissionPageState();
 }
 
-class _LocationPermissionPageState extends ConsumerState<LocationPermissionPage> {
+class _LocationPermissionPageState
+    extends ConsumerState<LocationPermissionPage> {
   bool _isLoading = false;
 
   void _onGrantPermission() async {
     setState(() => _isLoading = true);
     // Simulate checking system permissions and granting
-    await Future.delayed(const Duration(milliseconds: 1000));
-    
+    await Future<void>.delayed(const Duration(milliseconds: 1000));
+
     if (mounted) {
       setState(() => _isLoading = false);
       AppSnackBar.showSuccess(context, 'Location permission granted.');
@@ -61,7 +62,7 @@ class _LocationPermissionPageState extends ConsumerState<LocationPermissionPage>
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               const Spacer(),
-              
+
               // Location Illustration
               Center(
                 child: Container(
@@ -99,7 +100,7 @@ class _LocationPermissionPageState extends ConsumerState<LocationPermissionPage>
                 ),
                 textAlign: TextAlign.center,
               ),
-              
+
               const Spacer(),
 
               // Actions

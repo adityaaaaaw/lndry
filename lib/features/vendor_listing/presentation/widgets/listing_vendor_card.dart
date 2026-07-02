@@ -17,14 +17,9 @@ class ListingVendorCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = context.theme;
-
-    // Use distance from backend (discovery API), or fallback for mock mode
-    final double displayDistance = vendor.distanceKm ?? ((vendor.id.hashCode.abs() % 40) + 10) / 10;
-    
-    // Simulate pickup & delivery availability
-    final bool hasPickup = vendor.id.hashCode % 2 == 0;
-    final bool hasDelivery = vendor.id.hashCode % 3 != 0;
+    final distanceLabel = vendor.distanceKm == null
+        ? 'Nearby'
+        : '${vendor.distanceKm!.toStringAsFixed(1)} km';
 
     return AppCard.elevated(
       onTap: onTap,
@@ -51,7 +46,8 @@ class ListingVendorCard extends StatelessWidget {
                           ? CachedNetworkImage(
                               imageUrl: vendor.coverImageUrl!,
                               fit: BoxFit.cover,
-                              errorWidget: (_, __, ___) => _buildPlaceholderImage(),
+                              errorWidget: (_, __, ___) =>
+                                  _buildPlaceholderImage(),
                             )
                           : _buildPlaceholderImage(),
                     ),
@@ -63,7 +59,8 @@ class ListingVendorCard extends StatelessWidget {
                   top: AppSpacing.sm.h,
                   right: AppSpacing.sm.w,
                   child: Container(
-                    padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
+                    padding:
+                        EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
                     decoration: BoxDecoration(
                       color: AppColors.success,
                       borderRadius: BorderRadius.circular(AppRadius.tag.r),
@@ -73,7 +70,9 @@ class ListingVendorCard extends StatelessWidget {
                       children: [
                         Icon(AppIcons.done, color: AppColors.white, size: 10.r),
                         const Gap(4),
-                        Text('VERIFIED', style: AppTypography.badge.copyWith(color: AppColors.white)),
+                        Text('VERIFIED',
+                            style: AppTypography.badge
+                                .copyWith(color: AppColors.white)),
                       ],
                     ),
                   ),
@@ -143,7 +142,7 @@ class ListingVendorCard extends StatelessWidget {
                   children: [
                     _InfoBadge(
                       icon: AppIcons.location,
-                      label: '${displayDistance.toStringAsFixed(1)} km',
+                      label: distanceLabel,
                       tooltip: 'Distance',
                     ),
                     _InfoBadge(
@@ -167,12 +166,12 @@ class ListingVendorCard extends StatelessWidget {
                   children: [
                     _AvailabilityChip(
                       label: 'Pickup',
-                      isAvailable: hasPickup,
+                      isAvailable: vendor.isOpen,
                     ),
                     const Gap(8),
                     _AvailabilityChip(
                       label: 'Delivery',
-                      isAvailable: hasDelivery,
+                      isAvailable: vendor.isOpen,
                     ),
                   ],
                 ),
@@ -199,7 +198,8 @@ class ListingVendorCard extends StatelessWidget {
 }
 
 class _InfoBadge extends StatelessWidget {
-  const _InfoBadge({required this.icon, required this.label, required this.tooltip});
+  const _InfoBadge(
+      {required this.icon, required this.label, required this.tooltip});
   final IconData icon;
   final String label;
   final String tooltip;
@@ -238,7 +238,9 @@ class _AvailabilityChip extends StatelessWidget {
             : theme.colorScheme.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(AppRadius.chip.r),
         border: Border.all(
-          color: isAvailable ? AppColors.success.withOpacity(0.3) : AppColors.outlineVariant,
+          color: isAvailable
+              ? AppColors.success.withOpacity(0.3)
+              : AppColors.outlineVariant,
         ),
       ),
       child: Row(
@@ -253,7 +255,8 @@ class _AvailabilityChip extends StatelessWidget {
           Text(
             label,
             style: AppTypography.caption.copyWith(
-              color: isAvailable ? AppColors.success : AppColors.onSurfaceVariant,
+              color:
+                  isAvailable ? AppColors.success : AppColors.onSurfaceVariant,
               fontWeight: isAvailable ? FontWeight.bold : FontWeight.normal,
             ),
           ),

@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import '../../models/models.dart';
 import '../../shared/repositories/base_repository.dart';
 
@@ -129,13 +131,13 @@ abstract interface class CustomerRepository {
 
   // ── Order Actions ─────────────────────────────────────────────────────────
   /// Reorder a previous order.
-  Future<OrderModel> reorder(String orderId);
+  Future<ReorderResult> reorder(String orderId);
 
   /// Get invoice for an order.
   Future<InvoiceResult> getOrderInvoice(String orderId);
 
   /// Get pickup or delivery OTP for an order.
-  Future<OtpResult> getOrderOtp(String orderId);
+  Future<OtpResult> getOrderOtp(String orderId, {required String purpose});
 
   // ── User Stats ──────────────────────────────────────────────────────────────
   /// Get user statistics (total orders, total spent, loyalty points).
@@ -174,6 +176,16 @@ abstract interface class CustomerRepository {
   Future<void> markNotificationRead(String notificationId);
   Future<void> markAllNotificationsRead();
   Future<void> deleteNotification(String notificationId);
+
+  // ── Device Registration ───────────────────────────────────────────────
+  Future<void> registerDevice({
+    required String deviceId,
+    required String platform,
+    required String fcmToken,
+    String? appVersion,
+  });
+
+  Future<void> unregisterDevice(String deviceId);
 
   // ── Notification Preferences ────────────────────────────────────────────────
   Future<NotificationPreferences> getNotificationPreferences();
@@ -459,6 +471,8 @@ class InvoiceResult {
     required this.total,
     required this.generatedAt,
     this.pdfUrl,
+    this.pdfBytes,
+    this.fileName,
   });
 
   final String id;
@@ -470,6 +484,8 @@ class InvoiceResult {
   final double total;
   final DateTime generatedAt;
   final String? pdfUrl;
+  final Uint8List? pdfBytes;
+  final String? fileName;
 }
 
 /// OTP data returned by GET /orders/:id/otp.
@@ -492,6 +508,20 @@ class OtpResult {
 
   /// Whether this OTP has already been verified.
   final bool isVerified;
+}
+
+class ReorderResult {
+  const ReorderResult({
+    required this.success,
+    required this.message,
+    this.itemCount = 0,
+    this.warnings = const [],
+  });
+
+  final bool success;
+  final String message;
+  final int itemCount;
+  final List<String> warnings;
 }
 
 // ── User Stats Types ─────────────────────────────────────────────────────────

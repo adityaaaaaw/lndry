@@ -547,7 +547,7 @@ export class OrdersService {
   }
 
   /**
-   * Cancel an order (only if PENDING or CONFIRMED)
+   * Cancel an order while it is still before pickup.
    */
   async cancel(userId, orderId, reason) {
     const order = await this.repo.findByIdAndUser(orderId, userId)
@@ -555,7 +555,14 @@ export class OrdersService {
       return { success: false, message: 'Order not found' }
     }
 
-    const cancellable = [ORDER_STATUS.PENDING, ORDER_STATUS.CONFIRMED]
+    const cancellable = [
+      ORDER_STATUS.PENDING,
+      ORDER_STATUS.CONFIRMED,
+      ORDER_STATUS.PAYMENT_CONFIRMED,
+      ORDER_STATUS.WAITING_VENDOR_CONFIRMATION,
+      ORDER_STATUS.VENDOR_ACCEPTED,
+      ORDER_STATUS.PICKUP_ASSIGNED,
+    ].filter(Boolean)
     if (!cancellable.includes(order.status)) {
       return {
         success: false,
@@ -576,7 +583,7 @@ export class OrdersService {
       client.release()
     }
 
-    const updated = await this.repo.updateStatus(orderId, ORDER_STATUS.CANCELLED, {
+    const updated = await this.repo.updateStatus(orderId, ORDER_STATUS.CUSTOMER_CANCELLED, {
       cancelledReason: reason || 'Cancelled by customer',
     })
 
@@ -651,7 +658,7 @@ export class OrdersService {
       extra.deliveredAt = new Date()
       extra.paymentStatus = 'PAID'
     }
-    if (status === ORDER_STATUS.CANCELLED) {
+    if (status === ORDER_STATUS.CUSTOMER_CANCELLED || status === ORDER_STATUS.ADMIN_CANCELLED) {
       extra.cancelledReason = 'Cancelled by admin'
       // Restore stock
       const client = await getClient()
@@ -681,7 +688,11 @@ export class OrdersService {
       return { success: false, message: 'Order not found' }
     }
 
-    if (order.status === ORDER_STATUS.DELIVERED || order.status === ORDER_STATUS.CANCELLED) {
+    if (
+      order.status === ORDER_STATUS.DELIVERED ||
+      order.status === ORDER_STATUS.CUSTOMER_CANCELLED ||
+      order.status === ORDER_STATUS.ADMIN_CANCELLED
+    ) {
       return { success: false, message: 'Cannot assign rider to a completed/cancelled order' }
     }
 
@@ -944,11 +955,17 @@ export class OrdersService {
 
   _timelineTypeToOrderStatus(timelineType) {
     switch (timelineType) {
+      case 'PAYMENT_CONFIRMED':
+        return 'WAITING_VENDOR_CONFIRMATION'
+      case 'WAITING_FOR_VENDOR_CONFIRMATION':
+        return 'WAITING_VENDOR_CONFIRMATION'
       case 'RIDER_ACCEPTED':
         return 'PACKED'
-      case 'PICKED_UP':
-      case 'OUT_FOR_DELIVERY':
-        return 'OUT_FOR_DELIVERY'
+      case 'WASHING':
+      case 'DRYING':
+      case 'IRONING':
+      case 'PREPARING':
+        return 'PROCESSING'
       default:
         return timelineType
     }
@@ -958,22 +975,48 @@ export class OrdersService {
     switch (timelineType) {
       case 'PENDING':
         return 'Order placed'
+      case 'PAYMENT_CONFIRMED':
+      case 'WAITING_FOR_VENDOR_CONFIRMATION':
+      case 'WAITING_VENDOR_CONFIRMATION':
+        return 'Waiting for vendor confirmation'
       case 'CONFIRMED':
+      case 'VENDOR_ACCEPTED':
         return 'Store accepted your order'
+      case 'PICKUP_ASSIGNED':
+        return 'Pickup partner assigned'
+      case 'GOING_FOR_PICKUP':
+        return 'Pickup partner is on the way'
+      case 'PICKUP_OTP_VERIFIED':
+        return 'Pickup OTP verified'
+      case 'PICKED_UP':
+        return 'Garments picked up'
+      case 'RECEIVED_AT_VENDOR':
+        return 'Garments received by vendor'
       case 'PREPARING':
+      case 'WASHING':
+      case 'DRYING':
+      case 'IRONING':
         return 'Store is preparing your order'
       case 'PACKED':
         return 'Order packed and ready for pickup'
+      case 'DELIVERY_ASSIGNED':
+        return 'Delivery partner assigned'
       case 'RIDER_ACCEPTED':
         return 'Delivery partner accepted your order'
-      case 'PICKED_UP':
-        return 'Delivery partner picked up your order'
       case 'OUT_FOR_DELIVERY':
         return 'Your order is out for delivery'
+      case 'DELIVERY_OTP_VERIFIED':
+        return 'Delivery OTP verified'
       case 'DELIVERED':
         return 'Order delivered successfully'
       case 'CANCELLED':
+      case 'CUSTOMER_CANCELLED':
+      case 'ADMIN_CANCELLED':
         return 'Order cancelled'
+      case 'VENDOR_REJECTED':
+        return 'Vendor rejected the order'
+      case 'AUTO_REJECTED':
+        return 'Order auto-rejected'
       default:
         return 'Order updated'
     }

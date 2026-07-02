@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gap/gap.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/theme/theme.dart';
@@ -80,7 +79,7 @@ class _SavedAddressesPageState extends ConsumerState<SavedAddressesPage> {
     final line1Controller = TextEditingController(text: address.line1);
     final cityController = TextEditingController(text: address.city);
 
-    await AppBottomSheet.show(
+    await AppBottomSheet.show<void>(
       context: context,
       title: 'Edit Address',
       isScrollControlled: true,
@@ -165,8 +164,7 @@ class _SavedAddressesPageState extends ConsumerState<SavedAddressesPage> {
                       // ── Address list ─────────────────────────────────────
                       Expanded(
                         child: ListView.separated(
-                          padding:
-                              EdgeInsets.all(AppSpacing.pagePaddingH.w),
+                          padding: EdgeInsets.all(AppSpacing.pagePaddingH.w),
                           itemCount: _addresses.length,
                           separatorBuilder: (_, __) => const Gap(12),
                           itemBuilder: (context, idx) {
@@ -200,14 +198,12 @@ class _SavedAddressesPageState extends ConsumerState<SavedAddressesPage> {
                                             children: [
                                               Text(
                                                 addr.type.label,
-                                                style:
-                                                    AppTypography.labelLarge,
+                                                style: AppTypography.labelLarge,
                                               ),
                                               if (addr.isDefault) ...[
                                                 const Gap(8),
                                                 Container(
-                                                  padding:
-                                                      EdgeInsets.symmetric(
+                                                  padding: EdgeInsets.symmetric(
                                                     horizontal: 6.w,
                                                     vertical: 2.h,
                                                   ),
@@ -264,8 +260,7 @@ class _SavedAddressesPageState extends ConsumerState<SavedAddressesPage> {
                                       size: 22.r,
                                     ),
                                     tooltip: 'Delete address',
-                                    onPressed: () =>
-                                        _onDeleteAddress(addr),
+                                    onPressed: () => _onDeleteAddress(addr),
                                   ),
                                 ],
                               ),
@@ -276,13 +271,11 @@ class _SavedAddressesPageState extends ConsumerState<SavedAddressesPage> {
 
                       // ── Add address CTA ──────────────────────────────────
                       Padding(
-                        padding:
-                            EdgeInsets.all(AppSpacing.pagePaddingH.w),
+                        padding: EdgeInsets.all(AppSpacing.pagePaddingH.w),
                         child: AppButton(
                           label: 'Pin New Address',
                           // FIX 2: correct — push for authenticated add.
-                          onPressed: () =>
-                              context.push(AppRoutes.mapAddress),
+                          onPressed: () => context.push(AppRoutes.mapAddress),
                         ),
                       ),
                     ],

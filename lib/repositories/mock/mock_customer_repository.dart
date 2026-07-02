@@ -728,28 +728,13 @@ class MockCustomerRepository implements CustomerRepository {
   // ── Order Actions (mock) ─────────────────────────────────────────────────
 
   @override
-  Future<OrderModel> reorder(String orderId) async {
+  Future<ReorderResult> reorder(String orderId) async {
     await _delay();
-    // Fetch the original order and create a new one with same items
     final original = await getOrderById(orderId);
-    final now = DateTime.now();
-    return OrderModel(
-      id: 'ord_${now.millisecondsSinceEpoch}',
-      customerId: original.customerId,
-      vendorId: original.vendorId,
-      items: original.items
-          .map((i) => i.copyWith(serviceId: i.serviceId, quantity: i.quantity))
-          .toList(),
-      status: OrderStatus.waitingForVendorConfirmation,
-      subtotal: original.subtotal,
-      platformFee: original.platformFee,
-      gstAmount: original.gstAmount,
-      total: original.total,
-      paymentMethod: PaymentMethod.upi,
-      pickupAddressId: original.pickupAddressId,
-      deliveryAddressId: original.deliveryAddressId,
-      scheduledPickupAt: now.add(const Duration(hours: 3)),
-      createdAt: now,
+    return ReorderResult(
+      success: true,
+      message: 'Items added for reorder.',
+      itemCount: original.items.length,
     );
   }
 
@@ -770,12 +755,15 @@ class MockCustomerRepository implements CustomerRepository {
   }
 
   @override
-  Future<OtpResult> getOrderOtp(String orderId) async {
+  Future<OtpResult> getOrderOtp(
+    String orderId, {
+    required String purpose,
+  }) async {
     await _delay();
     return OtpResult(
       otp: '123456',
       expiresAt: DateTime.now().add(const Duration(minutes: 10)),
-      type: 'pickup',
+      type: purpose.toLowerCase(),
       isVerified: false,
     );
   }
@@ -835,6 +823,21 @@ class MockCustomerRepository implements CustomerRepository {
 
   @override
   Future<void> deleteNotification(String notificationId) async {
+    await _delay(fast: true);
+  }
+
+  @override
+  Future<void> registerDevice({
+    required String deviceId,
+    required String platform,
+    required String fcmToken,
+    String? appVersion,
+  }) async {
+    await _delay(fast: true);
+  }
+
+  @override
+  Future<void> unregisterDevice(String deviceId) async {
     await _delay(fast: true);
   }
 

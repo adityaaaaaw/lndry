@@ -25,17 +25,7 @@ export default async function mapsRoutes(fastify) {
     const apiKey = process.env.GOOGLE_MAPS_API_KEY || env.GOOGLE_MAPS_API_KEY
 
     if (!apiKey) {
-      if (env.NODE_ENV === 'production') {
-        return reply.code(400).send(error('Google Maps API key is missing', 'CONFIG_ERROR'))
-      }
-      // Return structured mock fallback
-      const mockSuggestions = [
-        { description: 'Mock Address 1, Indiranagar, Bengaluru, Karnataka, India', place_id: 'mock_place_1' },
-        { description: 'Mock Address 2, Koramangala, Bengaluru, Karnataka, India', place_id: 'mock_place_2' },
-        { description: 'Mock Address 3, Whitefield, Bengaluru, Karnataka, India', place_id: 'mock_place_3' }
-      ].filter(s => s.description.toLowerCase().includes(input.toLowerCase()))
-
-      return reply.code(200).send(success(mockSuggestions, 'Mock autocomplete suggestions fetched'))
+      return reply.code(400).send(error('Google Maps API key is missing', 'CONFIG_ERROR'))
     }
 
     try {
@@ -84,37 +74,12 @@ export default async function mapsRoutes(fastify) {
     const { placeId } = request.params
     const apiKey = process.env.GOOGLE_MAPS_API_KEY || env.GOOGLE_MAPS_API_KEY
 
-    if (placeId.startsWith('mock_place_') && env.NODE_ENV === 'production') {
+    if (placeId.startsWith('mock_place_')) {
       return reply.code(400).send(error('Mock addresses are disabled in this environment', 'CONFIG_ERROR'))
     }
 
     if (!apiKey) {
-      if (env.NODE_ENV === 'production') {
-        return reply.code(400).send(error('Google Maps API key is missing', 'CONFIG_ERROR'))
-      }
-      // Return structured mock fallback based on placeId
-      let mockDetail = {
-        formatted_address: 'Mock Address 1, Indiranagar, Bengaluru, Karnataka, India',
-        lat: 12.9716,
-        lng: 77.5946,
-        postal_code: '560038'
-      }
-      if (placeId === 'mock_place_2') {
-        mockDetail = {
-          formatted_address: 'Mock Address 2, Koramangala, Bengaluru, Karnataka, India',
-          lat: 12.9279,
-          lng: 77.6271,
-          postal_code: '560034'
-        }
-      } else if (placeId === 'mock_place_3') {
-        mockDetail = {
-          formatted_address: 'Mock Address 3, Whitefield, Bengaluru, Karnataka, India',
-          lat: 12.9698,
-          lng: 77.7500,
-          postal_code: '560066'
-        }
-      }
-      return reply.code(200).send(success(mockDetail, 'Mock place details fetched'))
+      return reply.code(400).send(error('Google Maps API key is missing', 'CONFIG_ERROR'))
     }
 
     try {

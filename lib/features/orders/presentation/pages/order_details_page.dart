@@ -1,9 +1,9 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gap/gap.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/design/design_system.dart';
@@ -26,8 +26,7 @@ class _OrderDetailsPageState extends ConsumerState<OrderDetailsPage> {
   bool _isLoading = true;
   bool _isCancelling = false;
   bool _isReordering = false;
-  bool _isLoadingInvoice = false;
-  bool _isLoadingOtp = false;
+  bool _isSubmittingReview = false;
   OrderModel? _order;
   VendorModel? _vendor;
   InvoiceResult? _invoice;
@@ -54,7 +53,9 @@ class _OrderDetailsPageState extends ConsumerState<OrderDetailsPage> {
       final o = await repo.getOrderById(widget.orderId);
       VendorModel? v;
       if (o.vendorId.isNotEmpty) {
-        try { v = await repo.getVendorById(o.vendorId); } catch (_) {}
+        try {
+          v = await repo.getVendorById(o.vendorId);
+        } catch (_) {}
       }
       if (mounted) {
         setState(() {
@@ -77,26 +78,25 @@ class _OrderDetailsPageState extends ConsumerState<OrderDetailsPage> {
         order.status != OrderStatus.deliveryOtpVerified) {
       return;
     }
-    setState(() => _isLoadingInvoice = true);
     try {
-      final invoice = await ref.read(customerRepositoryProvider).getOrderInvoice(widget.orderId);
-      if (mounted) setState(() { _invoice = invoice; _isLoadingInvoice = false; });
-    } catch (_) {
-      if (mounted) setState(() => _isLoadingInvoice = false);
-    }
+      final invoice = await ref
+          .read(customerRepositoryProvider)
+          .getOrderInvoice(widget.orderId);
+      if (mounted) setState(() => _invoice = invoice);
+    } catch (_) {}
   }
 
   Future<void> _maybeFetchOtp(OrderModel order) async {
     if (!order.status.showPickupOtpHint && !order.status.showDeliveryOtpHint) {
       return;
     }
-    setState(() => _isLoadingOtp = true);
     try {
-      final otp = await ref.read(customerRepositoryProvider).getOrderOtp(widget.orderId);
-      if (mounted) setState(() { _otp = otp; _isLoadingOtp = false; });
-    } catch (_) {
-      if (mounted) setState(() => _isLoadingOtp = false);
-    }
+      final purpose = order.status.showDeliveryOtpHint ? 'DELIVERY' : 'PICKUP';
+      final otp = await ref
+          .read(customerRepositoryProvider)
+          .getOrderOtp(widget.orderId, purpose: purpose);
+      if (mounted) setState(() => _otp = otp);
+    } catch (_) {}
   }
 
   Future<void> _showCancelSheet() async {
@@ -170,10 +170,11 @@ class _OrderDetailsPageState extends ConsumerState<OrderDetailsPage> {
     setState(() => _isReordering = true);
     try {
       final repo = ref.read(customerRepositoryProvider);
-      final newOrder = await repo.reorder(widget.orderId);
+      final result = await repo.reorder(widget.orderId);
       if (mounted) {
-        AppSnackBar.showSuccess(context, 'New order placed! Redirecting...');
-        context.go('/orders/details/${newOrder.id}');
+        setState(() => _isReordering = false);
+        AppSnackBar.showSuccess(context, result.message);
+        context.go(AppRoutes.cart);
       }
     } catch (e) {
       if (mounted) {
@@ -184,11 +185,108 @@ class _OrderDetailsPageState extends ConsumerState<OrderDetailsPage> {
   }
 
   Future<void> _handleDownloadInvoice() async {
+    if (_invoice?.pdfBytes != null && _invoice!.pdfBytes!.isNotEmpty) {
+      final file = File(
+        '${Directory.systemTemp.path}${Platform.pathSeparator}${_invoice!.fileName ?? 'invoice-${widget.orderId}.pdf'}',
+      );
+      await file.writeAsBytes(_invoice!.pdfBytes!, flush: true);
+      final launched = await launchUrl(
+        Uri.file(file.path),
+        mode: LaunchMode.externalApplication,
+      );
+      if (!launched && mounted) {
+        AppSnackBar.showInfo(context, 'Invoice downloaded to ${file.path}');
+      }
+      return;
+    }
     if (_invoice?.pdfUrl != null) {
       final uri = Uri.tryParse(_invoice!.pdfUrl!);
       if (uri != null && await canLaunchUrl(uri)) {
         await launchUrl(uri, mode: LaunchMode.externalApplication);
       }
+    }
+  }
+
+  Future<void> _showReviewSheet(OrderModel order) async {
+    var vendorRating = 5;
+    var riderRating = 5;
+    final commentController = TextEditingController();
+
+    final shouldSubmit = await AppBottomSheet.show<bool>(
+      context: context,
+      title: 'Review Order',
+      primaryActionLabel: 'Submit Review',
+      onPrimaryAction: () => Navigator.of(context).pop(true),
+      child: StatefulBuilder(
+        builder: (context, setModalState) => Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text('Vendor rating', style: AppTypography.labelMedium),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: List.generate(
+                5,
+                (index) => IconButton(
+                  icon: Icon(
+                    index < vendorRating
+                        ? Icons.star_rounded
+                        : Icons.star_border_rounded,
+                    color: AppColors.warning,
+                  ),
+                  onPressed: () =>
+                      setModalState(() => vendorRating = index + 1),
+                ),
+              ),
+            ),
+            Text('Delivery rating', style: AppTypography.labelMedium),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: List.generate(
+                5,
+                (index) => IconButton(
+                  icon: Icon(
+                    index < riderRating
+                        ? Icons.star_rounded
+                        : Icons.star_border_rounded,
+                    color: AppColors.warning,
+                  ),
+                  onPressed: () => setModalState(() => riderRating = index + 1),
+                ),
+              ),
+            ),
+            AppTextField(
+              label: 'Comment',
+              hint: 'Share your experience',
+              controller: commentController,
+              maxLines: 3,
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (shouldSubmit != true) {
+      commentController.dispose();
+      return;
+    }
+
+    setState(() => _isSubmittingReview = true);
+    try {
+      await ref.read(customerRepositoryProvider).createReview(
+            orderId: order.id,
+            vendorRating: vendorRating,
+            riderRating: riderRating,
+            comment: commentController.text.trim().isEmpty
+                ? null
+                : commentController.text.trim(),
+          );
+      if (mounted) AppSnackBar.showSuccess(context, 'Review submitted.');
+    } catch (e) {
+      if (mounted) AppSnackBar.showError(context, e.toString());
+    } finally {
+      commentController.dispose();
+      if (mounted) setState(() => _isSubmittingReview = false);
     }
   }
 
@@ -230,12 +328,9 @@ class _OrderDetailsPageState extends ConsumerState<OrderDetailsPage> {
           'Arrived at laundry. Quantities being confirmed.',
         OrderStatus.processing =>
           'Clothes are being washed, dried and/or ironed.',
-        OrderStatus.packed =>
-          'Packed and ready. Delivery being arranged.',
-        OrderStatus.outForDelivery =>
-          'On the way to your delivery address.',
-        OrderStatus.delivered =>
-          'Delivered. Thank you for choosing LNDRY!',
+        OrderStatus.packed => 'Packed and ready. Delivery being arranged.',
+        OrderStatus.outForDelivery => 'On the way to your delivery address.',
+        OrderStatus.delivered => 'Delivered. Thank you for choosing LNDRY!',
         _ => '',
       };
 
@@ -329,19 +424,19 @@ class _OrderDetailsPageState extends ConsumerState<OrderDetailsPage> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(_vendor!.name,
-                                  style: AppTypography.titleSmall.copyWith(
-                                      fontWeight: FontWeight.bold)),
+                                  style: AppTypography.titleSmall
+                                      .copyWith(fontWeight: FontWeight.bold)),
                               if (order.scheduledPickupAt != null)
                                 Text(
                                   'Pickup: ${order.scheduledPickupAt!.toDayDate}',
-                                  style: AppTypography.bodySmall.copyWith(
-                                      color: AppColors.textSecondary),
+                                  style: AppTypography.bodySmall
+                                      .copyWith(color: AppColors.textSecondary),
                                 ),
                               if (order.estimatedDeliveryAt != null)
                                 Text(
                                   'Delivery: ${order.estimatedDeliveryAt!.toDayDate}',
-                                  style: AppTypography.bodySmall.copyWith(
-                                      color: AppColors.textSecondary),
+                                  style: AppTypography.bodySmall
+                                      .copyWith(color: AppColors.textSecondary),
                                 ),
                             ],
                           ),
@@ -410,8 +505,8 @@ class _OrderDetailsPageState extends ConsumerState<OrderDetailsPage> {
                   Text('Order Timeline', style: AppTypography.titleMedium),
                   const Gap(16),
                   AppCard.outlined(
-                    padding: EdgeInsets.symmetric(
-                        horizontal: 20.w, vertical: 24.h),
+                    padding:
+                        EdgeInsets.symmetric(horizontal: 20.w, vertical: 24.h),
                     child: ListView.builder(
                       shrinkWrap: true,
                       physics: const NeverScrollableScrollPhysics(),
@@ -421,13 +516,11 @@ class _OrderDetailsPageState extends ConsumerState<OrderDetailsPage> {
                         final isCompleted =
                             currentStepIdx >= 0 && idx <= currentStepIdx;
                         final isCurrent = idx == currentStepIdx;
-                        final showLine =
-                            idx < _timelineSteps.length - 1;
+                        final showLine = idx < _timelineSteps.length - 1;
 
                         return IntrinsicHeight(
                           child: Row(
-                            crossAxisAlignment:
-                                CrossAxisAlignment.stretch,
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
                               Column(
                                 children: [
@@ -438,19 +531,16 @@ class _OrderDetailsPageState extends ConsumerState<OrderDetailsPage> {
                                       shape: BoxShape.circle,
                                       color: isCompleted
                                           ? AppColors.primary
-                                          : AppColors.outline
-                                              .withOpacity(0.5),
+                                          : AppColors.outline.withOpacity(0.5),
                                       border: isCurrent
                                           ? Border.all(
-                                              color: AppColors
-                                                  .primaryContainer,
+                                              color: AppColors.primaryContainer,
                                               width: 3.r)
                                           : null,
                                     ),
                                     child: isCompleted
                                         ? Icon(Icons.check,
-                                            size: 10.r,
-                                            color: AppColors.white)
+                                            size: 10.r, color: AppColors.white)
                                         : null,
                                   ),
                                   if (showLine)
@@ -468,20 +558,18 @@ class _OrderDetailsPageState extends ConsumerState<OrderDetailsPage> {
                               const Gap(16),
                               Expanded(
                                 child: Padding(
-                                  padding: const EdgeInsets.only(
-                                      bottom: 20),
+                                  padding: const EdgeInsets.only(bottom: 20),
                                   child: Column(
                                     crossAxisAlignment:
                                         CrossAxisAlignment.start,
                                     children: [
                                       Text(
                                         step.label,
-                                        style: AppTypography.labelLarge
-                                            .copyWith(
+                                        style:
+                                            AppTypography.labelLarge.copyWith(
                                           color: isCompleted
                                               ? AppColors.textBlack
-                                              : AppColors
-                                                  .onSurfaceVariant,
+                                              : AppColors.onSurfaceVariant,
                                           fontWeight: isCurrent
                                               ? FontWeight.bold
                                               : FontWeight.normal,
@@ -489,10 +577,8 @@ class _OrderDetailsPageState extends ConsumerState<OrderDetailsPage> {
                                       ),
                                       Text(
                                         _stepDescription(step),
-                                        style: AppTypography.bodySmall
-                                            .copyWith(
-                                          color: AppColors
-                                              .onSurfaceVariant,
+                                        style: AppTypography.bodySmall.copyWith(
+                                          color: AppColors.onSurfaceVariant,
                                         ),
                                       ),
                                     ],
@@ -517,8 +603,7 @@ class _OrderDetailsPageState extends ConsumerState<OrderDetailsPage> {
                     child: Column(
                       children: order.items
                           .map((item) => Padding(
-                                padding:
-                                    EdgeInsets.symmetric(vertical: 6.h),
+                                padding: EdgeInsets.symmetric(vertical: 6.h),
                                 child: Row(
                                   children: [
                                     Expanded(
@@ -530,8 +615,8 @@ class _OrderDetailsPageState extends ConsumerState<OrderDetailsPage> {
                                     if (item.totalPrice > 0)
                                       Text(
                                         item.totalPrice.toCurrencyDecimal,
-                                        style:
-                                            AppTypography.labelLarge.copyWith(
+                                        style: AppTypography.labelLarge
+                                            .copyWith(
                                                 fontWeight: FontWeight.bold),
                                       ),
                                   ],
@@ -559,7 +644,8 @@ class _OrderDetailsPageState extends ConsumerState<OrderDetailsPage> {
                   Text('Security OTP', style: AppTypography.titleMedium),
                   const Gap(12),
                   AppCard.outlined(
-                    backgroundColor: AppColors.primaryContainer.withOpacity(0.15),
+                    backgroundColor:
+                        AppColors.primaryContainer.withOpacity(0.15),
                     borderColor: AppColors.primary.withOpacity(0.3),
                     padding: EdgeInsets.all(AppSpacing.md.r),
                     child: Column(
@@ -595,7 +681,8 @@ class _OrderDetailsPageState extends ConsumerState<OrderDetailsPage> {
                           ),
                           decoration: BoxDecoration(
                             color: AppColors.surface,
-                            borderRadius: BorderRadius.circular(AppRadius.input.r),
+                            borderRadius:
+                                BorderRadius.circular(AppRadius.input.r),
                             border: Border.all(
                               color: AppColors.primary.withOpacity(0.5),
                             ),
@@ -654,12 +741,20 @@ class _OrderDetailsPageState extends ConsumerState<OrderDetailsPage> {
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
-                              Text(
-                                'Total: ${_invoice!.total.toCurrencyDecimal}',
-                                style: AppTypography.bodySmall.copyWith(
-                                  color: AppColors.onSurfaceVariant,
+                              if (_invoice!.total > 0)
+                                Text(
+                                  'Total: ${_invoice!.total.toCurrencyDecimal}',
+                                  style: AppTypography.bodySmall.copyWith(
+                                    color: AppColors.onSurfaceVariant,
+                                  ),
+                                )
+                              else
+                                Text(
+                                  'PDF invoice ready',
+                                  style: AppTypography.bodySmall.copyWith(
+                                    color: AppColors.onSurfaceVariant,
+                                  ),
                                 ),
-                              ),
                             ],
                           ),
                         ),
@@ -703,6 +798,23 @@ class _OrderDetailsPageState extends ConsumerState<OrderDetailsPage> {
                           onPressed: _handleReorder,
                         ),
                       ),
+                    if ((order.status == OrderStatus.delivered ||
+                            order.status == OrderStatus.deliveryOtpVerified) &&
+                        !_isSubmittingReview) ...[
+                      if (order.status.isTerminal &&
+                          order.status != OrderStatus.customerCancelled &&
+                          order.status != OrderStatus.adminCancelled)
+                        const Gap(12),
+                      Expanded(
+                        child: AppButton.outlined(
+                          label: 'Review',
+                          icon: const Icon(Icons.star_border_rounded, size: 18),
+                          isLoading: _isSubmittingReview,
+                          isDisabled: _isSubmittingReview,
+                          onPressed: () => _showReviewSheet(order),
+                        ),
+                      ),
+                    ],
                   ],
                 ),
                 const Gap(24),
@@ -748,8 +860,8 @@ class _Banner extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(title,
-                    style: AppTypography.labelLarge.copyWith(
-                        color: color, fontWeight: FontWeight.bold)),
+                    style: AppTypography.labelLarge
+                        .copyWith(color: color, fontWeight: FontWeight.bold)),
                 const Gap(4),
                 Text(body,
                     style: AppTypography.bodySmall

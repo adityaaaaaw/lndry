@@ -24,7 +24,8 @@ class _VendorListingPageState extends ConsumerState<VendorListingPage> {
   List<VendorModel> _filteredVendors = [];
 
   // Sorting options
-  String _activeSort = 'rating'; // rating, distance, price_low, price_high, value, available
+  String _activeSort =
+      'rating'; // rating, distance, price_low, price_high, value, available
 
   // Filter states
   bool _filterVerifiedOnly = false;
@@ -68,19 +69,23 @@ class _VendorListingPageState extends ConsumerState<VendorListingPage> {
 
     // Apply Filter: Max Distance
     list = list.where((v) {
-      final double distance = v.distanceKm ?? ((v.id.hashCode.abs() % 40) + 10) / 10;
+      final double distance =
+          v.distanceKm ?? ((v.id.hashCode.abs() % 40) + 10) / 10;
       return distance <= _maxDistance;
     }).toList();
 
     // Apply Sorting
     switch (_activeSort) {
       case 'rating':
-        list.sort((a, b) => (b.averageRating ?? 0.0).compareTo(a.averageRating ?? 0.0));
+        list.sort((a, b) =>
+            (b.averageRating ?? 0.0).compareTo(a.averageRating ?? 0.0));
         break;
       case 'distance':
         list.sort((a, b) {
-          final double distA = a.distanceKm ?? ((a.id.hashCode.abs() % 40) + 10) / 10;
-          final double distB = b.distanceKm ?? ((b.id.hashCode.abs() % 40) + 10) / 10;
+          final double distA =
+              a.distanceKm ?? ((a.id.hashCode.abs() % 40) + 10) / 10;
+          final double distB =
+              b.distanceKm ?? ((b.id.hashCode.abs() % 40) + 10) / 10;
           return distA.compareTo(distB);
         });
         break;
@@ -94,7 +99,8 @@ class _VendorListingPageState extends ConsumerState<VendorListingPage> {
         list.sort((a, b) {
           final valA = (a.averageRating ?? 0.0) / (a.minOrderAmount + 1);
           final valB = (b.averageRating ?? 0.0) / (b.minOrderAmount + 1);
-          return valB.compareTo(valA); // Higher rating relative to lower price first
+          return valB
+              .compareTo(valA); // Higher rating relative to lower price first
         });
         break;
       default:
@@ -107,7 +113,7 @@ class _VendorListingPageState extends ConsumerState<VendorListingPage> {
   }
 
   void _showFilterSheet() {
-    AppBottomSheet.show(
+    AppBottomSheet.show<void>(
       context: context,
       title: 'Filter Laundries',
       primaryActionLabel: 'Apply Filters',
@@ -184,7 +190,8 @@ class _VendorListingPageState extends ConsumerState<VendorListingPage> {
 
             // Verified switch
             SwitchListTile.adaptive(
-              title: Text('Verified Partners Only', style: AppTypography.bodyMedium),
+              title: Text('Verified Partners Only',
+                  style: AppTypography.bodyMedium),
               subtitle: Text(
                 'Show laundry vendors verified by LNDRY',
                 style: AppTypography.caption,
@@ -348,7 +355,8 @@ class _VendorListingPageState extends ConsumerState<VendorListingPage> {
                       padding: EdgeInsets.all(AppSpacing.pagePaddingH.w),
                       itemCount: 3,
                       separatorBuilder: (_, __) => const Gap(16),
-                      itemBuilder: (_, __) => const AppSkeletonCard(height: 240),
+                      itemBuilder: (_, __) =>
+                          const AppSkeletonCard(height: 240),
                     )
                   : _filteredVendors.isEmpty
                       ? AppEmptyState(
@@ -468,13 +476,16 @@ class _SortChip extends StatelessWidget {
               Icon(
                 icon,
                 size: 14.r,
-                color: isSelected ? AppColors.primary : AppColors.onSurfaceVariant,
+                color:
+                    isSelected ? AppColors.primary : AppColors.onSurfaceVariant,
               ),
               const Gap(6),
               Text(
                 label,
                 style: AppTypography.labelSmall.copyWith(
-                  color: isSelected ? AppColors.primary : AppColors.onSurfaceVariant,
+                  color: isSelected
+                      ? AppColors.primary
+                      : AppColors.onSurfaceVariant,
                   fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                 ),
               ),

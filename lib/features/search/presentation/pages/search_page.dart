@@ -1,12 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gap/gap.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/theme/theme.dart';
 import '../../../../core/widgets/widgets.dart';
 import '../../../../core/extensions/extensions.dart';
-import '../../../../shared/widgets/shared_widgets.dart';
 import '../../../../models/models.dart';
 import '../../../../repositories/repositories.dart';
 import '../../../../shared/repositories/base_repository.dart';
@@ -20,7 +18,8 @@ class SearchPage extends ConsumerStatefulWidget {
 
 class _SearchPageState extends ConsumerState<SearchPage> {
   final _searchController = TextEditingController();
-  String _activeFilter = 'nearest'; // nearest, top_rated, available, express, price
+  String _activeFilter =
+      'nearest'; // nearest, top_rated, available, express, price
   bool _isLoading = false;
   List<VendorModel> _vendors = [];
 
@@ -54,12 +53,13 @@ class _SearchPageState extends ConsumerState<SearchPage> {
       search: _searchController.text.isNotEmpty ? _searchController.text : null,
       params: const PaginationParams(pageSize: 20),
     );
-    
+
     var list = response.items;
-    
+
     // Apply filters
     if (_activeFilter == 'top_rated') {
-      list.sort((a, b) => (b.averageRating ?? 0.0).compareTo(a.averageRating ?? 0.0));
+      list.sort(
+          (a, b) => (b.averageRating ?? 0.0).compareTo(a.averageRating ?? 0.0));
     } else if (_activeFilter == 'available') {
       list = list.where((v) => v.isOpen).toList();
     } else if (_activeFilter == 'express') {
@@ -84,7 +84,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
   }
 
   void _showFilterBottomSheet(BuildContext context) {
-    showModalBottomSheet(
+    showModalBottomSheet<void>(
       context: context,
       builder: (context) {
         final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -98,7 +98,8 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                   padding: EdgeInsets.symmetric(vertical: 16.h),
                   child: Text(
                     'Filter Partners By',
-                    style: AppTypography.titleMedium.copyWith(color: AppColors.textBlack),
+                    style: AppTypography.titleMedium
+                        .copyWith(color: AppColors.textBlack),
                   ),
                 ),
                 const Divider(height: 1),
@@ -152,9 +153,6 @@ class _SearchPageState extends ConsumerState<SearchPage> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = context.theme;
-    final isDark = theme.brightness == Brightness.dark;
-
     return Scaffold(
       backgroundColor: AppColors.background,
       body: SafeArea(
@@ -181,7 +179,8 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                           decoration: BoxDecoration(
                             color: AppColors.surface,
                             shape: BoxShape.circle,
-                            border: Border.all(color: AppColors.outline.withOpacity(0.5)),
+                            border: Border.all(
+                                color: AppColors.outline.withOpacity(0.5)),
                             boxShadow: AppElevation.low,
                           ),
                           child: Icon(
@@ -208,7 +207,8 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
                                 GestureDetector(
-                                  onTap: () => context.push(AppRoutes.mapAddress),
+                                  onTap: () =>
+                                      context.push(AppRoutes.mapAddress),
                                   child: Row(
                                     mainAxisAlignment: MainAxisAlignment.center,
                                     children: [
@@ -241,7 +241,8 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                           decoration: BoxDecoration(
                             color: AppColors.surface,
                             shape: BoxShape.circle,
-                            border: Border.all(color: AppColors.outline.withOpacity(0.5)),
+                            border: Border.all(
+                                color: AppColors.outline.withOpacity(0.5)),
                             boxShadow: AppElevation.low,
                           ),
                           child: Icon(
@@ -262,26 +263,33 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                         child: Container(
                           decoration: BoxDecoration(
                             color: AppColors.surface,
-                            borderRadius: BorderRadius.circular(AppRadius.full.r),
-                            border: Border.all(color: AppColors.outline.withOpacity(0.5)),
+                            borderRadius:
+                                BorderRadius.circular(AppRadius.full.r),
+                            border: Border.all(
+                                color: AppColors.outline.withOpacity(0.5)),
                           ),
                           child: TextField(
                             controller: _searchController,
                             onChanged: (val) => _loadVendors(),
-                            style: AppTypography.bodyMedium.copyWith(color: AppColors.textBlack),
+                            style: AppTypography.bodyMedium
+                                .copyWith(color: AppColors.textBlack),
                             decoration: InputDecoration(
                               isDense: true,
-                              contentPadding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
+                              contentPadding: EdgeInsets.symmetric(
+                                  horizontal: 16.w, vertical: 12.h),
                               hintText: 'Search laundry, service or vendor',
                               hintStyle: AppTypography.inputHint.copyWith(
                                 fontSize: 14.sp,
                                 color: AppColors.textMuted,
                               ),
-                              prefixIcon: Icon(AppIcons.search, color: AppColors.textSecondary, size: 20.r),
+                              prefixIcon: Icon(AppIcons.search,
+                                  color: AppColors.textSecondary, size: 20.r),
                               suffixIcon: IconButton(
-                                icon: Icon(Icons.mic, color: AppColors.primary, size: 20.r),
+                                icon: Icon(Icons.mic,
+                                    color: AppColors.primary, size: 20.r),
                                 onPressed: () {
-                                  AppSnackBar.showInfo(context, 'Voice search triggered.');
+                                  AppSnackBar.showInfo(
+                                      context, 'Voice search triggered.');
                                 },
                                 constraints: const BoxConstraints(),
                                 padding: EdgeInsets.zero,
@@ -349,9 +357,11 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                             padding: EdgeInsets.all(8.r),
                             decoration: BoxDecoration(
                               color: AppColors.surface,
-                              borderRadius: BorderRadius.circular(AppRadius.compactCard.r),
+                              borderRadius: BorderRadius.circular(
+                                  AppRadius.compactCard.r),
                               boxShadow: AppElevation.low,
-                              border: Border.all(color: AppColors.outline.withOpacity(0.5)),
+                              border: Border.all(
+                                  color: AppColors.outline.withOpacity(0.5)),
                             ),
                             child: Row(
                               children: [
@@ -361,8 +371,10 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                                   child: Container(
                                     width: 44.r,
                                     height: 44.r,
-                                    color: AppColors.primaryContainer.withOpacity(0.3),
-                                    child: cat.imageUrl != null && cat.imageUrl!.isNotEmpty
+                                    color: AppColors.primaryContainer
+                                        .withOpacity(0.3),
+                                    child: cat.imageUrl != null &&
+                                            cat.imageUrl!.isNotEmpty
                                         ? Image.network(
                                             cat.imageUrl!,
                                             width: 44.r,
@@ -370,13 +382,15 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                                             fit: BoxFit.cover,
                                             errorBuilder: (_, __, ___) => Icon(
                                               AppIcons.laundry,
-                                              color: AppColors.primary.withOpacity(0.15),
+                                              color: AppColors.primary
+                                                  .withOpacity(0.15),
                                               size: 24.r,
                                             ),
                                           )
                                         : Icon(
                                             AppIcons.laundry,
-                                            color: AppColors.primary.withOpacity(0.15),
+                                            color: AppColors.primary
+                                                .withOpacity(0.15),
                                             size: 24.r,
                                           ),
                                   ),
@@ -385,12 +399,14 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                                 // Details Column
                                 Expanded(
                                   child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     mainAxisAlignment: MainAxisAlignment.center,
                                     children: [
                                       Text(
                                         cat.name,
-                                        style: AppTypography.labelSmall.copyWith(
+                                        style:
+                                            AppTypography.labelSmall.copyWith(
                                           fontWeight: FontWeight.bold,
                                           color: AppColors.textBlack,
                                         ),
@@ -417,7 +433,8 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                                     color: AppColors.primaryContainer,
                                     shape: BoxShape.circle,
                                   ),
-                                  child: Icon(AppIcons.forward, color: AppColors.primary, size: 8.r),
+                                  child: Icon(AppIcons.forward,
+                                      color: AppColors.primary, size: 8.r),
                                 ),
                               ],
                             ),
@@ -483,7 +500,8 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                   const Gap(2),
                   Text(
                     '${_vendors.length} verified partners',
-                    style: AppTypography.bodySmall.copyWith(color: AppColors.textSecondary),
+                    style: AppTypography.bodySmall
+                        .copyWith(color: AppColors.textSecondary),
                   ),
                   const Gap(16),
 
@@ -494,7 +512,8 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                           physics: const NeverScrollableScrollPhysics(),
                           itemCount: 3,
                           separatorBuilder: (_, __) => const Gap(12),
-                          itemBuilder: (_, __) => const AppSkeletonCard(height: 120),
+                          itemBuilder: (_, __) =>
+                              const AppSkeletonCard(height: 120),
                         )
                       : ListView.separated(
                           shrinkWrap: true,
@@ -527,7 +546,8 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                   borderRadius: BorderRadius.circular(AppRadius.full.r),
                   side: BorderSide(color: AppColors.outline.withOpacity(0.5)),
                 ),
-                icon: Icon(AppIcons.location, color: AppColors.primary, size: 16.r),
+                icon: Icon(AppIcons.location,
+                    color: AppColors.primary, size: 16.r),
                 label: Text(
                   'Map view',
                   style: AppTypography.labelMedium.copyWith(
@@ -571,7 +591,9 @@ class _FilterChip extends StatelessWidget {
           color: isSelected ? AppColors.primary : AppColors.surface,
           borderRadius: BorderRadius.circular(AppRadius.full.r),
           border: Border.all(
-            color: isSelected ? AppColors.primary : AppColors.outline.withOpacity(0.6),
+            color: isSelected
+                ? AppColors.primary
+                : AppColors.outline.withOpacity(0.6),
           ),
           boxShadow: isSelected ? AppElevation.low : null,
         ),
@@ -611,7 +633,8 @@ class _ListVendorCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final double displayDistance = vendor.distanceKm ?? ((vendor.id.hashCode.abs() % 20) + 5) / 10;
+    final double displayDistance =
+        vendor.distanceKm ?? ((vendor.id.hashCode.abs() % 20) + 5) / 10;
     final isLuxe = vendor.name == 'Luxe Fabric Care';
 
     return AppCard.outlined(
@@ -658,10 +681,12 @@ class _ListVendorCard extends StatelessWidget {
                     if (vendor.isVerified) ...[
                       if (isLuxe)
                         Container(
-                          padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 2.h),
+                          padding: EdgeInsets.symmetric(
+                              horizontal: 6.w, vertical: 2.h),
                           decoration: BoxDecoration(
                             color: AppColors.secondaryLight,
-                            borderRadius: BorderRadius.circular(AppRadius.tag.r),
+                            borderRadius:
+                                BorderRadius.circular(AppRadius.tag.r),
                           ),
                           child: Text(
                             'Verified',
@@ -673,13 +698,15 @@ class _ListVendorCard extends StatelessWidget {
                           ),
                         )
                       else
-                        Icon(Icons.verified, color: AppColors.primary, size: 14.r),
+                        Icon(Icons.verified,
+                            color: AppColors.primary, size: 14.r),
                     ],
                     const Gap(6),
                     // Specific Luxe 15% discount badge
                     if (isLuxe)
                       Container(
-                        padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 2.h),
+                        padding: EdgeInsets.symmetric(
+                            horizontal: 6.w, vertical: 2.h),
                         decoration: BoxDecoration(
                           color: const Color(0xFFFFECEE),
                           borderRadius: BorderRadius.circular(AppRadius.tag.r),
@@ -788,7 +815,8 @@ class _MiniTag extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.background,
         borderRadius: BorderRadius.circular(4.r),
-        border: Border.all(color: AppColors.outline.withOpacity(0.5), width: 0.5),
+        border:
+            Border.all(color: AppColors.outline.withOpacity(0.5), width: 0.5),
       ),
       child: Text(
         label,

@@ -40,6 +40,7 @@ abstract final class AppRoutes {
   static const String editProfile = '/profile/edit';
   static const String address = '/profile/address';
   static const String notifications = '/profile/notifications';
+  static const String myReviews = '/profile/reviews';
   static const String settings = '/profile/settings';
   static const String help = '/profile/help';
 }
@@ -74,6 +75,7 @@ abstract final class AppRouteNames {
   static const String editProfile = 'edit-profile';
   static const String address = 'address';
   static const String notifications = 'notifications';
+  static const String myReviews = 'my-reviews';
   static const String settings = 'settings';
   static const String help = 'help';
 }

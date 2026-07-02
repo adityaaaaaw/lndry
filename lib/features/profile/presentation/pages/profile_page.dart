@@ -1,10 +1,14 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../../../../core/design/design_system.dart';
 import '../../../../core/widgets/widgets.dart';
 import '../../../../core/extensions/extensions.dart';
 import '../../../../core/router/app_routes.dart';
 import '../../../../providers/auth_provider.dart';
+import '../../../../repositories/repositories.dart';
+
+final _profileStatsProvider = FutureProvider<UserStats>((ref) async {
+  return ref.watch(customerRepositoryProvider).getUserStats();
+});
 
 class ProfilePage extends ConsumerWidget {
   const ProfilePage({super.key});
@@ -31,6 +35,7 @@ class ProfilePage extends ConsumerWidget {
     final theme = context.theme;
     final isDark = theme.brightness == Brightness.dark;
     final user = ref.watch(currentUserProvider);
+    final statsAsync = ref.watch(_profileStatsProvider);
 
     // Build initials for avatar fallback.
     final displayName = user?.name ?? '';
@@ -82,16 +87,16 @@ class ProfilePage extends ConsumerWidget {
                               user!.avatarUrl!.isNotEmpty)
                           ? NetworkImage(user.avatarUrl!)
                           : null,
-                      child: (user?.avatarUrl == null ||
-                              user!.avatarUrl!.isEmpty)
-                          ? Text(
-                              initials,
-                              style: AppTypography.titleLarge.copyWith(
-                                color: AppColors.primary,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            )
-                          : null,
+                      child:
+                          (user?.avatarUrl == null || user!.avatarUrl!.isEmpty)
+                              ? Text(
+                                  initials,
+                                  style: AppTypography.titleLarge.copyWith(
+                                    color: AppColors.primary,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                )
+                              : null,
                     ),
                     const Gap(16),
                     Expanded(
@@ -118,6 +123,37 @@ class ProfilePage extends ConsumerWidget {
                     ),
                   ],
                 ),
+              ),
+              const Gap(16),
+
+              statsAsync.when(
+                data: (stats) => AppCard.outlined(
+                  padding: EdgeInsets.all(AppSpacing.md.r),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: _StatItem(
+                          label: 'Orders',
+                          value: stats.totalOrders.toString(),
+                        ),
+                      ),
+                      Expanded(
+                        child: _StatItem(
+                          label: 'Spent',
+                          value: stats.totalSpent.toCurrencyDecimal,
+                        ),
+                      ),
+                      Expanded(
+                        child: _StatItem(
+                          label: 'Points',
+                          value: stats.loyaltyPoints.toString(),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                loading: () => const AppSkeletonCard(height: 72),
+                error: (_, __) => const SizedBox.shrink(),
               ),
               const Gap(16),
 
@@ -178,6 +214,12 @@ class ProfilePage extends ConsumerWidget {
                     ),
                     const Divider(height: 1),
                     _SettingsTile(
+                      icon: Icons.star_border_rounded,
+                      label: 'My Reviews',
+                      onTap: () => context.push(AppRoutes.myReviews),
+                    ),
+                    const Divider(height: 1),
+                    _SettingsTile(
                       icon: AppIcons.settings,
                       label: 'Settings',
                       onTap: () => context.push(AppRoutes.settings),
@@ -208,6 +250,36 @@ class ProfilePage extends ConsumerWidget {
   }
 }
 
+class _StatItem extends StatelessWidget {
+  const _StatItem({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Text(
+          value,
+          style: AppTypography.titleSmall.copyWith(
+            fontWeight: FontWeight.bold,
+          ),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+        const Gap(4),
+        Text(
+          label,
+          style: AppTypography.caption.copyWith(
+            color: AppColors.textSecondary,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 class _SettingsTile extends StatelessWidget {
   const _SettingsTile({
     required this.icon,
@@ -222,11 +294,9 @@ class _SettingsTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListTile(
-      leading:
-          Icon(icon, color: AppColors.onSurfaceVariant, size: 20.r),
+      leading: Icon(icon, color: AppColors.onSurfaceVariant, size: 20.r),
       title: Text(label, style: AppTypography.bodyMedium),
-      trailing:
-          Icon(AppIcons.forward, color: AppColors.outline, size: 14.r),
+      trailing: Icon(AppIcons.forward, color: AppColors.outline, size: 14.r),
       onTap: onTap,
     );
   }

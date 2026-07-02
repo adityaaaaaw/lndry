@@ -1,4 +1,8 @@
+import 'dart:io';
+
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:uuid/uuid.dart';
 import '../models/models.dart';
 import '../core/services/storage_service.dart';
 import '../core/constants/app_constants.dart';
@@ -119,6 +123,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
       // Fetch user profile
       final user = await _repo.getProfile();
       await _saveUserPrefs(user);
+      await _registerDeviceIfPossible();
 
       // Handle server-side profile deletion edge case
       if (_needsProfileSetup(user)) {
@@ -173,6 +178,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
       await _storage.saveSecure(
           AppConstants.keyRefreshToken, result.refreshToken);
       await _saveUserPrefs(result.user);
+      await _registerDeviceIfPossible();
 
       if (result.isNewUser || _needsProfileSetup(result.user)) {
         state = AuthNeedsProfileSetup(phone: result.user.phone);
@@ -292,9 +298,24 @@ class AuthNotifier extends StateNotifier<AuthState> {
     }
   }
 
+  Future<void> updateAuthenticatedAvatar(String avatarUrl) async {
+    final prev = state;
+    if (prev is! AuthAuthenticated) return;
+
+    final updated = prev.user.copyWith(avatarUrl: avatarUrl);
+    await _saveUserPrefs(updated);
+    state = AuthAuthenticated(updated);
+  }
+
   // ── Logout ────────────────────────────────────────────────────────────────
 
   Future<void> logout() async {
+    final deviceId = _storage.getString('device_id');
+    if (deviceId != null && deviceId.isNotEmpty) {
+      try {
+        await _repo.unregisterDevice(deviceId);
+      } catch (_) {}
+    }
     try {
       await _repo.logout();
     } catch (_) {
@@ -338,6 +359,34 @@ class AuthNotifier extends StateNotifier<AuthState> {
       _storage.remove('user_has_address'),
       _storage.remove('user_default_address_id'),
     ]);
+  }
+
+  Future<void> _registerDeviceIfPossible() async {
+    try {
+      final messaging = FirebaseMessaging.instance;
+      await messaging.requestPermission();
+      final token = await messaging.getToken();
+      if (token == null || token.isEmpty) return;
+
+      var deviceId = _storage.getString('device_id');
+      if (deviceId == null || deviceId.isEmpty) {
+        deviceId = const Uuid().v4();
+        await _storage.saveString('device_id', deviceId);
+      }
+
+      final platform = Platform.isAndroid
+          ? 'ANDROID'
+          : Platform.isIOS
+              ? 'IOS'
+              : 'UNKNOWN';
+      await _repo.registerDevice(
+        deviceId: deviceId,
+        platform: platform,
+        fcmToken: token,
+      );
+    } catch (_) {
+      // Firebase config is optional for local/dev builds; auth must continue.
+    }
   }
 }
 

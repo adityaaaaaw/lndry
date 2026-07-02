@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gap/gap.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/design/design_system.dart';
@@ -12,7 +11,6 @@ import '../../../../core/router/app_routes.dart';
 import '../../../../shared/widgets/shared_widgets.dart';
 import '../../../../models/models.dart';
 import '../../../../repositories/repositories.dart';
-import '../../../../shared/repositories/base_repository.dart';
 import '../../../home/presentation/providers/home_providers.dart';
 
 class OrdersListPage extends ConsumerStatefulWidget {
@@ -77,7 +75,8 @@ class _OrdersListPageState extends ConsumerState<OrdersListPage>
                       child: AppEmptyState(
                         icon: AppIcons.ordersOutlined,
                         title: 'No Active Orders',
-                        subtitle: 'All set! You don\'t have any active laundry runs currently.',
+                        subtitle:
+                            'All set! You don\'t have any active laundry runs currently.',
                         actionLabel: 'Book a Laundry Pickup',
                         onAction: () {
                           final navShell = StatefulNavigationShell.of(context);
@@ -214,21 +213,22 @@ class _ActiveOrderTileState extends ConsumerState<_ActiveOrderTile> {
     ).then((reason) {
       if (reason != null && reason.isNotEmpty && mounted) {
         setState(() => _isCancelling = true);
-        ref.read(customerRepositoryProvider)
+        ref
+            .read(customerRepositoryProvider)
             .cancelOrder(widget.order.id, reason: reason)
             .then((_) {
-              if (mounted) {
-                AppSnackBar.showSuccess(context, 'Order cancelled successfully');
-                ref.invalidate(activeOrdersProvider);
-                ref.invalidate(pastOrdersProvider);
-              }
-            }).catchError((e) {
-              if (mounted) {
-                AppSnackBar.showError(context, 'Failed to cancel: ${e.toString()}');
-              }
-            }).whenComplete(() {
-              if (mounted) setState(() => _isCancelling = false);
-            });
+          if (mounted) {
+            AppSnackBar.showSuccess(context, 'Order cancelled successfully');
+            ref.invalidate(activeOrdersProvider);
+            ref.invalidate(pastOrdersProvider);
+          }
+        }).catchError((Object e) {
+          if (mounted) {
+            AppSnackBar.showError(context, 'Failed to cancel: ${e.toString()}');
+          }
+        }).whenComplete(() {
+          if (mounted) setState(() => _isCancelling = false);
+        });
       }
     });
   }
@@ -259,7 +259,8 @@ class _ActiveOrderTileState extends ConsumerState<_ActiveOrderTile> {
           const Gap(12),
           Row(
             children: [
-              Icon(AppIcons.clock, size: 14.r, color: AppColors.onSurfaceVariant),
+              Icon(AppIcons.clock,
+                  size: 14.r, color: AppColors.onSurfaceVariant),
               const Gap(6),
               Text(
                 'Pickup: ${order.scheduledPickupAt?.toDayDate ?? "Scheduled"}',
@@ -335,15 +336,15 @@ class _PastOrderTileState extends ConsumerState<_PastOrderTile> {
     setState(() => _isReordering = true);
     try {
       final repo = ref.read(customerRepositoryProvider);
-      final newOrder = await repo.reorder(widget.order.id);
+      final result = await repo.reorder(widget.order.id);
       if (mounted) {
         AppSnackBar.showSuccess(
           context,
-          'Reorder placed! Order #${newOrder.id.length >= 8 ? newOrder.id.substring(newOrder.id.length - 8).toUpperCase() : newOrder.id.toUpperCase()}',
+          result.message,
         );
         ref.invalidate(activeOrdersProvider);
         ref.invalidate(pastOrdersProvider);
-        context.go('/orders/details/${newOrder.id}');
+        context.go(AppRoutes.cart);
       }
     } catch (e) {
       if (mounted) {
@@ -380,7 +381,8 @@ class _PastOrderTileState extends ConsumerState<_PastOrderTile> {
           const Gap(12),
           Row(
             children: [
-              Icon(AppIcons.calendar, size: 14.r, color: AppColors.onSurfaceVariant),
+              Icon(AppIcons.calendar,
+                  size: 14.r, color: AppColors.onSurfaceVariant),
               const Gap(6),
               Text(
                 'Date: ${order.createdAt.toDateString}',
@@ -410,8 +412,7 @@ class _PastOrderTileState extends ConsumerState<_PastOrderTile> {
                         ),
                       ),
                     ),
-                  if (order.status.isTerminal && !_isReordering)
-                    const Gap(8),
+                  if (order.status.isTerminal && !_isReordering) const Gap(8),
                   if (_isReordering)
                     SizedBox(
                       width: 16.r,
@@ -426,7 +427,8 @@ class _PastOrderTileState extends ConsumerState<_PastOrderTile> {
                     ),
                   ),
                   const Gap(4),
-                  Icon(AppIcons.forward, size: 14.r, color: AppColors.onSurfaceVariant),
+                  Icon(AppIcons.forward,
+                      size: 14.r, color: AppColors.onSurfaceVariant),
                 ],
               ),
             ],

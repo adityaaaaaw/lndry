@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gap/gap.dart';
+import 'package:image_picker/image_picker.dart';
 import '../../../../core/theme/theme.dart';
 import '../../../../core/widgets/widgets.dart';
 import '../../../../core/extensions/extensions.dart';
-import '../../../../core/router/app_routes.dart';
 import '../../../../providers/auth_provider.dart';
+import '../../../../repositories/repositories.dart';
 
 class EditProfilePage extends ConsumerStatefulWidget {
   const EditProfilePage({super.key});
@@ -20,6 +20,7 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
   late TextEditingController _nameController;
   late TextEditingController _emailController;
   bool _isLoading = false;
+  bool _isUploadingAvatar = false;
 
   @override
   void initState() {
@@ -67,6 +68,37 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
     }
   }
 
+  Future<void> _pickAndUploadAvatar() async {
+    setState(() => _isUploadingAvatar = true);
+    try {
+      final picker = ImagePicker();
+      final image = await picker.pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 1024,
+        imageQuality: 85,
+      );
+      if (image == null) {
+        if (mounted) setState(() => _isUploadingAvatar = false);
+        return;
+      }
+      final avatarUrl =
+          await ref.read(customerRepositoryProvider).uploadAvatar(image.path);
+      if (avatarUrl.isEmpty) {
+        throw Exception('Avatar upload did not return a URL.');
+      }
+      await ref
+          .read(authProvider.notifier)
+          .updateAuthenticatedAvatar(avatarUrl);
+      if (mounted) {
+        AppSnackBar.showSuccess(context, 'Profile photo updated.');
+      }
+    } catch (e) {
+      if (mounted) AppSnackBar.showError(context, e.toString());
+    } finally {
+      if (mounted) setState(() => _isUploadingAvatar = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = context.theme;
@@ -104,34 +136,59 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
                             CircleAvatar(
                               radius: 56.r,
                               backgroundColor: AppColors.primaryContainer,
-                              child: Icon(
-                                AppIcons.profile,
-                                size: 48.r,
-                                color: AppColors.primary,
-                              ),
+                              backgroundImage:
+                                  (ref.watch(currentUserProvider)?.avatarUrl !=
+                                              null &&
+                                          ref
+                                              .watch(currentUserProvider)!
+                                              .avatarUrl!
+                                              .isNotEmpty)
+                                      ? NetworkImage(ref
+                                          .watch(currentUserProvider)!
+                                          .avatarUrl!)
+                                      : null,
+                              child:
+                                  (ref.watch(currentUserProvider)?.avatarUrl ==
+                                              null ||
+                                          ref
+                                              .watch(currentUserProvider)!
+                                              .avatarUrl!
+                                              .isEmpty)
+                                      ? Icon(
+                                          AppIcons.profile,
+                                          size: 48.r,
+                                          color: AppColors.primary,
+                                        )
+                                      : null,
                             ),
                             Positioned(
                               bottom: 0,
                               right: 0,
                               child: GestureDetector(
-                                onTap: () {
-                                  // TODO(backend): wire image_picker + profile photo upload
-                                  AppSnackBar.showInfo(
-                                    context,
-                                    'Photo upload will be available after backend integration.',
-                                  );
-                                },
+                                onTap: _isUploadingAvatar
+                                    ? null
+                                    : _pickAndUploadAvatar,
                                 child: Container(
                                   padding: EdgeInsets.all(8.r),
                                   decoration: const BoxDecoration(
                                     color: AppColors.primary,
                                     shape: BoxShape.circle,
                                   ),
-                                  child: Icon(
-                                    AppIcons.camera,
-                                    color: AppColors.white,
-                                    size: 16.r,
-                                  ),
+                                  child: _isUploadingAvatar
+                                      ? SizedBox(
+                                          width: 16.r,
+                                          height: 16.r,
+                                          child:
+                                              const CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                            color: AppColors.white,
+                                          ),
+                                        )
+                                      : Icon(
+                                          AppIcons.camera,
+                                          color: AppColors.white,
+                                          size: 16.r,
+                                        ),
                                 ),
                               ),
                             ),
@@ -146,8 +203,9 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
                         controller: _nameController,
                         prefixIcon: const Icon(AppIcons.profile),
                         textCapitalization: TextCapitalization.words,
-                        validator: (v) =>
-                            (v == null || v.trim().isEmpty) ? 'Name is required' : null,
+                        validator: (v) => (v == null || v.trim().isEmpty)
+                            ? 'Name is required'
+                            : null,
                       ),
                       const Gap(20),
 

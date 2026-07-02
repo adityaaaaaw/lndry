@@ -46,7 +46,7 @@ class _OtpPageState extends ConsumerState<OtpPage> {
 
   void _tick() async {
     while (mounted && _timerSeconds > 0) {
-      await Future.delayed(const Duration(seconds: 1));
+      await Future<void>.delayed(const Duration(seconds: 1));
       if (!mounted) return;
       setState(() {
         _timerSeconds--;
@@ -57,7 +57,8 @@ class _OtpPageState extends ConsumerState<OtpPage> {
 
   Future<void> _onVerify() async {
     if (_otpCode.length < 4) {
-      setState(() => _errorText = 'Please enter the complete verification code');
+      setState(
+          () => _errorText = 'Please enter the complete verification code');
       return;
     }
 
@@ -98,7 +99,9 @@ class _OtpPageState extends ConsumerState<OtpPage> {
     try {
       await ref.read(authProvider.notifier).sendOtp(authState.phone);
       _startResendTimer();
-      if (mounted) AppSnackBar.showSuccess(context, 'A new verification code has been sent.');
+      if (mounted)
+        AppSnackBar.showSuccess(
+            context, 'A new verification code has been sent.');
     } catch (e) {
       if (mounted) AppSnackBar.showError(context, e.toString());
     } finally {

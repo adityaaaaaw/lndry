@@ -33,6 +33,7 @@ import '../../features/profile/presentation/pages/profile_page.dart';
 import '../../features/profile/presentation/pages/edit_profile_page.dart';
 import '../../features/profile/presentation/pages/saved_addresses_page.dart';
 import '../../features/profile/presentation/pages/notifications_page.dart';
+import '../../features/profile/presentation/pages/my_reviews_page.dart';
 import '../../features/profile/presentation/pages/settings_page.dart';
 import '../../features/profile/presentation/pages/help_page.dart';
 
@@ -53,7 +54,8 @@ CustomTransitionPage<T> _slideTransition<T>({
         position: Tween<Offset>(
           begin: const Offset(1.0, 0.0),
           end: Offset.zero,
-        ).animate(CurvedAnimation(parent: animation, curve: AppCurves.decelerate)),
+        ).animate(
+            CurvedAnimation(parent: animation, curve: AppCurves.decelerate)),
         child: child,
       ),
     );
@@ -130,7 +132,8 @@ String? _globalRedirect(
   }
 
   if (authState is AuthNeedsLocationPermission) {
-    if (path != AppRoutes.locationPermission) return AppRoutes.locationPermission;
+    if (path != AppRoutes.locationPermission)
+      return AppRoutes.locationPermission;
     return null;
   }
 
@@ -214,8 +217,8 @@ final List<RouteBase> _routes = [
   GoRoute(
     path: '/vendors',
     name: AppRouteNames.vendorListing,
-    pageBuilder: (c, s) =>
-        _slideTransition(context: c, state: s, child: const VendorListingPage()),
+    pageBuilder: (c, s) => _slideTransition(
+        context: c, state: s, child: const VendorListingPage()),
   ),
   GoRoute(
     path: '/vendor/:vendorId',
@@ -298,8 +301,7 @@ final List<RouteBase> _routes = [
               pageBuilder: (c, s) => _slideTransition(
                 context: c,
                 state: s,
-                child: OrderDetailsPage(
-                    orderId: s.pathParameters['orderId']!),
+                child: OrderDetailsPage(orderId: s.pathParameters['orderId']!),
               ),
             ),
           ],
@@ -330,6 +332,12 @@ final List<RouteBase> _routes = [
               name: AppRouteNames.notifications,
               pageBuilder: (c, s) => _slideTransition(
                   context: c, state: s, child: const NotificationsPage()),
+            ),
+            GoRoute(
+              path: 'reviews',
+              name: AppRouteNames.myReviews,
+              pageBuilder: (c, s) => _slideTransition(
+                  context: c, state: s, child: const MyReviewsPage()),
             ),
             GoRoute(
               path: 'settings',
@@ -478,11 +486,8 @@ class _NavItem extends StatelessWidget {
               label,
               style: AppTypography.caption.copyWith(
                 fontSize: 10.sp,
-                fontWeight:
-                    isSelected ? FontWeight.w600 : FontWeight.w500,
-                color: isSelected
-                    ? AppColors.primary
-                    : const Color(0xFF495467),
+                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                color: isSelected ? AppColors.primary : const Color(0xFF495467),
               ),
             ),
           ],
@@ -502,7 +507,8 @@ class _CenterBookItem extends StatelessWidget {
     return Expanded(
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
-        onTap: () => shell.goBranch(2, initialLocation: 2 == shell.currentIndex),
+        onTap: () =>
+            shell.goBranch(2, initialLocation: 2 == shell.currentIndex),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           mainAxisSize: MainAxisSize.min,
@@ -533,9 +539,7 @@ class _CenterBookItem extends StatelessWidget {
               style: AppTypography.caption.copyWith(
                 fontSize: 10.sp,
                 fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                color: isSelected
-                    ? AppColors.primary
-                    : const Color(0xFF495467),
+                color: isSelected ? AppColors.primary : const Color(0xFF495467),
               ),
             ),
           ],

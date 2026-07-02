@@ -24,7 +24,8 @@ abstract final class ApiEndpoints {
   static const String home = '/discovery/home';
   static const String vendors = '/discovery/vendors';
   static const String vendorById = '/discovery/vendors'; // + /:vendorId
-  static const String vendorServices = '/discovery/vendors'; // + /:vendorId/services
+  static const String vendorServices =
+      '/discovery/vendors'; // + /:vendorId/services
   static const String serviceDetails = '/discovery/services'; // + /:serviceId
   static const String search = '/discovery/search';
   static const String searchSuggestions = '/discovery/search/suggestions';
@@ -67,6 +68,8 @@ abstract final class ApiEndpoints {
   static const String markAllRead = '/notifications/read-all';
   static const String notificationPreferences = '/notifications/preferences';
   static const String registerDeviceToken = '/notifications/tokens';
+  static const String devices = '/devices';
+  static String deviceById(String id) => '/devices/$id';
 
   // ── Reviews ─────────────────────────────────────────────────────────────────
   static String vendorReviews(String vendorId) => '/reviews/vendors/$vendorId';

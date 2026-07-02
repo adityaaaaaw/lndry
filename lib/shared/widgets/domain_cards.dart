@@ -1,6 +1,5 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gap/gap.dart';
 import '../../core/theme/theme.dart';
 import '../../core/widgets/app_card.dart';
@@ -26,8 +25,6 @@ class CategoryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = context.theme;
-
     // Map custom ETAs for mock display matching Image 1
     final String eta = switch (category.id) {
       'cat_wash' || 'wash_fold' || 'cat_001' => '24–36 hrs',
@@ -51,7 +48,9 @@ class CategoryCard extends StatelessWidget {
               color: AppColors.surface,
               borderRadius: BorderRadius.circular(AppRadius.compactCard.r),
               border: Border.all(
-                color: isSelected ? AppColors.primary : AppColors.outline.withOpacity(0.5),
+                color: isSelected
+                    ? AppColors.primary
+                    : AppColors.outline.withOpacity(0.5),
                 width: isSelected ? 2 : 1,
               ),
               boxShadow: isSelected ? AppElevation.low : null,
@@ -64,13 +63,17 @@ class CategoryCard extends StatelessWidget {
                   width: 44.r,
                   height: 44.r,
                   decoration: BoxDecoration(
-                    color: isSelected ? AppColors.primaryContainer : AppColors.background,
+                    color: isSelected
+                        ? AppColors.primaryContainer
+                        : AppColors.background,
                     shape: BoxShape.circle,
                   ),
                   child: Icon(
                     _getCategoryIcon(category.icon),
                     size: 24.r,
-                    color: isSelected ? AppColors.primary : AppColors.textSecondary,
+                    color: isSelected
+                        ? AppColors.primary
+                        : AppColors.textSecondary,
                   ),
                 ),
                 const Gap(8),
@@ -145,8 +148,6 @@ class VendorCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = context.theme;
-
     return AppCard.elevated(
       onTap: onTap,
       padding: EdgeInsets.zero,
@@ -175,7 +176,8 @@ class VendorCard extends StatelessWidget {
                               placeholder: (_, __) => const Center(
                                 child: CircularProgressIndicator(),
                               ),
-                              errorWidget: (_, __, ___) => _buildPlaceholderImage(),
+                              errorWidget: (_, __, ___) =>
+                                  _buildPlaceholderImage(),
                             )
                           : _buildPlaceholderImage(),
                     ),
@@ -274,7 +276,8 @@ class VendorCard extends StatelessWidget {
                     ),
                     _IconText(
                       icon: AppIcons.location,
-                      label: '${vendor.deliveryRadiusKm.toStringAsFixed(0)} km delivery radius',
+                      label:
+                          '${vendor.deliveryRadiusKm.toStringAsFixed(0)} km delivery radius',
                     ),
                   ],
                 ),
@@ -340,8 +343,6 @@ class ServiceCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = context.theme;
-
     // Map exact pricing labels from screenshot
     final String priceLabel = switch (service.id) {
       'wash_fold' || 'svc_001' => '₹99/kg',
@@ -391,7 +392,10 @@ class ServiceCard extends StatelessWidget {
             width: 48.r,
             height: 48.r,
             decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.primaryContainer.withOpacity(0.4),
+              color: Theme.of(context)
+                  .colorScheme
+                  .primaryContainer
+                  .withOpacity(0.4),
               borderRadius: BorderRadius.circular(8.r),
             ),
             child: Center(
@@ -434,14 +438,20 @@ class ServiceCard extends StatelessWidget {
                     Icon(
                       AppIcons.clock,
                       size: 10.r,
-                      color: Theme.of(context).colorScheme.onSurfaceVariant.withOpacity(0.7),
+                      color: Theme.of(context)
+                          .colorScheme
+                          .onSurfaceVariant
+                          .withOpacity(0.7),
                     ),
                     const Gap(4),
                     Expanded(
                       child: Text(
                         subDetails,
                         style: TextStyle(
-                          color: Theme.of(context).colorScheme.onSurfaceVariant.withOpacity(0.7),
+                          color: Theme.of(context)
+                              .colorScheme
+                              .onSurfaceVariant
+                              .withOpacity(0.7),
                           fontSize: 9.sp,
                           fontWeight: FontWeight.w500,
                         ),
@@ -500,11 +510,14 @@ class ServiceCard extends StatelessWidget {
                   OutlinedButton(
                     onPressed: onAdd,
                     style: OutlinedButton.styleFrom(
-                      side: BorderSide(color: Theme.of(context).colorScheme.primary, width: 1.2),
+                      side: BorderSide(
+                          color: Theme.of(context).colorScheme.primary,
+                          width: 1.2),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(8.r),
                       ),
-                      padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 4.h),
+                      padding:
+                          EdgeInsets.symmetric(horizontal: 12.w, vertical: 4.h),
                       minimumSize: Size(72.w, 28.h),
                     ),
                     child: Text(
@@ -523,7 +536,10 @@ class ServiceCard extends StatelessWidget {
                 Container(
                   padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 2.h),
                   decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.onSurface.withOpacity(0.1),
+                    color: Theme.of(context)
+                        .colorScheme
+                        .onSurface
+                        .withOpacity(0.1),
                     borderRadius: BorderRadius.circular(4.r),
                   ),
                   child: Text(
@@ -579,7 +595,6 @@ class _StepButton extends StatelessWidget {
     );
   }
 }
-
 
 // ═════════════════════════════════════════════════════════════════════════════
 // PRICE BREAKDOWN CARD
@@ -671,9 +686,8 @@ class _PriceRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final baseStyle = style ?? AppTypography.bodyMedium;
-    final finalStyle = isBold
-        ? baseStyle.copyWith(fontWeight: FontWeight.w700)
-        : baseStyle;
+    final finalStyle =
+        isBold ? baseStyle.copyWith(fontWeight: FontWeight.w700) : baseStyle;
 
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
