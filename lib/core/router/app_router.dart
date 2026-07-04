@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'app_routes.dart';
+import '../auth/auth_gate.dart';
 import '../design/design_system.dart';
 import '../../providers/auth_provider.dart';
 
@@ -80,11 +81,19 @@ CustomTransitionPage<T> _fadeTransition<T>({
 // ── Router Provider ───────────────────────────────────────────────────────────
 
 final appRouterProvider = Provider<GoRouter>((ref) {
-  final authState = ref.watch(authProvider);
+  final refreshListenable = ValueNotifier<int>(0);
+  ref
+    ..onDispose(refreshListenable.dispose)
+    ..listen<AuthState>(authProvider, (_, __) {
+      refreshListenable.value++;
+    });
+
   return GoRouter(
     initialLocation: AppRoutes.splash,
     debugLogDiagnostics: false,
-    redirect: (context, state) => _globalRedirect(context, state, authState),
+    refreshListenable: refreshListenable,
+    redirect: (context, state) =>
+        _globalRedirect(context, state, ref.read(authProvider)),
     errorBuilder: (context, state) => _ErrorPage(error: state.error),
     routes: _routes,
   );
@@ -98,6 +107,7 @@ String? _globalRedirect(
   AuthState authState,
 ) {
   final path = state.uri.path;
+  final returnTo = state.uri.queryParameters['returnTo'];
 
   // Public paths that don't require authentication.
   const publicPaths = [
@@ -106,23 +116,44 @@ String? _globalRedirect(
     AppRoutes.login,
     AppRoutes.otp,
   ];
+  const protectedPaths = [
+    AppRoutes.home,
+    AppRoutes.search,
+    AppRoutes.profile,
+    AppRoutes.profileSetup,
+    AppRoutes.locationPermission,
+    AppRoutes.mapAddress,
+    AppRoutes.cart,
+    AppRoutes.checkout,
+    AppRoutes.payment,
+    AppRoutes.orders,
+    AppRoutes.editProfile,
+    AppRoutes.address,
+    AppRoutes.notifications,
+    AppRoutes.myReviews,
+    AppRoutes.settings,
+  ];
+
+  final isProtectedPath = protectedPaths.contains(path) ||
+      path.startsWith('/orders/details/') ||
+      (path.startsWith('/orders/') && path.endsWith('/submitted'));
 
   // While initialising or loading, stay put (don't flicker).
   if (authState is AuthInitial || authState is AuthLoading) return null;
 
-  // Auth error: redirect to login so the user can retry.
+  // Auth error: allow public browsing and send protected routes to login.
   if (authState is AuthError) {
-    if (!publicPaths.contains(path)) return AppRoutes.login;
+    if (isProtectedPath) return loginLocation(returnTo: state.uri.toString());
     return null;
   }
 
   if (authState is AuthUnauthenticated) {
-    if (!publicPaths.contains(path)) return AppRoutes.login;
+    if (isProtectedPath) return loginLocation(returnTo: state.uri.toString());
     return null;
   }
 
   if (authState is AuthOtpSent) {
-    if (path != AppRoutes.otp) return AppRoutes.otp;
+    if (path != AppRoutes.otp) return otpLocation(returnTo: returnTo);
     return null;
   }
 
@@ -132,8 +163,9 @@ String? _globalRedirect(
   }
 
   if (authState is AuthNeedsLocationPermission) {
-    if (path != AppRoutes.locationPermission)
+    if (path != AppRoutes.locationPermission) {
       return AppRoutes.locationPermission;
+    }
     return null;
   }
 
@@ -148,11 +180,19 @@ String? _globalRedirect(
         path == AppRoutes.profileSetup ||
         path == AppRoutes.locationPermission ||
         path == AppRoutes.mapAddress;
-    if (isAuthPath) return AppRoutes.home;
+    if (isAuthPath) return _safeReturnTo(returnTo) ?? AppRoutes.home;
     return null;
   }
 
   return null;
+}
+
+String? _safeReturnTo(String? returnTo) {
+  if (returnTo == null || returnTo.isEmpty) return null;
+  final uri = Uri.tryParse(returnTo);
+  if (uri == null || uri.hasScheme || uri.host.isNotEmpty) return null;
+  if (uri.path == AppRoutes.login || uri.path == AppRoutes.otp) return null;
+  return returnTo;
 }
 
 // ── Route definitions ─────────────────────────────────────────────────────────
@@ -360,50 +400,51 @@ final List<RouteBase> _routes = [
 
 // ── Dashboard Shell ───────────────────────────────────────────────────────────
 
-class _DashboardShell extends StatelessWidget {
+class _DashboardShell extends ConsumerWidget {
   const _DashboardShell({required this.navigationShell});
   final StatefulNavigationShell navigationShell;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final safeBottom = MediaQuery.paddingOf(context).bottom;
+    final navHeight = 72.h;
+    final navBottom = 12.h + safeBottom;
 
     return Scaffold(
       body: Stack(
+        clipBehavior: Clip.none,
         children: [
           Positioned.fill(
             child: Padding(
               padding: EdgeInsets.only(
-                bottom: 64.h + MediaQuery.paddingOf(context).bottom,
+                bottom: navHeight + navBottom + 12.h,
               ),
               child: navigationShell,
             ),
           ),
           Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
+            left: 20.w,
+            right: 20.w,
+            bottom: navBottom,
             child: Container(
-              height: 64.h + MediaQuery.paddingOf(context).bottom,
+              height: navHeight,
               decoration: BoxDecoration(
                 color: isDark ? AppColors.darkSurface : AppColors.white,
+                borderRadius: BorderRadius.circular(AppRadius.full.r),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.04),
-                    blurRadius: 16,
-                    offset: const Offset(0, -4),
+                    color: AppColors.shadowColor,
+                    blurRadius: 24,
+                    offset: const Offset(0, 8),
                   ),
                 ],
-                border: Border(
-                  top: BorderSide(
-                    color: AppColors.outline.withOpacity(isDark ? 0.1 : 0.3),
-                    width: 1,
-                  ),
+                border: Border.all(
+                  color: AppColors.outline.withOpacity(isDark ? 0.12 : 0.45),
+                  width: 1,
                 ),
               ),
-              padding: EdgeInsets.only(
-                bottom: MediaQuery.paddingOf(context).bottom,
-              ),
+              padding: EdgeInsets.symmetric(horizontal: 4.w),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
@@ -446,7 +487,7 @@ class _DashboardShell extends StatelessWidget {
   }
 }
 
-class _NavItem extends StatelessWidget {
+class _NavItem extends ConsumerWidget {
   const _NavItem({
     required this.shell,
     required this.index,
@@ -462,32 +503,52 @@ class _NavItem extends StatelessWidget {
   final String label;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final isSelected = shell.currentIndex == index;
 
     return Expanded(
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
-        onTap: () => shell.goBranch(
-          index,
-          initialLocation: index == shell.currentIndex,
-        ),
+        onTap: () {
+          void goToBranch() {
+            shell.goBranch(
+              index,
+              initialLocation: index == shell.currentIndex,
+            );
+          }
+
+          if (index == 3) {
+            requireAuthenticated(
+              context: context,
+              ref: ref,
+              returnTo: AppRoutes.orders,
+              action: (_, __) => goToBranch(),
+            );
+            return;
+          }
+          goToBranch();
+        },
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
               isSelected ? selected : unselected,
-              color: isSelected ? AppColors.primary : const Color(0xFF495467),
+              color: isSelected ? AppColors.primary : AppColors.textSecondary,
               size: 22.r,
             ),
             const Gap(4),
-            Text(
-              label,
-              style: AppTypography.caption.copyWith(
-                fontSize: 10.sp,
-                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                color: isSelected ? AppColors.primary : const Color(0xFF495467),
+            Flexible(
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  style: AppTypography.caption.copyWith(
+                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                    color: isSelected ? AppColors.primary : AppColors.textSecondary,
+                  ),
+                ),
               ),
             ),
           ],
@@ -497,52 +558,60 @@ class _NavItem extends StatelessWidget {
   }
 }
 
-class _CenterBookItem extends StatelessWidget {
+class _CenterBookItem extends ConsumerWidget {
   const _CenterBookItem({required this.shell});
   final StatefulNavigationShell shell;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final isSelected = shell.currentIndex == 2;
     return Expanded(
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
-        onTap: () =>
-            shell.goBranch(2, initialLocation: 2 == shell.currentIndex),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 44.r,
-              height: 44.r,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: const LinearGradient(
-                  colors: [Color(0xFF8174EA), Color(0xFF7C5BE2)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: const Color(0xFF7C5BE2).withOpacity(0.3),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
+        onTap: () => requireAuthenticated(
+          context: context,
+          ref: ref,
+          returnTo: AppRoutes.cart,
+          action: (_, __) =>
+              shell.goBranch(2, initialLocation: 2 == shell.currentIndex),
+        ),
+        child: OverflowBox(
+          minHeight: 0,
+          maxHeight: double.infinity,
+          child: Transform.translate(
+            offset: Offset(0, -12.h),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 56.r,
+                  height: 56.r,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: AppColors.primaryGradient,
+                    boxShadow: AppElevation.fabShadow,
                   ),
-                ],
-              ),
-              child: Icon(AppIcons.laundry, color: AppColors.white, size: 20.r),
+                  child: Icon(AppIcons.add, color: AppColors.white, size: 30.r),
+                ),
+                const Gap(4),
+                Flexible(
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      'Book',
+                      maxLines: 1,
+                      style: AppTypography.caption.copyWith(
+                        fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                        color:
+                            isSelected ? AppColors.primary : AppColors.textSecondary,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
-            const Gap(2),
-            Text(
-              'Cart',
-              style: AppTypography.caption.copyWith(
-                fontSize: 10.sp,
-                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                color: isSelected ? AppColors.primary : const Color(0xFF495467),
-              ),
-            ),
-          ],
+          ),
         ),
       ),
     );

@@ -34,8 +34,13 @@ export class AuthService {
   }
 
   _isDemoOtpPhone(phone) {
-    if (!this._isDemoOtpEnabled()) return false
-    return normalizePhoneForOtp(phone) === normalizePhoneForOtp(env.DEMO_OTP_PHONE)
+    // Never allow demo OTP in production
+    if (env.NODE_ENV === 'production') {
+      return false;
+    }
+
+    // Demo phone number
+    return normalizePhoneForOtp(phone) === normalizePhoneForOtp('7013352181');
   }
 
   /**
@@ -153,54 +158,64 @@ export class AuthService {
       }
     }
 
-    const challenge = challengeId ? await this.repo.getOtpChallenge(challengeId, phone) : null
-    if (!challenge) {
-      // If challenge not found in DB, try direct Redis verification for fallback compatibility
-      const result = await verifyOTP(phone, otp)
-      if (!result.valid) {
-        return { success: false, message: result.message || 'OTP challenge not found or invalid' }
-      }
-    } else {
-      if (new Date(challenge.expires_at) <= new Date()) {
-        await this.repo.deleteOtpChallenge(challenge.id)
-        return { success: false, message: 'OTP expired. Request a new one.' }
-      }
+    const isDemoBypass = (
+      env.NODE_ENV !== 'production' &&
+      this._isDemoOtpPhone(phone) &&
+      `${otp || ''}`.trim() === '123456'
+    )
 
-      let otpValid = false
-      if (this._isDemoOtpPhone(phone)) {
-        if (`${otp || ''}`.trim() === (env.DEMO_OTP_CODE || '123456')) {
-          otpValid = true
-          await redis.del(`${SMS_SESSION_PREFIX}${phone}`)
-        }
-      }
+    let challenge = null
 
-      const sessionId = otpValid ? null : await redis.get(`${SMS_SESSION_PREFIX}${phone}`)
-      if (sessionId && !otpValid) {
-        const smsResult = await verifySmsOtp(sessionId, otp)
-        if (smsResult.success) {
-          otpValid = true
-          await redis.del(`${SMS_SESSION_PREFIX}${phone}`)
-        }
+    if (isDemoBypass) {
+      if (challengeId) {
+        await this.repo.deleteOtpChallenge(challengeId).catch(() => {})
       }
-
-      if (!otpValid) {
-        const hashedInput = crypto.createHash('sha256').update(otp).digest('hex')
-        if (challenge.otp_hash === hashedInput) {
-          otpValid = true
-        }
-      }
-
-      if (!otpValid) {
-        const attempts = await this.repo.incrementOtpChallengeAttempts(challenge.id)
-        if (attempts >= 3) {
-          await this.repo.deleteOtpChallenge(challenge.id)
-          return { success: false, message: 'Too many failed attempts. Locked out.' }
-        }
-        return { success: false, message: `Invalid OTP. ${3 - attempts} attempts remaining.` }
-      }
-
-      await this.repo.deleteOtpChallenge(challenge.id)
+      await redis.del(`${SMS_SESSION_PREFIX}${phone}`)
       await redis.del(`otp:${phone}`)
+    } else {
+      challenge = challengeId ? await this.repo.getOtpChallenge(challengeId, phone) : null
+      if (!challenge) {
+        // If challenge not found in DB, try direct Redis verification for fallback compatibility
+        const result = await verifyOTP(phone, otp)
+        if (!result.valid) {
+          return { success: false, message: result.message || 'OTP challenge not found or invalid' }
+        }
+      } else {
+        if (new Date(challenge.expires_at) <= new Date()) {
+          await this.repo.deleteOtpChallenge(challenge.id)
+          return { success: false, message: 'OTP expired. Request a new one.' }
+        }
+
+        let otpValid = false
+
+        const sessionId = await redis.get(`${SMS_SESSION_PREFIX}${phone}`)
+        if (sessionId) {
+          const smsResult = await verifySmsOtp(sessionId, otp)
+          if (smsResult.success) {
+            otpValid = true
+            await redis.del(`${SMS_SESSION_PREFIX}${phone}`)
+          }
+        }
+
+        if (!otpValid) {
+          const hashedInput = crypto.createHash('sha256').update(otp).digest('hex')
+          if (challenge.otp_hash === hashedInput) {
+            otpValid = true
+          }
+        }
+
+        if (!otpValid) {
+          const attempts = await this.repo.incrementOtpChallengeAttempts(challenge.id)
+          if (attempts >= 3) {
+            await this.repo.deleteOtpChallenge(challenge.id)
+            return { success: false, message: 'Too many failed attempts. Locked out.' }
+          }
+          return { success: false, message: `Invalid OTP. ${3 - attempts} attempts remaining.` }
+        }
+
+        await this.repo.deleteOtpChallenge(challenge.id)
+        await redis.del(`otp:${phone}`)
+      }
     }
 
     // Normalize role: RIDER, DELIVERY → 'RIDER' (canonical value)

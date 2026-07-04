@@ -97,7 +97,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                   children: [
                     // ── Theme Preferences ────────────────────────────────────
                     Text('Theme', style: AppTypography.titleMedium),
-                    const Gap(12),
+                    Gap(AppSpacing.cardGap.h),
                     AppCard.outlined(
                       padding: EdgeInsets.zero,
                       child: Column(
@@ -115,7 +115,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                               }
                             },
                           ),
-                          const Divider(height: 1),
+                          Divider(height: 1, color: AppColors.outline),
                           RadioListTile<ThemeMode>(
                             title: Text('Light Mode',
                                 style: AppTypography.bodyMedium),
@@ -129,7 +129,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                               }
                             },
                           ),
-                          const Divider(height: 1),
+                          Divider(height: 1, color: AppColors.outline),
                           RadioListTile<ThemeMode>(
                             title: Text('Dark Mode',
                                 style: AppTypography.bodyMedium),
@@ -146,11 +146,11 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                         ],
                       ),
                     ),
-                    const Gap(28),
+                    Gap(AppSpacing.sectionGap.h * 1.5),
 
                     // ── Notifications ────────────────────────────────────────
                     Text('Notifications', style: AppTypography.titleMedium),
-                    const Gap(12),
+                    Gap(AppSpacing.cardGap.h),
                     AppCard.outlined(
                       padding: EdgeInsets.zero,
                       child: Column(
@@ -170,7 +170,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                                       orderUpdates: value,
                                     ),
                           ),
-                          const Divider(height: 1),
+                          Divider(height: 1, color: AppColors.outline),
                           SwitchListTile.adaptive(
                             title: Text('Promotions',
                                 style: AppTypography.bodyMedium),
@@ -186,7 +186,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                                       promotions: value,
                                     ),
                           ),
-                          const Divider(height: 1),
+                          Divider(height: 1, color: AppColors.outline),
                           SwitchListTile.adaptive(
                             title: Text('New Products',
                                 style: AppTypography.bodyMedium),
@@ -198,7 +198,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                                       newProducts: value,
                                     ),
                           ),
-                          const Divider(height: 1),
+                          Divider(height: 1, color: AppColors.outline),
                           SwitchListTile.adaptive(
                             title: Text('Delivery Updates',
                                 style: AppTypography.bodyMedium),
@@ -210,7 +210,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                                       deliveryUpdates: value,
                                     ),
                           ),
-                          const Divider(height: 1),
+                          Divider(height: 1, color: AppColors.outline),
                           SwitchListTile.adaptive(
                             title: Text('Price Drops',
                                 style: AppTypography.bodyMedium),
@@ -225,7 +225,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                         ],
                       ),
                     ),
-                    const Gap(28),
+                    Gap(AppSpacing.sectionGap.h * 1.5),
 
                     // ── App Version ──────────────────────────────────────────
                     Center(
@@ -236,7 +236,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                         ),
                       ),
                     ),
-                    const Gap(16),
+                    Gap(AppSpacing.md.h),
                   ],
                 ),
               ),

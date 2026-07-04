@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gap/gap.dart';
+import '../../../../core/auth/auth_gate.dart';
 import '../../../../core/design/design_system.dart';
 import '../../../../core/widgets/app_button.dart';
 import '../../../../core/widgets/app_otp_input.dart';
@@ -24,6 +27,7 @@ class _OtpPageState extends ConsumerState<OtpPage> {
   String? _errorText;
   int _timerSeconds = 0;
   bool _canResend = false;
+  Timer? _resendTimer;
 
   // Cached values from the OtpSent state so we can restore after an error.
   String _cachedPhone = '';
@@ -37,22 +41,31 @@ class _OtpPageState extends ConsumerState<OtpPage> {
   }
 
   void _startResendTimer() {
+    _resendTimer?.cancel();
     setState(() {
       _timerSeconds = 30;
       _canResend = false;
     });
-    _tick();
-  }
-
-  void _tick() async {
-    while (mounted && _timerSeconds > 0) {
-      await Future<void>.delayed(const Duration(seconds: 1));
-      if (!mounted) return;
+    _resendTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
       setState(() {
         _timerSeconds--;
-        if (_timerSeconds == 0) _canResend = true;
+        if (_timerSeconds <= 0) {
+          _timerSeconds = 0;
+          _canResend = true;
+          timer.cancel();
+        }
       });
-    }
+    });
+  }
+
+  @override
+  void dispose() {
+    _resendTimer?.cancel();
+    super.dispose();
   }
 
   Future<void> _onVerify() async {
@@ -134,7 +147,11 @@ class _OtpPageState extends ConsumerState<OtpPage> {
           onPressed: () {
             // Cancel OTP flow and return to login.
             ref.read(authProvider.notifier).clearError();
-            if (context.mounted) context.go(AppRoutes.login);
+            if (context.mounted) {
+              context.go(loginLocation(
+                returnTo: returnToFrom(context) ?? AppRoutes.home,
+              ));
+            }
           },
         ),
       ),
@@ -184,8 +201,9 @@ class _OtpPageState extends ConsumerState<OtpPage> {
                     const Gap(40),
 
                     // Resend row
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
+                    Wrap(
+                      alignment: WrapAlignment.center,
+                      crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
                         Text(
                           "Didn't receive the code? ",

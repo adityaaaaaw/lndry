@@ -5,6 +5,7 @@ import '../../core/theme/theme.dart';
 import '../../core/widgets/app_card.dart';
 import '../../core/extensions/extensions.dart';
 import '../../models/models.dart';
+import 'service_icon.dart';
 import 'shared_widgets.dart';
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -59,30 +60,20 @@ class CategoryCard extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 // Icon in circle background
-                Container(
-                  width: 44.r,
-                  height: 44.r,
-                  decoration: BoxDecoration(
-                    color: isSelected
-                        ? AppColors.primaryContainer
-                        : AppColors.background,
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    _getCategoryIcon(category.icon),
-                    size: 24.r,
-                    color: isSelected
-                        ? AppColors.primary
-                        : AppColors.textSecondary,
-                  ),
+                BrandedServiceIcon(
+                  iconKey: category.icon,
+                  size: 44.r,
+                  iconSize: 24.r,
+                  backgroundColor: isSelected
+                      ? AppColors.primaryContainer
+                      : AppColors.background,
                 ),
                 const Gap(8),
                 Text(
                   category.name,
                   style: AppTypography.labelMedium.copyWith(
                     color: AppColors.textBlack,
-                    fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                    fontSize: 12.sp,
+                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
                   ),
                   textAlign: TextAlign.center,
                   maxLines: 1,
@@ -92,7 +83,6 @@ class CategoryCard extends StatelessWidget {
                 Text(
                   eta,
                   style: AppTypography.caption.copyWith(
-                    fontSize: 10.sp,
                     color: AppColors.textMuted,
                   ),
                   textAlign: TextAlign.center,
@@ -121,15 +111,6 @@ class CategoryCard extends StatelessWidget {
       ),
     );
   }
-
-  IconData _getCategoryIcon(String iconKey) => switch (iconKey) {
-        'washer' || 'wash' => AppIcons.laundry,
-        'iron' => AppIcons.iron,
-        'laundry' => AppIcons.laundry,
-        'dry' => AppIcons.dry,
-        'star' => AppIcons.star,
-        _ => AppIcons.tag,
-      };
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -371,7 +352,7 @@ class ServiceCard extends StatelessWidget {
       padding: EdgeInsets.all(12.r),
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surface,
-        borderRadius: BorderRadius.circular(12.r),
+        borderRadius: BorderRadius.circular(AppRadius.compactCard.r),
         border: Border.all(
           color: Theme.of(context).colorScheme.outlineVariant.withOpacity(0.5),
           width: 1,
@@ -379,7 +360,7 @@ class ServiceCard extends StatelessWidget {
         boxShadow: [
           BoxShadow(
             color: AppColors.shadowColor.withOpacity(0.04),
-            blurRadius: 6.r,
+            blurRadius: 16.r,
             offset: const Offset(0, 2),
           ),
         ],
@@ -388,23 +369,12 @@ class ServiceCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Service icon indicator (light violet circular/rounded background)
-          Container(
-            width: 48.r,
-            height: 48.r,
-            decoration: BoxDecoration(
-              color: Theme.of(context)
-                  .colorScheme
-                  .primaryContainer
-                  .withOpacity(0.4),
-              borderRadius: BorderRadius.circular(8.r),
-            ),
-            child: Center(
-              child: Icon(
-                _getServiceIcon(service.category),
-                size: 24.r,
-                color: Theme.of(context).colorScheme.primary,
-              ),
-            ),
+          BrandedServiceIcon(
+            category: service.category,
+            iconKey: service.tags.isNotEmpty ? service.tags.first : null,
+            size: 48.r,
+            iconSize: 26.r,
+            backgroundColor: AppColors.primaryContainer.withOpacity(0.4),
           ),
           const Gap(12),
 
@@ -415,19 +385,19 @@ class ServiceCard extends StatelessWidget {
               children: [
                 Text(
                   service.name,
-                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: Theme.of(context).colorScheme.onSurface,
-                        fontSize: 13.sp,
-                      ),
+                  style: AppTypography.titleSmall.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textBlack,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
                 const Gap(2),
                 Text(
                   service.description,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        fontSize: 10.sp,
-                      ),
+                  style: AppTypography.bodySmall.copyWith(
+                    color: AppColors.onSurfaceVariant,
+                  ),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -438,21 +408,14 @@ class ServiceCard extends StatelessWidget {
                     Icon(
                       AppIcons.clock,
                       size: 10.r,
-                      color: Theme.of(context)
-                          .colorScheme
-                          .onSurfaceVariant
-                          .withOpacity(0.7),
+                      color: AppColors.onSurfaceVariant.withOpacity(0.7),
                     ),
                     const Gap(4),
                     Expanded(
                       child: Text(
                         subDetails,
                         style: TextStyle(
-                          color: Theme.of(context)
-                              .colorScheme
-                              .onSurfaceVariant
-                              .withOpacity(0.7),
-                          fontSize: 9.sp,
+                          color: AppColors.onSurfaceVariant.withOpacity(0.7),
                           fontWeight: FontWeight.w500,
                         ),
                         maxLines: 1,
@@ -473,10 +436,11 @@ class ServiceCard extends StatelessWidget {
               Text(
                 priceLabel,
                 style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  color: Theme.of(context).colorScheme.onSurface,
-                  fontSize: 13.sp,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.textBlack,
                 ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
               const Gap(12),
               if (service.isAvailable) ...[
@@ -493,9 +457,8 @@ class ServiceCard extends StatelessWidget {
                       Text(
                         '$quantity${service.pricePerKg != null ? ' kg' : ''}',
                         style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: Theme.of(context).colorScheme.onSurface,
-                          fontSize: 12.sp,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.textBlack,
                         ),
                       ),
                       const Gap(8),
@@ -510,11 +473,10 @@ class ServiceCard extends StatelessWidget {
                   OutlinedButton(
                     onPressed: onAdd,
                     style: OutlinedButton.styleFrom(
-                      side: BorderSide(
-                          color: Theme.of(context).colorScheme.primary,
-                          width: 1.2),
+                      side: const BorderSide(
+                          color: AppColors.primary, width: 1.2),
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8.r),
+                        borderRadius: BorderRadius.circular(AppRadius.tag.r),
                       ),
                       padding:
                           EdgeInsets.symmetric(horizontal: 12.w, vertical: 4.h),
@@ -525,9 +487,8 @@ class ServiceCard extends StatelessWidget {
                           ? 'Choose garments'
                           : 'Add',
                       style: TextStyle(
-                        color: Theme.of(context).colorScheme.primary,
-                        fontSize: 11.sp,
-                        fontWeight: FontWeight.bold,
+                        color: AppColors.primary,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                   ),
@@ -536,18 +497,14 @@ class ServiceCard extends StatelessWidget {
                 Container(
                   padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 2.h),
                   decoration: BoxDecoration(
-                    color: Theme.of(context)
-                        .colorScheme
-                        .onSurface
-                        .withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(4.r),
+                    color: AppColors.onSurface.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(AppRadius.tag.r),
                   ),
                   child: Text(
                     'UNAVAILABLE',
                     style: TextStyle(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      fontSize: 8.sp,
-                      fontWeight: FontWeight.bold,
+                      color: AppColors.onSurfaceVariant,
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
                 ),
@@ -557,14 +514,6 @@ class ServiceCard extends StatelessWidget {
       ),
     );
   }
-
-  IconData _getServiceIcon(ServiceCategory cat) => switch (cat) {
-        ServiceCategory.wash => AppIcons.washer,
-        ServiceCategory.iron => AppIcons.iron,
-        ServiceCategory.washAndIron => AppIcons.laundry,
-        ServiceCategory.dryClean => AppIcons.dry,
-        _ => AppIcons.laundry,
-      };
 }
 
 class _StepButton extends StatelessWidget {
@@ -576,13 +525,13 @@ class _StepButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return InkWell(
       onTap: onPressed,
-      borderRadius: BorderRadius.circular(6.r),
+      borderRadius: BorderRadius.circular(AppRadius.sm.r),
       child: Container(
         width: 28.r,
         height: 28.r,
         decoration: BoxDecoration(
           color: Theme.of(context).colorScheme.primaryContainer,
-          borderRadius: BorderRadius.circular(6.r),
+          borderRadius: BorderRadius.circular(AppRadius.sm.r),
         ),
         child: Center(
           child: Icon(

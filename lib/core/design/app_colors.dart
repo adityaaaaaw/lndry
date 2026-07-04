@@ -11,10 +11,12 @@ abstract final class AppColors {
 
   // ── Brand System Colors (Always Const) ─────────────────────────────────────
   /// Main Brand Accent Violet
-  static const Color primary = Color(0xFF5C63E8);
+  static const Color primary = Color(0xFF6C63E8);
   static const Color primaryDark = Color(0xFF3D46C8);
   static const Color primaryLight = Color(0xFFEA8EFF); // Soft Lavender
-  static const Color primaryContainer = Color(0xFFF1F2FF); // Soft violet background tint
+  static const Color electricLavender = Color(0xFF887CF6);
+  static const Color primaryContainer =
+      Color(0xFFF1F2FF); // Soft violet background tint
   static const Color onPrimary = Color(0xFFFFFFFF);
   static const Color onPrimaryContainer = Color(0xFF001254);
 
@@ -36,6 +38,7 @@ abstract final class AppColors {
   static const Color success = Color(0xFF0FB5A6);
   static const Color successContainer = Color(0xFFDDF7F3);
   static const Color warning = Color(0xFFF4A329);
+  static const Color rating = Color(0xFFF4A329);
   static const Color error = Color(0xFFE04A57);
   static const Color onError = Color(0xFFFFFFFF);
   static const Color errorContainer = Color(0xFFFFDAD9);
@@ -67,26 +70,43 @@ abstract final class AppColors {
 
   // ── Dynamic Theme-Aware Getters (Fallback bindings for legacy components) ──
   /// Typography Colors
-  static Color get textBlack => isDarkMode ? darkTextPrimary : lightTextPrimary; // Near Black / White
-  static Color get textSecondary => isDarkMode ? darkTextSecondary : lightTextSecondary; // Secondary Grey
-  static Color get textMuted => isDarkMode ? darkTextHint : lightTextSecondary; // Subtle Muted
+  static Color get textBlack =>
+      isDarkMode ? darkTextPrimary : lightTextPrimary; // Near Black / White
+  static Color get textSecondary =>
+      isDarkMode ? darkTextSecondary : lightTextSecondary; // Secondary Grey
+  static Color get textMuted =>
+      isDarkMode ? darkTextHint : lightTextSecondary; // Subtle Muted
 
   /// Surfaces & Backgrounds
-  static Color get background => isDarkMode ? darkBackground : const Color(0xFFF8F9FD); // App Background
-  static Color get surface => isDarkMode ? darkSurface : const Color(0xFFFFFFFF); // Card Surface
-  static Color get surfaceContainer => isDarkMode ? darkSurfaceContainer : const Color(0xFFF0F2FF);
-  static Color get surfaceContainerHigh => isDarkMode ? darkSurfaceContainerHigh : const Color(0xFFECEEF4);
-  static Color get surfaceContainerHighest => isDarkMode ? darkSurfaceContainerHigh : const Color(0xFFE2E8F0);
-  static Color get surfaceVariant => isDarkMode ? darkSurfaceContainer : const Color(0xFFE2E8F0);
-  static Color get onSurface => isDarkMode ? darkOnSurface : const Color(0xFF090F14);
-  static Color get onSurfaceVariant => isDarkMode ? darkOnSurfaceVariant : const Color(0xFF495467);
-  static Color get inverseSurface => isDarkMode ? const Color(0xFFFFFFFF) : const Color(0xFF2E3135);
-  static Color get inverseOnSurface => isDarkMode ? const Color(0xFF090F14) : const Color(0xFFF0F0F3);
-  static Color get inversePrimary => isDarkMode ? primary : const Color(0xFFEA8EFF);
+  static Color get background =>
+      isDarkMode ? darkBackground : const Color(0xFFF8F9FD); // App Background
+  static Color get surface =>
+      isDarkMode ? darkSurface : const Color(0xFFFFFFFF); // Card Surface
+  static Color get surfaceContainer =>
+      isDarkMode ? darkSurfaceContainer : const Color(0xFFF0F2FF);
+  static Color get surfaceContainerHigh =>
+      isDarkMode ? darkSurfaceContainerHigh : const Color(0xFFECEEF4);
+  static Color get surfaceContainerHighest =>
+      isDarkMode ? darkSurfaceContainerHigh : const Color(0xFFE2E8F0);
+  static Color get surfaceVariant =>
+      isDarkMode ? darkSurfaceContainer : const Color(0xFFE2E8F0);
+  static Color get onSurface =>
+      isDarkMode ? darkOnSurface : const Color(0xFF090F14);
+  static Color get onSurfaceVariant =>
+      isDarkMode ? darkOnSurfaceVariant : const Color(0xFF495467);
+  static Color get inverseSurface =>
+      isDarkMode ? const Color(0xFFFFFFFF) : const Color(0xFF2E3135);
+  static Color get inverseOnSurface =>
+      isDarkMode ? const Color(0xFF090F14) : const Color(0xFFF0F0F3);
+  static Color get inversePrimary =>
+      isDarkMode ? primary : const Color(0xFFEA8EFF);
 
-  static Color get divider => isDarkMode ? darkOutlineVariant : const Color(0xFFEEEFF8);
-  static Color get outline => isDarkMode ? darkOutline : const Color(0xFFEEEFF8);
-  static Color get outlineVariant => isDarkMode ? darkOutlineVariant : const Color(0xFFE2E8F0);
+  static Color get divider =>
+      isDarkMode ? darkOutlineVariant : const Color(0xFFEEEFF8);
+  static Color get outline =>
+      isDarkMode ? darkOutline : const Color(0xFFEEEFF8);
+  static Color get outlineVariant =>
+      isDarkMode ? darkOutlineVariant : const Color(0xFFE2E8F0);
 
   // ── Glassmorphism Support ─────────────────────────────────────────────────
   static const Color glassWhite = Color(0x33FFFFFF);
@@ -102,10 +122,17 @@ abstract final class AppColors {
   static const Color shadowColor = Color(0x142A245F);
   static const Color shimmerBase = Color(0xFFE2E8F0);
   static const Color shimmerHighlight = Color(0xFFF8FAFC);
+  static const Color offerLavender = Color(0xFFEAE8FF);
 
   // ── Gradients ─────────────────────────────────────────────────────────────
   static const LinearGradient primaryGradient = LinearGradient(
-    colors: [primary, primaryDark],
+    colors: [primary, electricLavender],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+  );
+
+  static const LinearGradient offerGradient = LinearGradient(
+    colors: [Color(0xFFEAE8FF), Color(0xFFCFC8FF)],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );

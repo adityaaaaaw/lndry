@@ -1,10 +1,11 @@
 import 'dart:async';
 
+import 'package:flutter/services.dart';
+
 import '../../../../config/env.dart';
 import '../../../../core/design/design_system.dart';
 import '../../../../core/extensions/extensions.dart';
 import '../../../../core/widgets/widgets.dart';
-import '../../../../shared/widgets/shared_widgets.dart';
 import '../../../../models/models.dart';
 import '../../../../repositories/repositories.dart';
 import '../../../cart/presentation/providers/cart_providers.dart';
@@ -158,7 +159,7 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
                     color:
                         isChosen ? AppColors.primary : AppColors.textSecondary,
                   ),
-                  const Gap(12),
+                  Gap(AppSpacing.cardGap.w),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -247,11 +248,8 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
   }
 
   /// Fetch backend-computed prices from POST /orders/prepare.
-  /// In mock mode, uses 'quote_mock' placeholder (acceptable).
-  /// In API mode, skips because no real quoteId is available.
   Future<void> _loadBackendPrices() async {
     if (_isApiMode) {
-      // No quote endpoint exists yet — can't call prepareOrder in API mode.
       setState(() => _backendPricesLoaded = false);
       return;
     }
@@ -456,7 +454,6 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
       return;
     }
 
-    // Use backend-computed prices if available (mock mode), else local fallback.
     final price = _backendPricesLoaded
         ? _backendTotal
         : cart.total + (_isExpressPickup ? 99.0 : 0.0);
@@ -520,16 +517,44 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
     return _selectedSlot;
   }
 
+  // ── Coupon state ───────────────────────────────────────────────────────────
+
+  final _couponController = TextEditingController();
+  final _couponFocusNode = FocusNode();
+  bool _couponApplied = false;
+  bool _couponFocused = false;
+
+  final _notesController = TextEditingController();
+
+  @override
+  void dispose() {
+    _couponController.dispose();
+    _couponFocusNode.dispose();
+    _notesController.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
-    final theme = context.theme;
-    final isDark = theme.brightness == Brightness.dark;
+    final isDark = context.isDark;
     final cartState = ref.watch(cartStateProvider);
 
     if (_isLoading) {
       return Scaffold(
         backgroundColor: AppColors.background,
-        appBar: AppBar(backgroundColor: AppColors.transparent, elevation: 0),
+        appBar: AppBar(
+          backgroundColor: AppColors.transparent,
+          elevation: 0,
+          systemOverlayStyle: isDark
+              ? const SystemUiOverlayStyle(
+                  statusBarColor: Colors.transparent,
+                  statusBarIconBrightness: Brightness.light,
+                )
+              : const SystemUiOverlayStyle(
+                  statusBarColor: Colors.transparent,
+                  statusBarIconBrightness: Brightness.dark,
+                ),
+        ),
         body: const AppLoadingPage(message: 'Preparing checkout summary...'),
       );
     }
@@ -544,7 +569,7 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
           centerTitle: true,
           leading: IconButton(
             icon: const Icon(AppIcons.back),
-            onPressed: () => Navigator.of(context).pop(),
+            onPressed: () => context.pop(),
           ),
           backgroundColor: AppColors.background,
           elevation: 0,
@@ -575,33 +600,55 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
         centerTitle: true,
         leading: IconButton(
           icon: const Icon(AppIcons.back),
-          onPressed: () => Navigator.of(context).pop(),
+          onPressed: () => context.pop(),
         ),
-        backgroundColor: AppColors.background,
+        backgroundColor: isDark ? AppColors.darkSurface : AppColors.surface,
         elevation: 0,
+        scrolledUnderElevation: 0.5.r,
+        systemOverlayStyle: isDark
+            ? const SystemUiOverlayStyle(
+                statusBarColor: Colors.transparent,
+                statusBarIconBrightness: Brightness.light,
+              )
+            : const SystemUiOverlayStyle(
+                statusBarColor: Colors.transparent,
+                statusBarIconBrightness: Brightness.dark,
+              ),
       ),
       body: SafeArea(
         child: Column(
           children: [
             Expanded(
               child: SingleChildScrollView(
-                padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 12.h),
+                padding: EdgeInsets.fromLTRB(
+                  AppSpacing.pagePaddingH.w,
+                  AppSpacing.sm.h,
+                  AppSpacing.pagePaddingH.w,
+                  AppSpacing.sm.h,
+                ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     // ── 1. Address Picker Section ──────────────────────────────
-                    Text('Delivery Address',
-                        style: AppTypography.titleLarge
-                            .copyWith(fontWeight: FontWeight.bold)),
-                    const Gap(12),
+                    _sectionHeader('Delivery Address'),
+                    Gap(AppSpacing.cardGap.h),
                     AppCard.outlined(
                       onTap: _showAddressModal,
                       padding: EdgeInsets.all(AppSpacing.md.r),
                       child: Row(
                         children: [
-                          Icon(AppIcons.location,
-                              color: AppColors.primary, size: 24.r),
-                          const Gap(12),
+                          Container(
+                            width: 40.r,
+                            height: 40.r,
+                            decoration: BoxDecoration(
+                              color: AppColors.primaryContainer,
+                              borderRadius:
+                                  BorderRadius.circular(AppRadius.md.r),
+                            ),
+                            child: Icon(AppIcons.location,
+                                color: AppColors.primary, size: 20.r),
+                          ),
+                          Gap(AppSpacing.md.w),
                           Expanded(
                             child: _selectedAddress != null &&
                                     _selectedAddress!.id.isNotEmpty
@@ -611,14 +658,18 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
                                     children: [
                                       Text(
                                         _selectedAddress!.type.label,
-                                        style: AppTypography.labelLarge
-                                            .copyWith(
-                                                fontWeight: FontWeight.bold),
+                                        style: AppTypography.titleSmall.copyWith(
+                                          color: isDark
+                                              ? AppColors.darkTextPrimary
+                                              : AppColors.lightTextPrimary,
+                                          fontWeight: FontWeight.w600,
+                                        ),
                                       ),
+                                      Gap(AppSpacing.xs.h),
                                       Text(
                                         '${_selectedAddress!.line1}, ${_selectedAddress!.city}',
                                         style: AppTypography.bodySmall.copyWith(
-                                            color: AppColors.textSecondary),
+                                            color: AppColors.onSurfaceVariant),
                                         maxLines: 1,
                                         overflow: TextOverflow.ellipsis,
                                       ),
@@ -630,27 +681,37 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
                                         .copyWith(color: AppColors.textMuted),
                                   ),
                           ),
-                          const Gap(16),
-                          Text(
-                            'Change',
-                            style: AppTypography.labelMedium.copyWith(
+                          Gap(AppSpacing.sm.w),
+                          Container(
+                            padding: EdgeInsets.symmetric(
+                              horizontal: AppSpacing.sm.w,
+                              vertical: AppSpacing.xs.h,
+                            ),
+                            decoration: BoxDecoration(
+                              color: AppColors.primaryContainer,
+                              borderRadius:
+                                  BorderRadius.circular(AppRadius.tag.r),
+                            ),
+                            child: Text(
+                              'Change',
+                              style: AppTypography.labelSmall.copyWith(
                                 color: AppColors.primary,
-                                fontWeight: FontWeight.bold),
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
                           ),
                         ],
                       ),
                     ),
-                    const Gap(24),
+                    Gap(AppSpacing.sectionGap.h),
 
                     // ── 2. 60-Minute Express Pickup Option ────────────────────
-                    Text('Pickup Mode',
-                        style: AppTypography.titleLarge
-                            .copyWith(fontWeight: FontWeight.bold)),
-                    const Gap(12),
+                    _sectionHeader('Pickup Mode'),
+                    Gap(AppSpacing.cardGap.h),
                     AppCard.outlined(
                       borderColor: _isExpressPickup
                           ? AppColors.secondary
-                          : AppColors.outline,
+                          : AppColors.outlineVariant,
                       backgroundColor: _isExpressPickup
                           ? AppColors.secondaryLight.withValues(alpha: 0.3)
                           : AppColors.transparent,
@@ -668,25 +729,41 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
                       },
                       child: Row(
                         children: [
-                          Icon(Icons.flash_on_rounded,
-                              color: AppColors.secondary, size: 28.r),
-                          const Gap(12),
+                          Container(
+                            width: 44.r,
+                            height: 44.r,
+                            decoration: BoxDecoration(
+                              color: AppColors.secondaryLight,
+                              borderRadius:
+                                  BorderRadius.circular(AppRadius.md.r),
+                            ),
+                            child: Icon(
+                              Icons.flash_on_rounded,
+                              color: AppColors.secondary,
+                              size: 24.r,
+                            ),
+                          ),
+                          Gap(AppSpacing.md.w),
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
                                   '60-Min Express Pickup',
-                                  style: AppTypography.labelLarge.copyWith(
-                                      fontWeight: FontWeight.bold,
-                                      color: AppColors.textBlack),
+                                  style: AppTypography.titleSmall.copyWith(
+                                    fontWeight: FontWeight.w600,
+                                    color: isDark
+                                        ? AppColors.darkTextPrimary
+                                        : AppColors.lightTextPrimary,
+                                  ),
                                 ),
+                                Gap(AppSpacing.xs.h),
                                 Text(
                                   _isApiMode
                                       ? 'Available when backend express slots are returned'
                                       : 'Delivery agent arrives within 1 hour',
                                   style: AppTypography.bodySmall
-                                      .copyWith(color: AppColors.textSecondary),
+                                      .copyWith(color: AppColors.onSurfaceVariant),
                                 ),
                               ],
                             ),
@@ -706,14 +783,12 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
                         ],
                       ),
                     ),
-                    const Gap(24),
+                    Gap(AppSpacing.sectionGap.h),
 
                     // ── 3. Standard Pickup Date & Time Picker ─────────────────
                     if (!_isExpressPickup) ...[
-                      Text('Select Pickup Date & Time',
-                          style: AppTypography.titleLarge
-                              .copyWith(fontWeight: FontWeight.bold)),
-                      const Gap(12),
+                      _sectionHeader('Select Pickup Date & Time'),
+                      Gap(AppSpacing.cardGap.h),
                       Row(
                         children: [
                           _DateChip(
@@ -725,7 +800,7 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
                               unawaited(_loadPickupSlots());
                             },
                           ),
-                          const Gap(12),
+                          Gap(AppSpacing.cardGap.w),
                           _DateChip(
                             label: 'Tomorrow',
                             subtitle: tomorrow.toDayMonth,
@@ -737,23 +812,29 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
                           ),
                         ],
                       ),
-                      const Gap(16),
+                      Gap(AppSpacing.md.h),
                       Text(
                           _isApiMode
-                              ? 'Backend Slots Available'
-                              : '60-Minute Slots Available',
+                              ? 'Available Slots'
+                              : 'Available Slots',
                           style: AppTypography.labelMedium
-                              .copyWith(color: AppColors.textSecondary)),
-                      const Gap(12),
+                              .copyWith(color: AppColors.onSurfaceVariant)),
+                      Gap(AppSpacing.cardGap.h),
                       if (_isApiMode && _isLoadingSlots)
                         const AppLoadingPage(
                             message: 'Checking pickup slots...')
                       else if (_isApiMode && _pickupSlots.isEmpty)
-                        AppEmptyState(
-                          icon: AppIcons.clock,
-                          title: 'No slots available',
-                          subtitle:
-                              'Please try another date or vendor before checkout.',
+                        Padding(
+                          padding: EdgeInsets.symmetric(vertical: AppSpacing.xl.h),
+                          child: Center(
+                            child: Text(
+                              'No slots available for this date.\nPlease try another date.',
+                              style: AppTypography.bodySmall.copyWith(
+                                color: AppColors.onSurfaceVariant,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
                         )
                       else
                         GridView.builder(
@@ -783,79 +864,85 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
                                 _backendPricesLoaded = false;
                                 _orderDraftId = null;
                               }),
-                              child: Container(
+                              child: AnimatedContainer(
+                                duration: const Duration(milliseconds: 200),
                                 decoration: BoxDecoration(
                                   color: isChosen
                                       ? AppColors.primaryContainer
-                                      : AppColors.transparent,
+                                      : isDark
+                                          ? AppColors.darkSurfaceContainer
+                                          : AppColors.surface,
                                   borderRadius:
-                                      BorderRadius.circular(AppRadius.input.r),
+                                      BorderRadius.circular(AppRadius.md.r),
                                   border: Border.all(
                                     color: isChosen
                                         ? AppColors.primary
-                                        : AppColors.outline
-                                            .withValues(alpha: 0.5),
+                                        : isDark
+                                            ? AppColors.darkOutlineVariant
+                                            : AppColors.outlineVariant,
                                     width: isChosen ? 1.5 : 1,
                                   ),
                                 ),
                                 child: Center(
                                   child: Text(
                                     slotLabel,
-                                    style: AppTypography.labelSmall.copyWith(
+                                    style: AppTypography.labelMedium.copyWith(
                                       color: isChosen
                                           ? AppColors.primary
-                                          : AppColors.textSecondary,
+                                          : isDark
+                                              ? AppColors.darkTextBody
+                                              : AppColors.onSurfaceVariant,
                                       fontWeight: isChosen
-                                          ? FontWeight.bold
+                                          ? FontWeight.w600
                                           : FontWeight.normal,
                                     ),
+                                    textAlign: TextAlign.center,
                                   ),
                                 ),
                               ),
                             );
                           },
                         ),
-                      const Gap(24),
+                      Gap(AppSpacing.sectionGap.h),
                     ],
 
-                    // ── 4. Checkout Order Items Summary list ──────────────────
-                    Text('Order Items Summary',
-                        style: AppTypography.titleLarge
-                            .copyWith(fontWeight: FontWeight.bold)),
-                    const Gap(12),
+                    // ── 4. Order Items Summary ─────────────────────────────────
+                    _sectionHeader('Order Items Summary'),
+                    Gap(AppSpacing.cardGap.h),
                     AppCard.outlined(
                       padding: EdgeInsets.all(AppSpacing.md.r),
                       child: Column(
                         children: [
-                          ListView.separated(
-                            shrinkWrap: true,
-                            physics: const NeverScrollableScrollPhysics(),
-                            itemCount: cartState.cart.items.length,
-                            separatorBuilder: (_, __) => const Gap(10),
-                            itemBuilder: (context, idx) {
-                              final item = cartState.cart.items[idx];
-                              final svc = cartState.services.firstWhere(
-                                (s) => s.id == item.serviceId,
-                                orElse: () => const ServiceModel(
-                                    id: '',
-                                    vendorId: '',
-                                    name: 'Service',
-                                    description: '',
-                                    category: ServiceCategory.wash,
-                                    minWeightKg: 0),
-                              );
+                          ...cartState.cart.items.map((item) {
+                            final svc = cartState.services.firstWhere(
+                              (s) => s.id == item.serviceId,
+                              orElse: () => const ServiceModel(
+                                id: '',
+                                vendorId: '',
+                                name: 'Service',
+                                description: '',
+                                category: ServiceCategory.wash,
+                                minWeightKg: 0,
+                              ),
+                            );
 
-                              return Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
+                            return Padding(
+                              padding: EdgeInsets.symmetric(vertical: AppSpacing.sm.h),
+                              child: Row(
                                 children: [
                                   Expanded(
                                     child: Text(
                                       '${item.quantity} × ${svc.name}',
-                                      style: AppTypography.bodyMedium
-                                          .copyWith(color: AppColors.textBlack),
+                                      style: AppTypography.bodyMedium.copyWith(
+                                        color: isDark
+                                            ? AppColors.darkTextBody
+                                            : AppColors.onSurface,
+                                      ),
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
                                     ),
                                   ),
+                                  Gap(AppSpacing.md.w),
                                   Text(
                                     _isApiMode
                                         ? 'Backend priced'
@@ -864,36 +951,49 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
                                                     0.0) *
                                                 item.quantity)
                                             .toCurrencyDecimal,
-                                    style: AppTypography.labelLarge.copyWith(
-                                      fontWeight: FontWeight.bold,
+                                    style: AppTypography.titleSmall.copyWith(
+                                      fontWeight: FontWeight.w600,
                                       color: _isApiMode
-                                          ? AppColors.textMuted
-                                          : null,
+                                          ? AppColors.onSurfaceVariant
+                                          : isDark
+                                              ? AppColors.darkTextPrimary
+                                              : AppColors.lightTextPrimary,
                                     ),
                                   ),
                                 ],
-                              );
-                            },
-                          ),
+                              ),
+                            );
+                          }),
                           if (_isExpressPickup && !_isApiMode) ...[
-                            const Gap(10),
-                            const AppDivider(),
-                            const Gap(10),
+                            Divider(
+                              color: isDark
+                                  ? AppColors.darkOutlineVariant
+                                  : AppColors.outlineVariant,
+                              thickness: 1,
+                              height: 1,
+                            ),
+                            Gap(AppSpacing.sm.h),
                             Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
                                 Expanded(
                                   child: Text(
                                     'Express Delivery Agent Surcharge',
-                                    style: AppTypography.bodyMedium
-                                        .copyWith(color: AppColors.textBlack),
+                                    style: AppTypography.bodyMedium.copyWith(
+                                      color: isDark
+                                          ? AppColors.darkTextBody
+                                          : AppColors.onSurface,
+                                    ),
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
+                                Gap(AppSpacing.md.w),
                                 Text(
                                   (99.0).toCurrencyDecimal,
-                                  style: AppTypography.labelLarge.copyWith(
-                                      fontWeight: FontWeight.bold,
-                                      color: AppColors.secondary),
+                                  style: AppTypography.titleSmall.copyWith(
+                                    fontWeight: FontWeight.w600,
+                                    color: AppColors.secondary,
+                                  ),
                                 ),
                               ],
                             ),
@@ -901,16 +1001,82 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
                         ],
                       ),
                     ),
+                    Gap(AppSpacing.sectionGap.h),
+
+                    // ── 5. Coupon Section ──────────────────────────────────────
+                    _sectionHeader('Coupon Code'),
+                    Gap(AppSpacing.cardGap.h),
+                    _CouponSection(
+                      controller: _couponController,
+                      focusNode: _couponFocusNode,
+                      isApplied: _couponApplied,
+                      isFocused: _couponFocused,
+                      onFocusChange: (v) =>
+                          setState(() => _couponFocused = v),
+                      onApply: () {
+                        if (_couponController.text.trim().isNotEmpty) {
+                          setState(() => _couponApplied = true);
+                          context.showSuccess('Coupon applied!');
+                        }
+                      },
+                      onRemove: () {
+                        setState(() {
+                          _couponApplied = false;
+                          _couponController.clear();
+                        });
+                      },
+                    ),
+                    Gap(AppSpacing.sectionGap.h),
+
+                    // ── 6. Notes / Instructions ────────────────────────────────
+                    _sectionHeader('Notes & Instructions'),
+                    Gap(AppSpacing.cardGap.h),
+                    Container(
+                      decoration: BoxDecoration(
+                        color: isDark
+                            ? AppColors.darkSurfaceContainer
+                            : AppColors.surface,
+                        borderRadius: BorderRadius.circular(AppRadius.md.r),
+                        border: Border.all(
+                          color: isDark
+                              ? AppColors.darkOutlineVariant
+                              : AppColors.outlineVariant,
+                        ),
+                      ),
+                      child: TextField(
+                        controller: _notesController,
+                        maxLines: 3,
+                        minLines: 3,
+                        decoration: InputDecoration(
+                          hintText: 'Add delivery instructions...',
+                          hintStyle: AppTypography.bodyMedium.copyWith(
+                            color: isDark
+                                ? AppColors.darkTextHint
+                                : AppColors.lightTextHint,
+                          ),
+                          border: InputBorder.none,
+                          contentPadding: EdgeInsets.all(AppSpacing.md.r),
+                        ),
+                        style: AppTypography.bodyMedium.copyWith(
+                          color: isDark
+                              ? AppColors.darkTextPrimary
+                              : AppColors.lightTextPrimary,
+                        ),
+                      ),
+                    ),
+                    Gap(AppSpacing.sectionGap.h),
                   ],
                 ),
               ),
             ),
 
-            // ── Sticky Checkout Summary & Payment Proceed Button ─────────────
+            // ── Sticky Checkout Summary & Payment CTA ─────────────────────────
             Container(
-              padding: EdgeInsets.symmetric(
-                horizontal: AppSpacing.pagePaddingH.w,
-                vertical: AppSpacing.pagePaddingV.h,
+              padding: EdgeInsets.fromLTRB(
+                AppSpacing.pagePaddingH.w,
+                AppSpacing.md.h,
+                AppSpacing.pagePaddingH.w,
+                MediaQuery.paddingOf(context).bottom + AppSpacing.md.h,
               ),
               decoration: BoxDecoration(
                 color: isDark ? AppColors.darkSurface : AppColors.surface,
@@ -923,66 +1089,93 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // ── Backend-computed price breakdown (mock mode) ────────────
+                  // ── Price breakdown ─────────────────────────────────────────
                   if (_backendPricesLoaded) ...[
-                    _PriceRow(label: 'Subtotal', amount: _backendSubtotal),
                     _PriceRow(
-                        label: 'Delivery Fee', amount: _backendDeliveryFee),
-                    _PriceRow(label: 'Taxes & Charges', amount: _backendTaxes),
+                      label: 'Subtotal',
+                      amount: _backendSubtotal,
+                      isDark: isDark,
+                    ),
+                    _PriceRow(
+                      label: 'Delivery Fee',
+                      amount: _backendDeliveryFee,
+                      isDark: isDark,
+                    ),
+                    _PriceRow(
+                      label: 'Taxes & Charges',
+                      amount: _backendTaxes,
+                      isDark: isDark,
+                    ),
                     if (_backendDiscount > 0)
                       _PriceRow(
                         label: 'Discount',
                         amount: -_backendDiscount,
-                        isPrimary: true,
+                        isDark: isDark,
                       ),
-                    const AppDivider(),
-                    const Gap(6),
+                    Gap(AppSpacing.sm.h),
+                    Divider(
+                      color: isDark
+                          ? AppColors.darkOutlineVariant
+                          : AppColors.outlineVariant,
+                      thickness: 1,
+                      height: 1,
+                    ),
+                    Gap(AppSpacing.sm.h),
                     _PriceRow(
                       label: 'Total Payable',
                       amount: _backendTotal,
                       bold: true,
-                      isPrimary: true,
+                      isDark: isDark,
                     ),
                   ] else if (_isApiMode)
-                    Text(
-                      'Live payable amount will be calculated by the backend before payment.',
-                      style: AppTypography.bodySmall.copyWith(
-                        color: AppColors.textSecondary,
+                    Padding(
+                      padding: EdgeInsets.only(bottom: AppSpacing.md.h),
+                      child: Text(
+                        'Live payable amount will be calculated by the backend before payment.',
+                        style: AppTypography.bodySmall.copyWith(
+                          color: AppColors.onSurfaceVariant,
+                          height: 1.4,
+                        ),
                       ),
                     )
-                  else
-                    // ── Fallback local calculation ────────────────────────────
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                  else ...[
+                    Row(
                       children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              'Total Estimated Price',
-                              style: AppTypography.labelLarge.copyWith(
-                                fontWeight: FontWeight.bold,
-                              ),
+                        Expanded(
+                          child: Text(
+                            'Total Estimated Price',
+                            style: AppTypography.titleSmall.copyWith(
+                              fontWeight: FontWeight.w600,
+                              color: isDark
+                                  ? AppColors.darkTextPrimary
+                                  : AppColors.lightTextPrimary,
                             ),
-                            Text(
-                              finalPrice.toCurrencyDecimal,
-                              style: AppTypography.titleLarge.copyWith(
-                                color: AppColors.primary,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ],
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        Gap(AppSpacing.md.w),
+                        Text(
+                          finalPrice.toCurrencyDecimal,
+                          style: AppTypography.headlineSmall.copyWith(
+                            color: AppColors.primary,
+                            fontWeight: FontWeight.w700,
+                          ),
                         ),
                       ],
                     ),
-                  const Gap(16),
-                  AppButton(
-                    label: _isPreparingCheckout
-                        ? 'Preparing Checkout...'
-                        : 'Proceed to Payment',
-                    onPressed: _isPreparingCheckout
-                        ? null
-                        : () => _onProceedToPayment(cartState),
+                  ],
+                  Gap(AppSpacing.md.h),
+                  SizedBox(
+                    height: 52.h,
+                    child: AppButton(
+                      label: _isPreparingCheckout
+                          ? 'Preparing Checkout...'
+                          : 'Proceed to Payment',
+                      onPressed: _isPreparingCheckout
+                          ? null
+                          : () => _onProceedToPayment(cartState),
+                    ),
                   ),
                 ],
               ),
@@ -992,41 +1185,189 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
       ),
     );
   }
+
+  Widget _sectionHeader(String title) {
+    return Text(
+      title,
+      style: AppTypography.titleLarge.copyWith(
+        fontWeight: FontWeight.w600,
+        color: context.isDark
+            ? AppColors.darkTextPrimary
+            : AppColors.lightTextPrimary,
+      ),
+    );
+  }
 }
 
-class _PriceRow extends StatelessWidget {
-  const _PriceRow({
-    required this.label,
-    required this.amount,
-    this.bold = false,
-    this.isPrimary = false,
+// ═══════════════════════════════════════════════════════════════════════════
+// COUPON SECTION
+// ═══════════════════════════════════════════════════════════════════════════
+
+class _CouponSection extends StatefulWidget {
+  const _CouponSection({
+    required this.controller,
+    required this.focusNode,
+    required this.isApplied,
+    required this.isFocused,
+    required this.onFocusChange,
+    required this.onApply,
+    required this.onRemove,
   });
 
-  final String label;
-  final double amount;
-  final bool bold;
-  final bool isPrimary;
+  final TextEditingController controller;
+  final FocusNode focusNode;
+  final bool isApplied;
+  final bool isFocused;
+  final ValueChanged<bool> onFocusChange;
+  final VoidCallback onApply;
+  final VoidCallback onRemove;
+
+  @override
+  State<_CouponSection> createState() => _CouponSectionState();
+}
+
+class _CouponSectionState extends State<_CouponSection> {
+  @override
+  void initState() {
+    super.initState();
+    widget.controller.addListener(_onTextChanged);
+    widget.focusNode.addListener(_onFocusChanged);
+  }
+
+  @override
+  void dispose() {
+    widget.controller.removeListener(_onTextChanged);
+    widget.focusNode.removeListener(_onFocusChanged);
+    super.dispose();
+  }
+
+  void _onTextChanged() {
+    if (mounted) setState(() {});
+  }
+
+  void _onFocusChanged() {
+    if (mounted) widget.onFocusChange(widget.focusNode.hasFocus);
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: EdgeInsets.symmetric(vertical: 4.h),
+    final isDark = context.isDark;
+
+    if (widget.isApplied) {
+      return Container(
+        padding: EdgeInsets.symmetric(
+          horizontal: AppSpacing.md.w,
+          vertical: AppSpacing.sm.h,
+        ),
+        decoration: BoxDecoration(
+          color: isDark
+              ? AppColors.darkSurfaceContainer
+              : AppColors.successContainer,
+          borderRadius: BorderRadius.circular(AppRadius.md.r),
+          border: Border.all(
+            color: AppColors.success.withValues(alpha: 0.3),
+          ),
+        ),
+        child: Row(
+          children: [
+            Icon(AppIcons.coupon, size: 18.r, color: AppColors.success),
+            Gap(AppSpacing.sm.w),
+            Expanded(
+              child: Text(
+                'Coupon "${widget.controller.text.trim().toUpperCase()}" applied!',
+                style: AppTypography.labelMedium.copyWith(
+                  color: AppColors.success,
+                  fontWeight: FontWeight.w600,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            SizedBox(
+              width: 40.r,
+              height: 40.r,
+              child: IconButton(
+                icon: Icon(AppIcons.close, size: 16.r, color: AppColors.success),
+                padding: EdgeInsets.zero,
+                visualDensity: VisualDensity.compact,
+                onPressed: widget.onRemove,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Container(
+      padding: EdgeInsets.all(AppSpacing.sm.r),
+      decoration: BoxDecoration(
+        color: isDark ? AppColors.darkSurfaceContainer : AppColors.surface,
+        borderRadius: BorderRadius.circular(AppRadius.md.r),
+        border: Border.all(
+          color: widget.isFocused
+              ? AppColors.primary
+              : isDark
+                  ? AppColors.darkOutlineVariant
+                  : AppColors.outlineVariant,
+          width: widget.isFocused ? 1.5 : 1,
+        ),
+      ),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(
-            label,
-            style: AppTypography.bodyMedium.copyWith(
-              fontWeight: bold ? FontWeight.bold : FontWeight.normal,
-              color: isPrimary ? AppColors.primary : AppColors.textBlack,
+          Padding(
+            padding: EdgeInsets.only(left: AppSpacing.sm.w),
+            child: Icon(
+              AppIcons.coupon,
+              size: 20.r,
+              color: widget.isFocused
+                  ? AppColors.primary
+                  : AppColors.onSurfaceVariant,
             ),
           ),
-          Text(
-            amount.toCurrencyDecimal,
-            style: (bold ? AppTypography.titleMedium : AppTypography.bodyMedium)
-                .copyWith(
-              fontWeight: FontWeight.bold,
-              color: isPrimary ? AppColors.primary : AppColors.textBlack,
+          Gap(AppSpacing.sm.w),
+          Expanded(
+            child: TextField(
+              controller: widget.controller,
+              focusNode: widget.focusNode,
+              decoration: InputDecoration(
+                hintText: 'Enter coupon code',
+                hintStyle: AppTypography.bodyMedium.copyWith(
+                  color: isDark
+                      ? AppColors.darkTextHint
+                      : AppColors.lightTextHint,
+                ),
+                border: InputBorder.none,
+                isDense: true,
+                contentPadding: EdgeInsets.zero,
+              ),
+              style: AppTypography.bodyMedium.copyWith(
+                color: isDark
+                    ? AppColors.darkTextPrimary
+                    : AppColors.lightTextPrimary,
+              ),
+              textCapitalization: TextCapitalization.characters,
+              textInputAction: TextInputAction.done,
+              onSubmitted: (_) {
+                if (widget.controller.text.trim().isNotEmpty) {
+                  widget.onApply();
+                }
+              },
+            ),
+          ),
+          SizedBox(
+            height: 44.h,
+            child: AppButton(
+              label: 'Apply',
+              width: 72.w,
+              height: 44.h,
+              onPressed: widget.controller.text.trim().isNotEmpty
+                  ? widget.onApply
+                  : null,
+              isDisabled: widget.controller.text.trim().isEmpty,
+              padding: EdgeInsets.symmetric(horizontal: AppSpacing.md.w),
+              textStyle: AppTypography.labelMedium.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ),
         ],
@@ -1034,6 +1375,70 @@ class _PriceRow extends StatelessWidget {
     );
   }
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PRICE ROW
+// ═══════════════════════════════════════════════════════════════════════════
+
+class _PriceRow extends StatelessWidget {
+  const _PriceRow({
+    required this.label,
+    required this.amount,
+    required this.isDark,
+    this.bold = false,
+  });
+
+  final String label;
+  final double amount;
+  final bool bold;
+  final bool isDark;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.symmetric(vertical: AppSpacing.xs.h),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              label,
+              style: (bold ? AppTypography.titleSmall : AppTypography.bodyMedium)
+                  .copyWith(
+                fontWeight: bold ? FontWeight.w600 : FontWeight.normal,
+                color: bold
+                    ? AppColors.primary
+                    : isDark
+                        ? AppColors.darkTextBody
+                        : AppColors.onSurface,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          Gap(AppSpacing.md.w),
+          Text(
+            amount.toCurrencyDecimal,
+            style: (bold
+                    ? AppTypography.titleMedium
+                    : AppTypography.bodyMedium)
+                .copyWith(
+              fontWeight: FontWeight.w600,
+              color: bold
+                  ? AppColors.primary
+                  : isDark
+                      ? AppColors.darkTextPrimary
+                      : AppColors.lightTextPrimary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// QUOTE INPUT
+// ═══════════════════════════════════════════════════════════════════════════
 
 class _QuoteInput {
   const _QuoteInput({
@@ -1047,6 +1452,10 @@ class _QuoteInput {
   final List<QuoteGarmentLine> lines;
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// CHECKOUT AMOUNTS
+// ═══════════════════════════════════════════════════════════════════════════
+
 class _CheckoutAmounts {
   const _CheckoutAmounts({
     required this.subtotal,
@@ -1055,12 +1464,6 @@ class _CheckoutAmounts {
     required this.discount,
     required this.total,
   });
-
-  final double subtotal;
-  final double deliveryFee;
-  final double taxes;
-  final double discount;
-  final double total;
 
   factory _CheckoutAmounts.fromDraft(OrderDraftResult draft) {
     final snapshot = draft.snapshot ?? const <String, dynamic>{};
@@ -1096,6 +1499,12 @@ class _CheckoutAmounts {
     );
   }
 
+  final double subtotal;
+  final double deliveryFee;
+  final double taxes;
+  final double discount;
+  final double total;
+
   static int _readPaise(
     Map<String, dynamic> json,
     List<String> keys, {
@@ -1108,6 +1517,10 @@ class _CheckoutAmounts {
     return fallback;
   }
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// DATE CHIP
+// ═══════════════════════════════════════════════════════════════════════════
 
 class _DateChip extends StatelessWidget {
   const _DateChip({
@@ -1124,19 +1537,27 @@ class _DateChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = context.isDark;
+
     return Expanded(
       child: GestureDetector(
         onTap: onTap,
-        child: Container(
-          padding: EdgeInsets.symmetric(vertical: 10.h),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: EdgeInsets.symmetric(vertical: AppSpacing.sm.h),
           decoration: BoxDecoration(
-            color:
-                isSelected ? AppColors.primaryContainer : AppColors.transparent,
-            borderRadius: BorderRadius.circular(AppRadius.input.r),
+            color: isSelected
+                ? AppColors.primaryContainer
+                : isDark
+                    ? AppColors.darkSurfaceContainer
+                    : AppColors.transparent,
+            borderRadius: BorderRadius.circular(AppRadius.md.r),
             border: Border.all(
               color: isSelected
                   ? AppColors.primary
-                  : AppColors.outline.withValues(alpha: 0.5),
+                  : isDark
+                      ? AppColors.darkOutlineVariant
+                      : AppColors.outlineVariant,
               width: isSelected ? 1.5 : 1,
             ),
           ),
@@ -1144,16 +1565,22 @@ class _DateChip extends StatelessWidget {
             children: [
               Text(
                 label,
-                style: AppTypography.labelMedium.copyWith(
-                  color: isSelected ? AppColors.primary : AppColors.textBlack,
-                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                style: AppTypography.labelLarge.copyWith(
+                  color: isSelected
+                      ? AppColors.primary
+                      : isDark
+                          ? AppColors.darkTextPrimary
+                          : AppColors.lightTextPrimary,
+                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
                 ),
               ),
+              Gap(AppSpacing.xs.h),
               Text(
                 subtitle,
                 style: AppTypography.caption.copyWith(
-                  color:
-                      isSelected ? AppColors.primary : AppColors.textSecondary,
+                  color: isSelected
+                      ? AppColors.primary
+                      : AppColors.onSurfaceVariant,
                 ),
               ),
             ],

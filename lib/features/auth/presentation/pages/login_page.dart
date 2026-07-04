@@ -3,6 +3,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gap/gap.dart';
+import 'package:go_router/go_router.dart';
+import '../../../../core/auth/auth_gate.dart';
 import '../../../../core/design/design_system.dart';
 import '../../../../core/widgets/app_button.dart';
 import '../../../../core/widgets/app_text_field.dart';
@@ -36,7 +38,16 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     try {
       final phone = _phoneController.text.trim();
       await ref.read(authProvider.notifier).sendOtp(phone);
-      // Navigation handled by GoRouter redirect watching authProvider.
+      if (!mounted) return;
+
+      final authState = ref.read(authProvider);
+      if (authState is AuthError) {
+        AppSnackBar.showError(context, authState.message);
+        return;
+      }
+      if (authState is AuthOtpSent) {
+        context.go(otpLocation(returnTo: returnToFrom(context)));
+      }
     } catch (e) {
       if (mounted) AppSnackBar.showError(context, e.toString());
     } finally {
@@ -75,10 +86,12 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                             color: AppColors.primaryContainer,
                             borderRadius: BorderRadius.circular(AppRadius.xl.r),
                           ),
-                          child: Icon(
-                            AppIcons.laundry,
-                            color: AppColors.primary,
-                            size: 40.r,
+                          child: Image.asset(
+                            'assets/images/logo.png',
+                            width: 40.r,
+                            height: 40.r,
+                            fit: BoxFit.contain,
+                            semanticLabel: 'LNDRY logo',
                           ),
                         ),
                       ),

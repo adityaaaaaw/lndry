@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" role="img" aria-labelledby="title desc">
+  <title id="title">Dry cleaning</title><desc id="desc">A tailored jacket on a hanger with the LNDRY careline built into its seam.</desc>
+  <path d="m7.3 8.4-2.55 2.2v8.65h14.5V10.6L16.7 8.4 14 10.75h-4L7.3 8.4Z" fill="#EAE8FF"/>
+  <g stroke="#6C63E8" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M12 6.75V5.6a1.6 1.6 0 1 1 1.6-1.6"/>
+    <path d="m12 6.75-7.25 3.85v8.65h14.5V10.6L12 6.75Z"/>
+    <path d="m7.3 8.4 2.7 2.35h4l2.7-2.35M10 10.75l2 3.25 2-3.25M12 14v5.25"/>
+    <path d="M7.15 11.2v2.25c0 .83.67 1.5 1.5 1.5h1.15"/>
+    <path d="M7.15 10.1v.25M7.15 14.05v.25M7.15 15.1v.25"/>
+  </g>
+  <circle cx="9.8" cy="14.95" r=".9" fill="#0FB5A6"/>
+</svg>

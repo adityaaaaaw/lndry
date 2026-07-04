@@ -47,14 +47,17 @@ class VendorCartNotifier extends StateNotifier<VendorCartState> {
   final CustomerRepository _repo;
   final Ref _ref;
 
-  Future<void> init(String vendorId) async {
+  Future<void> init(String vendorId, {bool includeCart = true}) async {
     final list = await _repo.getServicesByVendor(vendorId);
-    final cart = await _repo.getCart();
+    final filteredItems = <CartItem>[];
 
-    // Filter cart items matching vendor's services
-    final svcIds = list.map((s) => s.id).toSet();
-    final filteredItems =
-        cart.items.where((i) => svcIds.contains(i.serviceId)).toList();
+    if (includeCart) {
+      final cart = await _repo.getCart();
+      final svcIds = list.map((s) => s.id).toSet();
+      filteredItems.addAll(
+        cart.items.where((i) => svcIds.contains(i.serviceId)),
+      );
+    }
 
     state = VendorCartState(
       items: filteredItems,

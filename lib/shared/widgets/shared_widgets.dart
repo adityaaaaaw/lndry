@@ -20,8 +20,7 @@ class SectionHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: padding ??
-          EdgeInsets.symmetric(horizontal: 20.w, vertical: 8.h),
+      padding: padding ?? EdgeInsets.symmetric(horizontal: 20.w, vertical: 8.h),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
@@ -118,13 +117,13 @@ class StatusBadge extends StatelessWidget {
           : EdgeInsets.symmetric(horizontal: 10.w, vertical: 4.h),
       decoration: BoxDecoration(
         color: backgroundColor ?? color.withOpacity(0.12),
-        borderRadius: BorderRadius.circular(20.r),
+        borderRadius: BorderRadius.circular(AppRadius.full.r),
         border: large ? Border.all(color: color.withOpacity(0.3)) : null,
       ),
       child: Text(
         label,
         style: (large ? AppTypography.labelLarge : AppTypography.badge)
-            .copyWith(color: color, fontWeight: FontWeight.bold),
+            .copyWith(color: color, fontWeight: FontWeight.w600),
       ),
     );
   }
@@ -150,7 +149,7 @@ class RatingRow extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(Icons.star_rounded, color: AppColors.tertiary, size: starSize ?? 16.r),
+        Icon(AppIcons.star, color: AppColors.rating, size: starSize ?? 16.r),
         SizedBox(width: 3.w),
         Text(
           rating.toStringAsFixed(1),

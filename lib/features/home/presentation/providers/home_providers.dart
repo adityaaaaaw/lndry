@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../models/models.dart';
+import '../../../../providers/auth_provider.dart';
 import '../../../../repositories/repositories.dart';
 import '../../../../shared/repositories/base_repository.dart';
 
@@ -12,16 +13,19 @@ final homeCategoriesProvider = FutureProvider<List<CategoryModel>>((ref) async {
 /// Provider for nearby/recommended vendors list on Home screen
 final homeVendorsProvider = FutureProvider<List<VendorModel>>((ref) async {
   final repo = ref.watch(customerRepositoryProvider);
-  final addresses = await repo.getAddresses();
   double? lat;
   double? lng;
-  if (addresses.isNotEmpty) {
-    final addr = addresses.firstWhere(
-      (a) => a.isDefault,
-      orElse: () => addresses.first,
-    );
-    lat = addr.coordinates?.latitude;
-    lng = addr.coordinates?.longitude;
+
+  if (ref.watch(authProvider) is AuthAuthenticated) {
+    final addresses = await repo.getAddresses();
+    if (addresses.isNotEmpty) {
+      final addr = addresses.firstWhere(
+        (a) => a.isDefault,
+        orElse: () => addresses.first,
+      );
+      lat = addr.coordinates?.latitude;
+      lng = addr.coordinates?.longitude;
+    }
   }
 
   final response = await repo.getVendors(
@@ -33,7 +37,8 @@ final homeVendorsProvider = FutureProvider<List<VendorModel>>((ref) async {
 });
 
 /// Provider for recommended services on Home screen
-final homeRecommendedServicesProvider = FutureProvider<List<ServiceModel>>((ref) async {
+final homeRecommendedServicesProvider =
+    FutureProvider<List<ServiceModel>>((ref) async {
   final repo = ref.watch(customerRepositoryProvider);
   try {
     final vendors = await ref.watch(homeVendorsProvider.future);
@@ -46,6 +51,7 @@ final homeRecommendedServicesProvider = FutureProvider<List<ServiceModel>>((ref)
 
 /// Provider for active orders tracker on Home screen
 final activeOrdersProvider = FutureProvider<List<OrderModel>>((ref) async {
+  if (ref.watch(authProvider) is! AuthAuthenticated) return [];
   final repo = ref.watch(customerRepositoryProvider);
   final response = await repo.getMyOrders(
     params: const PaginationParams(pageSize: 5),
@@ -55,6 +61,7 @@ final activeOrdersProvider = FutureProvider<List<OrderModel>>((ref) async {
 
 /// Provider for previous order history on Home screen
 final pastOrdersProvider = FutureProvider<List<OrderModel>>((ref) async {
+  if (ref.watch(authProvider) is! AuthAuthenticated) return [];
   final repo = ref.watch(customerRepositoryProvider);
   final response = await repo.getMyOrders(
     params: const PaginationParams(pageSize: 10),
@@ -64,8 +71,10 @@ final pastOrdersProvider = FutureProvider<List<OrderModel>>((ref) async {
 
 /// User address display provider on Home screen
 final currentAddressProvider = FutureProvider<AddressModel?>((ref) async {
+  if (ref.watch(authProvider) is! AuthAuthenticated) return null;
   final repo = ref.watch(customerRepositoryProvider);
   final addresses = await repo.getAddresses();
   if (addresses.isEmpty) return null;
-  return addresses.firstWhere((a) => a.isDefault, orElse: () => addresses.first);
+  return addresses.firstWhere((a) => a.isDefault,
+      orElse: () => addresses.first);
 });

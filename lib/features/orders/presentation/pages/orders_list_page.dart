@@ -1,16 +1,11 @@
 import 'dart:async';
 
-import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:gap/gap.dart';
-import 'package:go_router/go_router.dart';
 import '../../../../core/design/design_system.dart';
-import '../../../../core/widgets/widgets.dart';
 import '../../../../core/extensions/extensions.dart';
-import '../../../../core/router/app_routes.dart';
-import '../../../../shared/widgets/shared_widgets.dart';
+import '../../../../core/widgets/widgets.dart';
 import '../../../../models/models.dart';
 import '../../../../repositories/repositories.dart';
+import '../../../../shared/widgets/shared_widgets.dart';
 import '../../../home/presentation/providers/home_providers.dart';
 
 class OrdersListPage extends ConsumerStatefulWidget {
@@ -45,20 +40,21 @@ class _OrdersListPageState extends ConsumerState<OrdersListPage>
     final pastAsync = ref.watch(pastOrdersProvider);
 
     return Scaffold(
-      backgroundColor: theme.scaffoldBackgroundColor,
+      backgroundColor: AppColors.background,
       appBar: AppBar(
         title: Text('My Orders', style: AppTypography.titleLarge),
         centerTitle: true,
         backgroundColor: isDark ? AppColors.darkSurface : AppColors.surface,
         elevation: 0,
+        scrolledUnderElevation: 0.5.r,
         bottom: TabBar(
           controller: _tabController,
           labelColor: AppColors.primary,
           unselectedLabelColor: AppColors.onSurfaceVariant,
           indicatorColor: AppColors.primary,
-          tabs: const [
-            Tab(text: 'Active Orders'),
-            Tab(text: 'Order History'),
+          tabs: [
+            Tab(child: Text('Active Orders', style: AppTypography.labelLarge)),
+            Tab(child: Text('Order History', style: AppTypography.labelLarge)),
           ],
         ),
       ),
@@ -87,7 +83,7 @@ class _OrdersListPageState extends ConsumerState<OrdersListPage>
                   : ListView.separated(
                       padding: EdgeInsets.all(AppSpacing.pagePaddingH.w),
                       itemCount: orders.length,
-                      separatorBuilder: (_, __) => const Gap(16),
+                      separatorBuilder: (_, __) => Gap(AppSpacing.md.h),
                       itemBuilder: (context, idx) {
                         final order = orders[idx];
                         return _ActiveOrderTile(order: order);
@@ -96,7 +92,7 @@ class _OrdersListPageState extends ConsumerState<OrdersListPage>
               loading: () => ListView.separated(
                 padding: EdgeInsets.all(AppSpacing.pagePaddingH.w),
                 itemCount: 3,
-                separatorBuilder: (_, __) => const Gap(16),
+                separatorBuilder: (_, __) => Gap(AppSpacing.md.h),
                 itemBuilder: (_, __) => const AppSkeletonCard(height: 110),
               ),
               error: (err, __) => AppErrorWidget(
@@ -127,7 +123,7 @@ class _OrdersListPageState extends ConsumerState<OrdersListPage>
                   : ListView.separated(
                       padding: EdgeInsets.all(AppSpacing.pagePaddingH.w),
                       itemCount: orders.length,
-                      separatorBuilder: (_, __) => const Gap(16),
+                      separatorBuilder: (_, __) => Gap(AppSpacing.md.h),
                       itemBuilder: (context, idx) {
                         final order = orders[idx];
                         return _PastOrderTile(order: order);
@@ -136,7 +132,7 @@ class _OrdersListPageState extends ConsumerState<OrdersListPage>
               loading: () => ListView.separated(
                 padding: EdgeInsets.all(AppSpacing.pagePaddingH.w),
                 itemCount: 3,
-                separatorBuilder: (_, __) => const Gap(16),
+                separatorBuilder: (_, __) => Gap(AppSpacing.md.h),
                 itemBuilder: (_, __) => const AppSkeletonCard(height: 110),
               ),
               error: (err, __) => AppErrorWidget(
@@ -193,7 +189,7 @@ class _ActiveOrderTileState extends ConsumerState<_ActiveOrderTile> {
                 color: AppColors.textSecondary,
               ),
             ),
-            const Gap(16),
+            Gap(AppSpacing.md.h),
             ..._cancelReasons.map((r) => Padding(
                   padding: EdgeInsets.only(bottom: 8.h),
                   child: AppCard.outlined(
@@ -201,7 +197,7 @@ class _ActiveOrderTileState extends ConsumerState<_ActiveOrderTile> {
                         ? AppColors.error
                         : AppColors.outline,
                     backgroundColor: selectedReason == r
-                        ? AppColors.error.withOpacity(0.08)
+                        ? AppColors.error.withValues(alpha: 0.08)
                         : AppColors.transparent,
                     onTap: () => setModalState(() => selectedReason = r),
                     child: Text(r, style: AppTypography.bodyMedium),
@@ -237,46 +233,58 @@ class _ActiveOrderTileState extends ConsumerState<_ActiveOrderTile> {
   Widget build(BuildContext context) {
     final order = widget.order;
     return AppCard.outlined(
-      borderColor: AppColors.primary.withOpacity(0.3),
-      backgroundColor: AppColors.primaryContainer.withOpacity(0.12),
+      borderColor: AppColors.primary.withValues(alpha: 0.3),
+      backgroundColor: AppColors.primaryContainer.withValues(alpha: 0.12),
       onTap: () => context.go('/orders/details/${order.id}'),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                'Order #${(order.id.length >= 8 ? order.id.substring(order.id.length - 8) : order.id).toUpperCase()}',
-                style: AppTypography.titleSmall,
+              Expanded(
+                child: Text(
+                  'Order #${(order.id.length >= 8 ? order.id.substring(order.id.length - 8) : order.id).toUpperCase()}',
+                  style: AppTypography.titleSmall,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
+              Gap(AppSpacing.sm.w),
               StatusBadge(
                 label: order.status.label,
                 color: AppColors.primary,
               ),
             ],
           ),
-          const Gap(12),
+          Gap(AppSpacing.cardGap.h),
           Row(
             children: [
               Icon(AppIcons.clock,
                   size: 14.r, color: AppColors.onSurfaceVariant),
-              const Gap(6),
-              Text(
-                'Pickup: ${order.scheduledPickupAt?.toDayDate ?? "Scheduled"}',
-                style: AppTypography.bodySmall,
+              Gap(AppSpacing.sm.h),
+              Expanded(
+                child: Text(
+                  'Pickup: ${order.scheduledPickupAt?.toDayDate ?? "Scheduled"}',
+                  style: AppTypography.bodySmall,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
             ],
           ),
-          const Gap(16),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          Gap(AppSpacing.md.h),
+          Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 12.w,
+            runSpacing: 8.h,
             children: [
               Text(
                 '${order.items.length} items • ${order.total.toCurrencyDecimal}',
                 style: AppTypography.labelMedium,
               ),
               Row(
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   // Cancel button (only when cancellable)
                   if (order.status.isCancellable && !_isCancelling)
@@ -291,7 +299,7 @@ class _ActiveOrderTileState extends ConsumerState<_ActiveOrderTile> {
                       ),
                     ),
                   if (order.status.isCancellable && !_isCancelling)
-                    const Gap(12),
+                    Gap(AppSpacing.cardGap.h),
                   if (_isCancelling)
                     SizedBox(
                       width: 16.r,
@@ -301,7 +309,7 @@ class _ActiveOrderTileState extends ConsumerState<_ActiveOrderTile> {
                         color: AppColors.error,
                       ),
                     ),
-                  if (_isCancelling) const Gap(8),
+                  if (_isCancelling) Gap(AppSpacing.sm.w),
                   Text(
                     'Track',
                     style: AppTypography.labelMedium.copyWith(
@@ -309,7 +317,7 @@ class _ActiveOrderTileState extends ConsumerState<_ActiveOrderTile> {
                       fontWeight: FontWeight.bold,
                     ),
                   ),
-                  const Gap(4),
+                  Gap(AppSpacing.xs.w),
                   Icon(AppIcons.forward, size: 14.r, color: AppColors.primary),
                 ],
               ),
@@ -366,39 +374,51 @@ class _PastOrderTileState extends ConsumerState<_PastOrderTile> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                'Order #${(order.id.length >= 8 ? order.id.substring(order.id.length - 8) : order.id).toUpperCase()}',
-                style: AppTypography.titleSmall,
+              Expanded(
+                child: Text(
+                  'Order #${(order.id.length >= 8 ? order.id.substring(order.id.length - 8) : order.id).toUpperCase()}',
+                  style: AppTypography.titleSmall,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
+              Gap(AppSpacing.sm.w),
               StatusBadge(
                 label: order.status.label,
                 color: isDelivered ? AppColors.success : AppColors.error,
               ),
             ],
           ),
-          const Gap(12),
+          Gap(AppSpacing.cardGap.h),
           Row(
             children: [
               Icon(AppIcons.calendar,
                   size: 14.r, color: AppColors.onSurfaceVariant),
-              const Gap(6),
-              Text(
-                'Date: ${order.createdAt.toDateString}',
-                style: AppTypography.bodySmall,
+              Gap(AppSpacing.sm.h),
+              Expanded(
+                child: Text(
+                  'Date: ${order.createdAt.toDateString}',
+                  style: AppTypography.bodySmall,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
             ],
           ),
-          const Gap(16),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          Gap(AppSpacing.md.h),
+          Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 12.w,
+            runSpacing: 8.h,
             children: [
               Text(
                 '${order.items.length} items • ${order.total.toCurrencyDecimal}',
                 style: AppTypography.labelMedium,
               ),
               Row(
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   // Reorder button (show for any terminal order)
                   if (order.status.isTerminal && !_isReordering)
@@ -412,21 +432,21 @@ class _PastOrderTileState extends ConsumerState<_PastOrderTile> {
                         ),
                       ),
                     ),
-                  if (order.status.isTerminal && !_isReordering) const Gap(8),
+                  if (order.status.isTerminal && !_isReordering) Gap(AppSpacing.sm.w),
                   if (_isReordering)
                     SizedBox(
                       width: 16.r,
                       height: 16.r,
                       child: CircularProgressIndicator(strokeWidth: 2.r),
                     ),
-                  if (_isReordering) const Gap(8),
+                  if (_isReordering) Gap(AppSpacing.sm.w),
                   Text(
                     'View Details',
                     style: AppTypography.labelMedium.copyWith(
                       color: AppColors.onSurfaceVariant,
                     ),
                   ),
-                  const Gap(4),
+                  Gap(AppSpacing.xs.w),
                   Icon(AppIcons.forward,
                       size: 14.r, color: AppColors.onSurfaceVariant),
                 ],

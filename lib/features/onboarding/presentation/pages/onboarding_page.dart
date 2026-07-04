@@ -24,17 +24,20 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
     _OnboardingItem(
       icon: AppIcons.laundry,
       title: 'Easy Scheduling',
-      description: 'Book your laundry pickup with just a few taps. Choose slots that fit your daily schedule.',
+      description:
+          'Book your laundry pickup with just a few taps. Choose slots that fit your daily schedule.',
     ),
     _OnboardingItem(
       icon: AppIcons.dry,
       title: 'Premium Garment Care',
-      description: 'Your clothes are treated by certified vendors using premium care detergents and dry cleans.',
+      description:
+          'Your clothes are treated by certified vendors using premium care detergents and dry cleans.',
     ),
     _OnboardingItem(
       icon: AppIcons.delivery,
       title: 'Super-Fast Delivery',
-      description: 'Fresh, clean, and neatly ironed clothes delivered straight to your doorstep within 24 hours.',
+      description:
+          'Fresh, clean, and neatly ironed clothes delivered straight to your doorstep within 24 hours.',
     ),
   ];
 
@@ -65,7 +68,7 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
     final storage = ref.read(storageServiceProvider);
     await storage.saveBool(AppConstants.keyOnboardingDone, value: true);
     if (mounted) {
-      context.go(AppRoutes.login);
+      context.go(AppRoutes.home);
     }
   }
 
@@ -91,7 +94,8 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
                   onPressed: _finishOnboarding,
                   child: Text(
                     'Skip',
-                    style: AppTypography.labelLarge.copyWith(color: AppColors.primary),
+                    style: AppTypography.labelLarge
+                        .copyWith(color: AppColors.primary),
                   ),
                 ),
               ),
@@ -163,7 +167,9 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
                   ),
                   const Gap(40),
                   AppButton(
-                    label: _currentIndex == _slides.length - 1 ? 'Get Started' : 'Next',
+                    label: _currentIndex == _slides.length - 1
+                        ? 'Get Started'
+                        : 'Next',
                     onPressed: _onNext,
                   ),
                 ],
@@ -234,11 +240,7 @@ class _OnboardingIllustration extends StatelessWidget {
           height: 200.r,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            gradient: const LinearGradient(
-              colors: [AppColors.primaryContainer, Color(0xFFF3E8FF)],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
+            gradient: AppColors.offerGradient,
             boxShadow: [
               BoxShadow(
                 color: AppColors.primary.withOpacity(0.12),
@@ -272,14 +274,16 @@ class _OnboardingIllustration extends StatelessWidget {
                 Positioned(
                   top: 24.h,
                   right: 24.w,
-                  child: Icon(Icons.auto_awesome_rounded, color: Colors.amber, size: 24.r),
+                  child: Icon(Icons.auto_awesome_rounded,
+                      color: AppColors.rating, size: 24.r),
                 ),
               // Location marker overlay for super-fast delivery
               if (icon == AppIcons.delivery)
                 Positioned(
                   bottom: 24.h,
                   right: 24.w,
-                  child: Icon(AppIcons.location, color: AppColors.secondary, size: 24.r),
+                  child: Icon(AppIcons.location,
+                      color: AppColors.secondary, size: 24.r),
                 ),
             ],
           ),

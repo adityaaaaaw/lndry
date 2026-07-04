@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../../core/auth/auth_gate.dart';
 import '../../../../core/design/design_system.dart';
 import '../../../../core/widgets/widgets.dart';
 import '../../../../core/extensions/extensions.dart';
@@ -25,7 +26,7 @@ class ProfilePage extends ConsumerWidget {
     if (confirm == true) {
       await ref.read(authProvider.notifier).logout();
       if (context.mounted) {
-        context.go(AppRoutes.login);
+        context.go(AppRoutes.home);
       }
     }
   }
@@ -34,8 +35,10 @@ class ProfilePage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = context.theme;
     final isDark = theme.brightness == Brightness.dark;
+    final authState = ref.watch(authProvider);
+    final signedIn = authState is AuthAuthenticated;
     final user = ref.watch(currentUserProvider);
-    final statsAsync = ref.watch(_profileStatsProvider);
+    final statsAsync = signedIn ? ref.watch(_profileStatsProvider) : null;
 
     // Build initials for avatar fallback.
     final displayName = user?.name ?? '';
@@ -47,15 +50,14 @@ class ProfilePage extends ConsumerWidget {
             .take(2)
             .map((p) => p[0].toUpperCase())
             .join()
-        : '?';
+        : 'G';
 
-    // Email: show verified phone if no email, never fallback to vendor address.
     final userPhone = user?.phone ?? '';
     final emailOrPhone = (user?.email != null && user!.email!.isNotEmpty)
         ? user.email!
         : userPhone.isNotEmpty
             ? '+91 $userPhone'
-            : 'No contact info';
+            : 'Sign in to manage bookings and account details';
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
@@ -79,7 +81,6 @@ class ProfilePage extends ConsumerWidget {
                 padding: EdgeInsets.all(AppSpacing.md.r),
                 child: Row(
                   children: [
-                    // Avatar: show photo URL when available, else initials.
                     CircleAvatar(
                       radius: 36.r,
                       backgroundColor: AppColors.primaryContainer,
@@ -98,7 +99,7 @@ class ProfilePage extends ConsumerWidget {
                                 )
                               : null,
                     ),
-                    const Gap(16),
+                    SizedBox(width: AppSpacing.cardGap.w),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -109,7 +110,7 @@ class ProfilePage extends ConsumerWidget {
                               fontWeight: FontWeight.bold,
                             ),
                           ),
-                          const Gap(2),
+                          Gap(AppSpacing.xs.h),
                           Text(
                             emailOrPhone,
                             style: AppTypography.bodySmall.copyWith(
@@ -124,52 +125,76 @@ class ProfilePage extends ConsumerWidget {
                   ],
                 ),
               ),
-              const Gap(16),
+              Gap(AppSpacing.md.h),
 
-              statsAsync.when(
-                data: (stats) => AppCard.outlined(
+              // ── Stats or Guest card ───────────────────────────────────────
+              if (statsAsync != null)
+                statsAsync.when(
+                  data: (stats) => AppCard.outlined(
+                    padding: EdgeInsets.all(AppSpacing.md.r),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: _StatItem(
+                            label: 'Orders',
+                            value: stats.totalOrders.toString(),
+                          ),
+                        ),
+                        Expanded(
+                          child: _StatItem(
+                            label: 'Spent',
+                            value: stats.totalSpent.toCurrencyDecimal,
+                          ),
+                        ),
+                        Expanded(
+                          child: _StatItem(
+                            label: 'Points',
+                            value: stats.loyaltyPoints.toString(),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  loading: () => const AppSkeletonCard(height: 72),
+                  error: (_, __) => const SizedBox.shrink(),
+                )
+              else
+                AppCard.outlined(
                   padding: EdgeInsets.all(AppSpacing.md.r),
-                  child: Row(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Expanded(
-                        child: _StatItem(
-                          label: 'Orders',
-                          value: stats.totalOrders.toString(),
-                        ),
-                      ),
-                      Expanded(
-                        child: _StatItem(
-                          label: 'Spent',
-                          value: stats.totalSpent.toCurrencyDecimal,
-                        ),
-                      ),
-                      Expanded(
-                        child: _StatItem(
-                          label: 'Points',
-                          value: stats.loyaltyPoints.toString(),
-                        ),
+                      Text('Browsing as guest',
+                          style: AppTypography.labelLarge),
+                      Gap(AppSpacing.md.h),
+                      Text(
+                        'Sign in when you are ready to book, save addresses, or view orders.',
+                        style: AppTypography.bodySmall
+                            .copyWith(color: AppColors.textSecondary),
                       ),
                     ],
                   ),
                 ),
-                loading: () => const AppSkeletonCard(height: 72),
-                error: (_, __) => const SizedBox.shrink(),
-              ),
-              const Gap(16),
+              Gap(AppSpacing.md.h),
 
               // ── Orders shortcut ──────────────────────────────────────────────
               AppCard.outlined(
-                borderColor: AppColors.primary.withOpacity(0.3),
-                backgroundColor: AppColors.primaryContainer.withOpacity(0.12),
-                onTap: () {
-                  final navShell = StatefulNavigationShell.of(context);
-                  navShell.goBranch(3);
-                },
+                borderColor: AppColors.primary.withValues(alpha: 0.3),
+                backgroundColor: AppColors.primaryContainer.withValues(alpha: 0.12),
+                onTap: () => requireAuthenticated(
+                  context: context,
+                  ref: ref,
+                  returnTo: AppRoutes.orders,
+                  action: (context, _) {
+                    final navShell = StatefulNavigationShell.of(context);
+                    navShell.goBranch(3);
+                  },
+                ),
                 child: Row(
                   children: [
                     Icon(AppIcons.ordersOutlined,
                         color: AppColors.primary, size: 24.r),
-                    const Gap(16),
+                    SizedBox(width: AppSpacing.cardGap.w),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -186,11 +211,12 @@ class ProfilePage extends ConsumerWidget {
                   ],
                 ),
               ),
-              const Gap(24),
+              Gap(AppSpacing.sectionGap.h),
 
               Text('Account Details', style: AppTypography.titleMedium),
-              const Gap(12),
+              Gap(AppSpacing.cardGap.h),
 
+              // ── Menu tiles ─────────────────────────────────────────────────
               AppCard.outlined(
                 padding: EdgeInsets.zero,
                 child: Column(
@@ -198,33 +224,62 @@ class ProfilePage extends ConsumerWidget {
                     _SettingsTile(
                       icon: AppIcons.profile,
                       label: 'Edit Profile',
-                      onTap: () => context.push(AppRoutes.editProfile),
+                      onTap: () => requireAuthenticated(
+                        context: context,
+                        ref: ref,
+                        returnTo: AppRoutes.editProfile,
+                        action: (context, _) =>
+                            context.push(AppRoutes.editProfile),
+                      ),
                     ),
-                    const Divider(height: 1),
+                    Divider(height: 1, color: AppColors.outline),
                     _SettingsTile(
                       icon: AppIcons.location,
                       label: 'Saved Addresses',
-                      onTap: () => context.push(AppRoutes.address),
+                      onTap: () => requireAuthenticated(
+                        context: context,
+                        ref: ref,
+                        returnTo: AppRoutes.address,
+                        action: (context, _) => context.push(AppRoutes.address),
+                      ),
                     ),
-                    const Divider(height: 1),
+                    Divider(height: 1, color: AppColors.outline),
                     _SettingsTile(
                       icon: AppIcons.notificationsOutlined,
                       label: 'Notifications',
-                      onTap: () => context.push(AppRoutes.notifications),
+                      onTap: () => requireAuthenticated(
+                        context: context,
+                        ref: ref,
+                        returnTo: AppRoutes.notifications,
+                        action: (context, _) =>
+                            context.push(AppRoutes.notifications),
+                      ),
                     ),
-                    const Divider(height: 1),
+                    Divider(height: 1, color: AppColors.outline),
                     _SettingsTile(
                       icon: Icons.star_border_rounded,
                       label: 'My Reviews',
-                      onTap: () => context.push(AppRoutes.myReviews),
+                      onTap: () => requireAuthenticated(
+                        context: context,
+                        ref: ref,
+                        returnTo: AppRoutes.myReviews,
+                        action: (context, _) =>
+                            context.push(AppRoutes.myReviews),
+                      ),
                     ),
-                    const Divider(height: 1),
+                    Divider(height: 1, color: AppColors.outline),
                     _SettingsTile(
                       icon: AppIcons.settings,
                       label: 'Settings',
-                      onTap: () => context.push(AppRoutes.settings),
+                      onTap: () => requireAuthenticated(
+                        context: context,
+                        ref: ref,
+                        returnTo: AppRoutes.settings,
+                        action: (context, _) =>
+                            context.push(AppRoutes.settings),
+                      ),
                     ),
-                    const Divider(height: 1),
+                    Divider(height: 1, color: AppColors.outline),
                     _SettingsTile(
                       icon: AppIcons.info,
                       label: 'Help & Support',
@@ -233,15 +288,22 @@ class ProfilePage extends ConsumerWidget {
                   ],
                 ),
               ),
-              const Gap(32),
+              Gap(AppSpacing.sectionGap.h * 1.5),
 
-              AppButton.outlined(
-                label: 'Sign Out',
-                icon: const Icon(AppIcons.close, color: AppColors.error),
-                foregroundColor: AppColors.error,
-                onPressed: () => _onLogout(context, ref),
-              ),
-              const Gap(24),
+              signedIn
+                  ? AppButton.outlined(
+                      label: 'Sign Out',
+                      icon: const Icon(AppIcons.close, color: AppColors.error),
+                      foregroundColor: AppColors.error,
+                      onPressed: () => _onLogout(context, ref),
+                    )
+                  : AppButton(
+                      label: 'Sign In',
+                      onPressed: () => context.push(loginLocation(
+                        returnTo: AppRoutes.profile,
+                      )),
+                    ),
+              Gap(AppSpacing.sectionGap.h),
             ],
           ),
         ),
@@ -268,7 +330,7 @@ class _StatItem extends StatelessWidget {
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
         ),
-        const Gap(4),
+        Gap(AppSpacing.xs.h),
         Text(
           label,
           style: AppTypography.caption.copyWith(

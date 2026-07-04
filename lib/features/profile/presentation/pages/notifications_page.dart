@@ -118,7 +118,7 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
                     child: ListView.separated(
                       padding: EdgeInsets.all(AppSpacing.pagePaddingH.w),
                       itemCount: _notifications.length,
-                      separatorBuilder: (_, __) => const Gap(12),
+                      separatorBuilder: (_, __) => Gap(AppSpacing.cardGap.h),
                       itemBuilder: (context, idx) {
                         final notif = _notifications[idx];
 
@@ -129,7 +129,7 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
                             alignment: Alignment.centerRight,
                             padding: EdgeInsets.only(right: 20.w),
                             decoration: BoxDecoration(
-                              color: AppColors.error.withOpacity(0.12),
+                              color: AppColors.error.withValues(alpha: 0.12),
                               borderRadius:
                                   BorderRadius.circular(AppRadius.card.r),
                             ),
@@ -149,10 +149,10 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
                             },
                             borderColor: notif.isRead
                                 ? AppColors.outline
-                                : AppColors.primary.withOpacity(0.3),
+                                : AppColors.primary.withValues(alpha: 0.3),
                             backgroundColor: notif.isRead
                                 ? AppColors.transparent
-                                : AppColors.primaryContainer.withOpacity(0.08),
+                                : AppColors.primaryContainer.withValues(alpha: 0.08),
                             child: Row(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
@@ -160,8 +160,7 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
                                   padding: EdgeInsets.all(8.r),
                                   decoration: BoxDecoration(
                                     color: notif.isRead
-                                        ? theme
-                                            .colorScheme.surfaceContainerHighest
+                                        ? AppColors.surfaceContainerHighest
                                         : AppColors.primaryContainer,
                                     shape: BoxShape.circle,
                                   ),
@@ -173,7 +172,7 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
                                     size: 18.r,
                                   ),
                                 ),
-                                const Gap(16),
+                                Gap(AppSpacing.cardGap.w),
                                 Expanded(
                                   child: Column(
                                     crossAxisAlignment:
@@ -188,12 +187,12 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
                                               : FontWeight.bold,
                                         ),
                                       ),
-                                      const Gap(4),
+                                      Gap(AppSpacing.xs.h),
                                       Text(
                                         notif.body,
                                         style: AppTypography.bodySmall,
                                       ),
-                                      const Gap(8),
+                                      Gap(AppSpacing.sm.h),
                                       Text(
                                         notif.createdAt.timeAgo,
                                         style: AppTypography.caption,

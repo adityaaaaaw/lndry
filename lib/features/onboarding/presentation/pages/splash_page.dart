@@ -1,13 +1,7 @@
-import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:gap/gap.dart';
-import 'package:go_router/go_router.dart';
-import '../../../../core/design/design_system.dart';
-import '../../../../core/widgets/app_loading.dart';
 import '../../../../core/constants/app_constants.dart';
-import '../../../../core/router/app_routes.dart';
+import '../../../../core/design/design_system.dart';
 import '../../../../core/services/storage_service.dart';
+import '../../../../core/widgets/app_loading.dart';
 import '../../../../providers/auth_provider.dart';
 
 class SplashPage extends ConsumerStatefulWidget {
@@ -33,10 +27,10 @@ class _SplashPageState extends ConsumerState<SplashPage>
 
     _logoController = AnimationController(
       vsync: this,
-      duration: AppDurations.splash,
+      duration: const Duration(milliseconds: 400),
     );
-    _logoScale = Tween<double>(begin: 0.8, end: 1.0).animate(
-      CurvedAnimation(parent: _logoController, curve: AppCurves.spring),
+    _logoScale = Tween<double>(begin: 0.95, end: 1.0).animate(
+      CurvedAnimation(parent: _logoController, curve: AppCurves.standard),
     );
     _logoOpacity = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(parent: _logoController, curve: AppCurves.standard),
@@ -90,6 +84,8 @@ class _SplashPageState extends ConsumerState<SplashPage>
         context.go(AppRoutes.locationPermission);
       case AuthNeedsAddressSelection():
         context.go(AppRoutes.mapAddress);
+      case AuthUnauthenticated():
+        context.go(AppRoutes.login);
       default:
         context.go(AppRoutes.login);
     }
@@ -126,42 +122,12 @@ class _SplashPageState extends ConsumerState<SplashPage>
                   child: child,
                 ),
               ),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Container(
-                    width: 96.r,
-                    height: 96.r,
-                    decoration: BoxDecoration(
-                      color: AppColors.white,
-                      borderRadius:
-                          BorderRadius.circular(AppRadius.xxl.r),
-                      boxShadow: AppElevation.high,
-                    ),
-                    child: Center(
-                      child: Icon(
-                        AppIcons.laundry,
-                        color: AppColors.primary,
-                        size: 48.r,
-                      ),
-                    ),
-                  ),
-                  const Gap(24),
-                  Text(
-                    AppConstants.appName,
-                    style: AppTypography.displaySmall.copyWith(
-                      color: AppColors.white,
-                      letterSpacing: 2,
-                    ),
-                  ),
-                  const Gap(8),
-                  Text(
-                    AppConstants.appTagline,
-                    style: AppTypography.bodySmall.copyWith(
-                      color: AppColors.white.withOpacity(0.75),
-                    ),
-                  ),
-                ],
+              child: Image.asset(
+                'assets/images/logo.png',
+                width: 200.r,
+                fit: BoxFit.contain,
+                filterQuality: FilterQuality.high,
+                semanticLabel: 'LNDRY logo',
               ),
             ),
             Positioned(

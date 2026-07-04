@@ -247,6 +247,8 @@ class _AppButtonState extends State<AppButton> with SingleTickerProviderStateMix
     final text = Text(
       widget.label,
       style: (widget.textStyle ?? AppTypography.buttonText).copyWith(color: fgColor),
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
     );
 
     if (widget.icon != null) {
@@ -256,7 +258,7 @@ class _AppButtonState extends State<AppButton> with SingleTickerProviderStateMix
         children: [
           widget.icon!,
           SizedBox(width: 8.w),
-          text,
+          Flexible(child: text),
         ],
       );
     }

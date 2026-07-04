@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" role="img" aria-labelledby="title desc">
+  <title id="title">Shoe care</title><desc id="desc">A cared-for shoe and brush with a signature LNDRY stitched sole.</desc>
+  <path d="M4.1 14.2c2.9.2 5.1-.9 6.7-3.5 1.9 2.2 4.35 3.45 7.35 3.75 1.2.12 1.85.85 1.85 1.85v1.15H4.5a1.5 1.5 0 0 1-.4-2.95v-.3Z" fill="#EAE8FF"/>
+  <g stroke="#6C63E8" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M4.1 13.9c2.9.2 5.1-.9 6.7-3.5 1.9 2.2 4.35 3.45 7.35 3.75 1.2.12 1.85.85 1.85 1.85v1.15H4.5a1.5 1.5 0 0 1-.4-2.95v-.3Z"/>
+    <path d="M8.7 12.3 7.4 10.6M11.7 11.35l1.2-2M5.6 14.05v1.15c0 .83.67 1.5 1.5 1.5h1.15"/>
+    <path d="M5.6 12.95v.25M5.6 15.85v.25"/>
+    <path d="M14.25 19.5h5.25M15 17.15h3.75l.75 2.35h-5.25l.75-2.35Z"/>
+  </g>
+  <circle cx="8.25" cy="16.7" r=".9" fill="#0FB5A6"/>
+</svg>

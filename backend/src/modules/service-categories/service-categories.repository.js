@@ -10,8 +10,8 @@ export class CategoriesRepository {
   async findAll() {
     const { rows } = await query(
       `SELECT c.id, c.name, c.slug, c.description, c.image_url, c.parent_id, c.sort_order, c.is_active, c.created_at,
-              (SELECT COUNT(*)::int FROM garment_rates p WHERE p.category_id = c.id AND p.is_active = true) AS product_count
-       FROM categories c
+              (SELECT COUNT(*)::int FROM garment_types p WHERE p.category_id = c.id AND p.is_active = true) AS product_count
+       FROM service_categories c
        ORDER BY c.sort_order ASC, c.name ASC`
     )
     return rows
@@ -23,7 +23,7 @@ export class CategoriesRepository {
   async findById(id) {
     const { rows } = await query(
       `SELECT id, name, slug, description, image_url, parent_id, sort_order, is_active, created_at, updated_at
-       FROM categories WHERE id = $1`,
+       FROM service_categories WHERE id = $1`,
       [id]
     )
     return rows[0] || null
@@ -34,7 +34,7 @@ export class CategoriesRepository {
    */
   async findBySlug(slug) {
     const { rows } = await query(
-      `SELECT id FROM categories WHERE slug = $1`,
+      `SELECT id FROM service_categories WHERE slug = $1`,
       [slug]
     )
     return rows[0] || null
@@ -45,7 +45,7 @@ export class CategoriesRepository {
    */
   async create({ name, slug, description, image_url, parent_id, sort_order, is_active }) {
     const { rows } = await query(
-      `INSERT INTO categories (name, slug, description, image_url, parent_id, sort_order, is_active)
+      `INSERT INTO service_categories (name, slug, description, image_url, parent_id, sort_order, is_active)
        VALUES ($1, $2, $3, $4, $5, $6, $7)
        RETURNING id, name, slug, description, image_url, parent_id, sort_order, is_active, created_at`,
       [name, slug, description || null, image_url || null, parent_id || null, sort_order || 0, is_active !== false]
@@ -75,7 +75,7 @@ export class CategoriesRepository {
     params.push(id)
 
     const { rows } = await query(
-      `UPDATE categories SET ${fields.join(', ')} WHERE id = $${idx}
+      `UPDATE service_categories SET ${fields.join(', ')} WHERE id = $${idx}
        RETURNING id, name, slug, description, image_url, parent_id, sort_order, is_active, created_at, updated_at`,
       params
     )
@@ -87,7 +87,7 @@ export class CategoriesRepository {
    */
   async delete(id) {
     await query(
-      `UPDATE categories SET is_active = false, updated_at = NOW() WHERE id = $1`,
+      `UPDATE service_categories SET is_active = false, updated_at = NOW() WHERE id = $1`,
       [id]
     )
   }
@@ -148,8 +148,8 @@ export class CategoriesRepository {
     }
 
     const sortMap = {
-      price_asc: 'p.price ASC',
-      price_desc: 'p.price DESC',
+      price_asc: 'p.cost_price ASC',
+      price_desc: 'p.cost_price DESC',
       newest: 'p.created_at DESC',
       popular: 'p.total_sold DESC',
     }
@@ -157,14 +157,14 @@ export class CategoriesRepository {
     const where = conditions.join(' AND ')
 
     const optionCountExpr = `COALESCE(
-      (SELECT COUNT(*)::int FROM garment_rates sib
+      (SELECT COUNT(*)::int FROM garment_types sib
        WHERE sib.product_family_id = p.product_family_id
          AND sib.product_family_id IS NOT NULL
          AND sib.is_active = true), 1)`
 
     const selectCols = `
-      p.id, p.name, p.slug, p.price, p.sale_price, p.stock_quantity,
-      p.unit, p.thumbnail_url, p.is_featured, p.total_sold,
+      p.id, p.name, p.slug, p.cost_price AS price, p.cost_price AS sale_price, p.stock_quantity,
+      p.unit, p.images[1] AS thumbnail_url, p.is_featured, p.total_sold,
       p.product_family_id, p.option_label, p.option_sort_order,
       p.is_default_option, p.food_type, p.origin_tag,
       p.custom_badges, p.display_delivery_minutes,
@@ -179,9 +179,9 @@ export class CategoriesRepository {
           SELECT ${selectCols},
             ROW_NUMBER() OVER (
               PARTITION BY COALESCE(p.product_family_id, p.id)
-              ORDER BY p.is_default_option DESC, p.option_sort_order ASC, p.price ASC
+              ORDER BY p.is_default_option DESC, p.option_sort_order ASC, p.cost_price ASC
             ) AS rn
-          FROM garment_rates p
+          FROM garment_types p
           LEFT JOIN product_families pf ON pf.id = p.product_family_id
           WHERE ${where}
         )
@@ -204,9 +204,9 @@ export class CategoriesRepository {
           SELECT p.id,
             ROW_NUMBER() OVER (
               PARTITION BY COALESCE(p.product_family_id, p.id)
-              ORDER BY p.is_default_option DESC, p.option_sort_order ASC, p.price ASC
+              ORDER BY p.is_default_option DESC, p.option_sort_order ASC, p.cost_price ASC
             ) AS rn
-          FROM garment_rates p
+          FROM garment_types p
           WHERE ${where}
         )
         SELECT COUNT(*)::int AS total FROM ranked WHERE rn = 1`,
@@ -218,7 +218,7 @@ export class CategoriesRepository {
 
     const { rows } = await query(
       `SELECT ${selectCols}
-       FROM garment_rates p
+       FROM garment_types p
        LEFT JOIN product_families pf ON pf.id = p.product_family_id
        WHERE ${where}
        ORDER BY ${orderBy}
@@ -227,7 +227,7 @@ export class CategoriesRepository {
     )
 
     const { rows: countRows } = await query(
-      `SELECT COUNT(*)::int AS total FROM garment_rates p WHERE ${where}`,
+      `SELECT COUNT(*)::int AS total FROM garment_types p WHERE ${where}`,
       params
     )
 

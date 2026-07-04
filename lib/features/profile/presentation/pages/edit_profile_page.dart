@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:gap/gap.dart';
 import 'package:image_picker/image_picker.dart';
-import '../../../../core/theme/theme.dart';
+
+import '../../../../core/design/design_system.dart';
 import '../../../../core/widgets/widgets.dart';
 import '../../../../core/extensions/extensions.dart';
 import '../../../../providers/auth_provider.dart';
@@ -195,7 +195,7 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
                           ],
                         ),
                       ),
-                      const Gap(40),
+                      Gap(AppSpacing.sectionGap.h * 2),
 
                       AppTextField(
                         label: 'Full Name',
@@ -207,7 +207,7 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
                             ? 'Name is required'
                             : null,
                       ),
-                      const Gap(20),
+                      Gap(AppSpacing.md.h),
 
                       AppTextField(
                         label: 'Email Address',
@@ -216,7 +216,7 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
                         prefixIcon: const Icon(AppIcons.email),
                         keyboardType: TextInputType.emailAddress,
                       ),
-                      const Gap(48),
+                      Gap(AppSpacing.sectionGap.h * 2.5),
 
                       AppButton(
                         label: 'Save Changes',

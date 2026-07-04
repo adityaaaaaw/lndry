@@ -1,13 +1,17 @@
-import '../../../../core/design/design_system.dart';
-import '../../../../core/widgets/widgets.dart';
-import '../../../../core/extensions/extensions.dart';
-import '../../../../core/router/app_routes.dart';
-import '../../../../shared/widgets/shared_widgets.dart';
-import '../../../../shared/widgets/domain_cards.dart';
-import '../../../../models/models.dart';
-import '../providers/home_providers.dart';
+import 'dart:async';
+import 'dart:math' as math;
+
 import 'package:cached_network_image/cached_network_image.dart';
+import '../../../../core/auth/auth_gate.dart';
+import '../../../../core/constants/asset_constants.dart';
+import '../../../../core/design/design_system.dart';
+import '../../../../core/extensions/extensions.dart';
+import '../../../../core/widgets/widgets.dart';
+import '../../../../models/models.dart';
 import '../../../../providers/providers.dart';
+import '../../../../shared/widgets/domain_cards.dart';
+import '../../../../shared/widgets/shared_widgets.dart';
+import '../providers/home_providers.dart';
 
 class HomePage extends ConsumerStatefulWidget {
   const HomePage({super.key});
@@ -17,10 +21,10 @@ class HomePage extends ConsumerStatefulWidget {
 }
 
 class _HomePageState extends ConsumerState<HomePage> {
-  int _selectedCategoryIdx = 0;
+  // Issue 2: No category selected initially
+  int _selectedCategoryIdx = -1;
 
   int _activeOrderStep(OrderStatus status) {
-    // Map canonical statuses to 4-step visual tracker index.
     return switch (status) {
       OrderStatus.waitingForVendorConfirmation ||
       OrderStatus.vendorAccepted ||
@@ -65,7 +69,7 @@ class _HomePageState extends ConsumerState<HomePage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // ── 1. Top Bar: Title & Address Selector (Pixel Perfect) ─────
+                // ── 1. Top Header: Logo, Location, Notification & Avatar ─────
                 Padding(
                   padding: EdgeInsets.symmetric(
                     horizontal: 20.w,
@@ -86,7 +90,13 @@ class _HomePageState extends ConsumerState<HomePage> {
                             ),
                             const Gap(4),
                             GestureDetector(
-                              onTap: () => context.push(AppRoutes.mapAddress),
+                              onTap: () => requireAuthenticated(
+                                context: context,
+                                ref: ref,
+                                returnTo: AppRoutes.mapAddress,
+                                action: (context, _) =>
+                                    context.push(AppRoutes.mapAddress),
+                              ),
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
@@ -100,10 +110,12 @@ class _HomePageState extends ConsumerState<HomePage> {
                                     data: (addr) => Flexible(
                                       child: Text(
                                         addr != null
-                                            ? '${addr.type.label}  •  ${addr.city}'
+                                            ? '${addr.type.label} · ${addr.line2 != null && addr.line2!.isNotEmpty ? '${addr.line2}, ' : ''}${addr.city}'
                                             : 'Select address',
-                                        style: AppTypography.bodySmall.copyWith(
-                                          color: AppColors.textSecondary,
+                                        style: AppTypography.labelMedium
+                                            .copyWith(
+                                          color: AppColors.textBlack,
+                                          fontWeight: FontWeight.w500,
                                         ),
                                         maxLines: 1,
                                         overflow: TextOverflow.ellipsis,
@@ -111,7 +123,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                                     ),
                                     loading: () => Container(
                                       width: 120.w,
-                                      height: 12.h,
+                                      height: 14.h,
                                       decoration: BoxDecoration(
                                         color: AppColors.shimmerBase,
                                         borderRadius:
@@ -120,12 +132,13 @@ class _HomePageState extends ConsumerState<HomePage> {
                                     ),
                                     error: (_, __) => Text(
                                       'Select address',
-                                      style: AppTypography.bodySmall.copyWith(
-                                        color: AppColors.textSecondary,
+                                      style: AppTypography.labelMedium.copyWith(
+                                        color: AppColors.textBlack,
+                                        fontWeight: FontWeight.w500,
                                       ),
                                     ),
                                   ),
-                                  const Gap(2),
+                                  const Gap(4),
                                   Icon(
                                     AppIcons.chevronDown,
                                     color: AppColors.textSecondary,
@@ -137,7 +150,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                           ],
                         ),
                       ),
-                      // Notification badge click
+                      // Notification badge
                       Stack(
                         children: [
                           IconButton(
@@ -146,8 +159,13 @@ class _HomePageState extends ConsumerState<HomePage> {
                               color: AppColors.textBlack,
                               size: 26.r,
                             ),
-                            onPressed: () =>
-                                context.push(AppRoutes.notifications),
+                            onPressed: () => requireAuthenticated(
+                              context: context,
+                              ref: ref,
+                              returnTo: AppRoutes.notifications,
+                              action: (context, _) =>
+                                  context.push(AppRoutes.notifications),
+                            ),
                           ),
                           Positioned(
                             top: 8.h,
@@ -164,7 +182,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                         ],
                       ),
                       const Gap(8),
-                      // Avatar: initials or user photo
+                      // Avatar
                       GestureDetector(
                         onTap: () => context.go(AppRoutes.profile),
                         child: Builder(builder: (context) {
@@ -221,7 +239,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                         Text(
                           '$greeting, $displayName',
                           style: AppTypography.headlineMedium.copyWith(
-                            fontWeight: FontWeight.bold,
+                            fontWeight: FontWeight.w700,
                             color: AppColors.textBlack,
                           ),
                         ),
@@ -241,102 +259,106 @@ class _HomePageState extends ConsumerState<HomePage> {
                 // ── 3. Search Bar with Filter Icon ───────────────────────────
                 Padding(
                   padding: EdgeInsets.symmetric(horizontal: 20.w),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: GestureDetector(
-                          onTap: () {
-                            final navShell =
-                                StatefulNavigationShell.of(context);
-                            navShell.goBranch(1);
-                          },
-                          child: Container(
-                            padding: EdgeInsets.symmetric(
-                                horizontal: 16.w, vertical: 12.h),
-                            decoration: BoxDecoration(
-                              color: AppColors.surface,
-                              borderRadius:
-                                  BorderRadius.circular(AppRadius.full.r),
-                              border: Border.all(
-                                  color: AppColors.outline.withOpacity(0.5)),
-                            ),
-                            child: Row(
-                              children: [
-                                Icon(AppIcons.search,
-                                    color: AppColors.textSecondary, size: 20.r),
-                                const Gap(10),
-                                Expanded(
-                                  child: Text(
-                                    'Search services or nearby laundries',
-                                    style: AppTypography.inputHint
-                                        .copyWith(fontSize: 14.sp),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                              ],
+                  child: GestureDetector(
+                    onTap: () {
+                      final navShell = StatefulNavigationShell.of(context);
+                      navShell.goBranch(1);
+                    },
+                    child: Container(
+                      height: 52.h,
+                      padding: EdgeInsets.only(left: 16.w, right: 8.w),
+                      decoration: BoxDecoration(
+                        color: AppColors.surface,
+                        borderRadius: BorderRadius.circular(AppRadius.full.r),
+                        border: Border.all(color: AppColors.outlineVariant),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            AppIcons.search,
+                            color: AppColors.textBlack,
+                            size: 20.r,
+                          ),
+                          const Gap(12),
+                          Expanded(
+                            child: Text(
+                              'Search services or nearby laundries',
+                              style: AppTypography.inputHint.copyWith(
+                                color: AppColors.textMuted,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ),
-                        ),
-                      ),
-                      const Gap(12),
-                      GestureDetector(
-                        onTap: () {
-                          // Switch to Search tab branch
-                          final navShell = StatefulNavigationShell.of(context);
-                          navShell.goBranch(1);
-                        },
-                        child: Container(
-                          padding: EdgeInsets.all(12.r),
-                          decoration: BoxDecoration(
-                            color: AppColors.primaryContainer,
-                            shape: BoxShape.circle,
+                          const Gap(8),
+                          Container(
+                            width: 36.r,
+                            height: 36.r,
+                            decoration: const BoxDecoration(
+                              color: AppColors.primaryContainer,
+                              shape: BoxShape.circle,
+                            ),
+                            child: Center(
+                              child: Icon(
+                                AppIcons.filter,
+                                color: AppColors.primary,
+                                size: 18.r,
+                              ),
+                            ),
                           ),
-                          child: Icon(
-                            AppIcons.filter,
-                            color: AppColors.primary,
-                            size: 22.r,
-                          ),
-                        ),
+                        ],
                       ),
-                    ],
+                    ),
                   ),
                 ),
+                const Gap(20),
+
+                // ── 4. Offer Banner Carousel (Issue 1) ────────────────────────
+                const _OfferBannerCarousel(),
                 const Gap(24),
 
-                // ── 5. Category Scroll Row ("What do you need?") ──────────────
+                // ── 5. Category Scroll Row (Issue 2) ──────────────────────────
                 Padding(
                   padding: EdgeInsets.symmetric(horizontal: 20.w),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(
-                        'What do you need?',
-                        style: AppTypography.titleLarge.copyWith(
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.textBlack,
+                      Expanded(
+                        child: Text(
+                          'What do you need?',
+                          style: AppTypography.titleLarge.copyWith(
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.textBlack,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
-                      TextButton(
-                        onPressed: () {
-                          context.go(AppRoutes.search);
-                        },
+                      GestureDetector(
+                        onTap: () => context.go(AppRoutes.search),
                         child: Text(
                           'View all',
-                          style: AppTypography.labelMedium
-                              .copyWith(color: AppColors.primary),
+                          style: AppTypography.labelMedium.copyWith(
+                            color: AppColors.primary,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                       ),
                     ],
                   ),
                 ),
-                const Gap(8),
+                const Gap(12),
                 SizedBox(
-                  height: 124.h,
+                  height: math.max(
+                    132.h,
+                    MediaQuery.textScalerOf(context).scale(132.h),
+                  ),
                   child: categoriesAsync.when(
                     data: (cats) => ListView.separated(
-                      padding: EdgeInsets.only(
-                          left: 20.w, right: 20.w, top: 10.h, bottom: 4.h),
+                      padding: EdgeInsets.symmetric(
+                        horizontal: 20.w,
+                        vertical: 8.h,
+                      ),
                       clipBehavior: Clip.none,
                       scrollDirection: Axis.horizontal,
                       itemCount: cats.length,
@@ -344,32 +366,49 @@ class _HomePageState extends ConsumerState<HomePage> {
                       itemBuilder: (context, idx) {
                         final cat = cats[idx];
                         final isSelected = _selectedCategoryIdx == idx;
-                        return CategoryCard(
-                          category: cat,
-                          isSelected: isSelected,
-                          onTap: () {
-                            setState(() => _selectedCategoryIdx = idx);
-                            context.go('/category/${cat.id}');
-                          },
+                        return AnimatedScale(
+                          scale: isSelected ? 1.05 : 1.0,
+                          duration: const Duration(milliseconds: 200),
+                          child: CategoryCard(
+                            category: cat,
+                            isSelected: isSelected,
+                            onTap: () {
+                              setState(() {
+                                // Toggle off if same category tapped
+                                if (_selectedCategoryIdx == idx) {
+                                  _selectedCategoryIdx = -1;
+                                } else {
+                                  _selectedCategoryIdx = idx;
+                                  context.go('/category/${cat.id}');
+                                }
+                              });
+                            },
+                          ),
                         );
                       },
                     ),
                     loading: () => ListView.separated(
-                      padding: EdgeInsets.only(
-                          left: 20.w, right: 20.w, top: 10.h, bottom: 4.h),
+                      padding: EdgeInsets.symmetric(
+                        horizontal: 20.w,
+                        vertical: 8.h,
+                      ),
                       clipBehavior: Clip.none,
                       scrollDirection: Axis.horizontal,
                       itemCount: 5,
                       separatorBuilder: (_, __) => const Gap(12),
                       itemBuilder: (_, __) =>
-                          const AppSkeletonCard(width: 90, height: 100),
+                          const AppSkeletonCard(width: 90, height: 110),
                     ),
                     error: (_, __) => const SizedBox.shrink(),
                   ),
                 ),
                 const Gap(24),
 
-                // ── 7. Active Order Status Tracker (Image 1 checklist steps) ──
+                // ── 6. Quick Schedule Card (Issue 5) ─────────────────────────
+                const _QuickScheduleCard(),
+                const Gap(24),
+
+                // ── 7. Active Order Status Tracker ────────────────────────────
                 activeOrdersAsync.when(
                   data: (orders) {
                     if (orders.isEmpty) return const SizedBox.shrink();
@@ -386,7 +425,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                                 child: Text(
                                   'Active order',
                                   style: AppTypography.titleLarge.copyWith(
-                                    fontWeight: FontWeight.bold,
+                                    fontWeight: FontWeight.w700,
                                     color: AppColors.textBlack,
                                   ),
                                   maxLines: 1,
@@ -400,7 +439,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                                   'Track',
                                   style: AppTypography.labelMedium.copyWith(
                                     color: AppColors.primary,
-                                    fontWeight: FontWeight.bold,
+                                    fontWeight: FontWeight.w600,
                                   ),
                                 ),
                               ),
@@ -420,53 +459,77 @@ class _HomePageState extends ConsumerState<HomePage> {
                   error: (_, __) => const SizedBox.shrink(),
                 ),
 
-                // ── 8. "Recommended near you" Section ──────────────────────────
+                // ── 8. "Recommended near you" Section (Issue 3) ───────────────
                 Padding(
                   padding: EdgeInsets.symmetric(horizontal: 20.w),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        'Recommended near you',
-                        style: AppTypography.titleLarge.copyWith(
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.textBlack,
-                        ),
-                      ),
-                    ],
+                  child: Text(
+                    'Recommended near you',
+                    style: AppTypography.titleLarge.copyWith(
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.textBlack,
+                    ),
                   ),
                 ),
                 const Gap(12),
-                SizedBox(
-                  height: 270.h,
-                  child: vendorsAsync.when(
-                    data: (vendors) => ListView.separated(
-                      padding: EdgeInsets.symmetric(horizontal: 20.w),
-                      scrollDirection: Axis.horizontal,
-                      itemCount: vendors.length,
-                      separatorBuilder: (_, __) => const Gap(16),
-                      itemBuilder: (context, idx) {
-                        final vendor = vendors[idx];
-                        return SizedBox(
-                          width: 300.w,
-                          child: _HorizontalVendorCard(
-                            vendor: vendor,
-                            onTap: () => context.push('/vendor/${vendor.id}'),
-                          ),
-                        );
-                      },
-                    ),
-                    loading: () => ListView.separated(
+                vendorsAsync.when(
+                  data: (vendors) {
+                    if (vendors.isEmpty) {
+                      // Case B: Empty state (Issue 3)
+                      return Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 20.w),
+                        child: _buildEmptyVendorState(),
+                      );
+                    }
+                    // Case A: Vendors available
+                    return SizedBox(
+                      height: 180.h,
+                      child: ListView.separated(
+                        padding: EdgeInsets.symmetric(horizontal: 20.w),
+                        scrollDirection: Axis.horizontal,
+                        itemCount: vendors.length,
+                        separatorBuilder: (_, __) => const Gap(16),
+                        itemBuilder: (context, idx) {
+                          final vendor = vendors[idx];
+                          return SizedBox(
+                            width: 315.w,
+                            child: _HorizontalVendorCard(
+                              vendor: vendor,
+                              onTap: () =>
+                                  context.push('/vendor/${vendor.id}'),
+                            ),
+                          );
+                        },
+                      ),
+                    );
+                  },
+                  loading: () => SizedBox(
+                    height: 180.h,
+                    child: ListView.separated(
                       padding: EdgeInsets.symmetric(horizontal: 20.w),
                       scrollDirection: Axis.horizontal,
                       itemCount: 2,
                       separatorBuilder: (_, __) => const Gap(16),
                       itemBuilder: (_, __) =>
-                          const AppSkeletonCard(width: 300, height: 260),
+                          const AppSkeletonCard(width: 315, height: 180),
                     ),
-                    error: (_, __) => const SizedBox.shrink(),
+                  ),
+                  error: (_, __) => Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 20.w),
+                    child: AppEmptyState(
+                      icon: AppIcons.store,
+                      title: 'Couldn\'t load nearby partners',
+                      subtitle:
+                          'Check your connection and try again.',
+                      actionLabel: 'Retry',
+                      onAction: () =>
+                          ref.invalidate(homeVendorsProvider),
+                    ),
                   ),
                 ),
+                const Gap(24),
+
+                // ── 9. "Special offers" Section (Issue 4) ─────────────────────
+                const _SpecialOffersSection(),
                 const Gap(32),
               ],
             ),
@@ -475,9 +538,420 @@ class _HomePageState extends ConsumerState<HomePage> {
       ),
     );
   }
+
+  /// Issue 3: Empty vendor state with Enable Location / Refresh
+  Widget _buildEmptyVendorState() {
+    return AppEmptyState(
+      icon: AppIcons.store,
+      title: 'No laundry partners available nearby',
+      subtitle: 'Enable location to discover nearby laundry partners.',
+      actionLabel: 'Enable Location',
+      onAction: () {
+        ref.invalidate(homeVendorsProvider);
+        requireAuthenticated(
+          context: context,
+          ref: ref,
+          returnTo: AppRoutes.locationPermission,
+          action: (context, _) =>
+              context.push(AppRoutes.locationPermission),
+        );
+      },
+    );
+  }
 }
 
-// ── Active Order checklist status tracker card ───────────────────────────────
+// ═════════════════════════════════════════════════════════════════════════════
+// ISSUE 1: Offer Banner Carousel
+// ═════════════════════════════════════════════════════════════════════════════
+
+class _OfferBannerCarousel extends StatefulWidget {
+  const _OfferBannerCarousel();
+
+  @override
+  State<_OfferBannerCarousel> createState() => _OfferBannerCarouselState();
+}
+
+class _OfferBannerCarouselState extends State<_OfferBannerCarousel> {
+  late PageController _pageController;
+  late Timer _autoScrollTimer;
+  int _currentPage = 0;
+
+  /// Static banners — can be swapped with backend-driven list later.
+  /// If only one banner, auto-scroll is silently disabled.
+  static const int _bannerCount = 3;
+
+  @override
+  void initState() {
+    super.initState();
+    _pageController = PageController(initialPage: 0);
+    _startAutoScroll();
+  }
+
+  void _startAutoScroll() {
+    // Issue 1: Only auto-scroll if more than one banner
+    if (_bannerCount <= 1) return;
+    _autoScrollTimer = Timer.periodic(const Duration(seconds: 5), (_) {
+      if (!_pageController.hasClients) return;
+      final nextPage = (_currentPage + 1) % _bannerCount;
+      _pageController.animateToPage(
+        nextPage,
+        duration: const Duration(milliseconds: 350),
+        curve: Curves.easeInOut,
+      );
+    });
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    _autoScrollTimer.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.symmetric(horizontal: 20.w),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SizedBox(
+            height: 140.h,
+            child: PageView(
+              controller: _pageController,
+              onPageChanged: (page) => setState(() => _currentPage = page),
+              children: const [
+                _BannerPage(
+                  title: 'First pickup is on us',
+                  subtitle: 'Book your first order today',
+                  cta: 'Book now',
+                  gradientStart: AppColors.offerLavender,
+                  gradientEnd: Color(0xFFCFC8FF),
+                  imageAsset: AssetConstants.firstPickupBanner,
+                ),
+                _BannerPage(
+                  title: '20% off dry cleaning',
+                  subtitle: 'Use code DRYCLEAN20',
+                  cta: 'Claim now',
+                  gradientStart: AppColors.secondaryLight,
+                  gradientEnd: AppColors.secondary,
+                  // No image — text-only promotional layout
+                ),
+                _BannerPage(
+                  title: 'Free ironing',
+                  subtitle: 'on orders over ₹499',
+                  cta: 'Book now',
+                  gradientStart: AppColors.offerLavender,
+                  gradientEnd: AppColors.primaryContainer,
+                  // No image — text-only promotional layout
+                ),
+              ],
+            ),
+          ),
+          const Gap(10),
+          // Page indicator dots
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: List.generate(
+              _bannerCount,
+              (index) => AnimatedContainer(
+                duration: const Duration(milliseconds: 250),
+                width: index == _currentPage ? 18.w : 6.r,
+                height: 6.r,
+                margin: EdgeInsets.symmetric(horizontal: 3.w),
+                decoration: BoxDecoration(
+                  color: index == _currentPage
+                      ? AppColors.primary
+                      : AppColors.primary.withValues(alpha: 0.25),
+                  borderRadius: BorderRadius.circular(AppRadius.full.r),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _BannerPage extends StatelessWidget {
+  const _BannerPage({
+    required this.title,
+    required this.subtitle,
+    required this.cta,
+    required this.gradientStart,
+    required this.gradientEnd,
+    this.imageAsset,
+  });
+
+  final String title;
+  final String subtitle;
+  final String cta;
+  final Color gradientStart;
+  final Color gradientEnd;
+  final String? imageAsset;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () => context.go(AppRoutes.search),
+      child: Container(
+        clipBehavior: Clip.antiAlias,
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [gradientStart, gradientEnd],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(AppRadius.xxl.r),
+          boxShadow: AppElevation.low,
+        ),
+        child: Stack(
+          children: [
+            if (imageAsset != null)
+              Positioned(
+                right: 0,
+                top: 0,
+                bottom: 0,
+                width: 170.w,
+                child: Image.asset(
+                  imageAsset!,
+                  fit: BoxFit.contain,
+                  alignment: Alignment.bottomRight,
+                ),
+              ),
+            Padding(
+              padding: EdgeInsets.only(
+                left: 20.w,
+                top: 18.h,
+                bottom: 18.h,
+                right: imageAsset != null ? 150.w : 20.w,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    title,
+                    style: AppTypography.headlineSmall.copyWith(
+                      color: AppColors.primaryDark,
+                      fontWeight: FontWeight.w700,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const Gap(4),
+                  Text(
+                    subtitle,
+                    style: AppTypography.bodyMedium.copyWith(
+                      color: AppColors.textBlack,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const Spacer(),
+                  Container(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: 18.w,
+                      vertical: 8.h,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary,
+                      borderRadius: BorderRadius.circular(AppRadius.button.r),
+                    ),
+                    child: Text(
+                      cta,
+                      style: AppTypography.labelMedium.copyWith(
+                        color: AppColors.white,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// Quick Book Card ("Book in under a minute")
+// ═════════════════════════════════════════════════════════════════════════════
+
+class _QuickScheduleCard extends StatelessWidget {
+  const _QuickScheduleCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.symmetric(horizontal: 20.w),
+      child: Container(
+        padding: EdgeInsets.all(16.r),
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(AppRadius.card.r),
+          border: Border.all(color: AppColors.outlineVariant),
+          boxShadow: AppElevation.low,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Book in under a minute',
+              style: AppTypography.titleMedium.copyWith(
+                fontWeight: FontWeight.w700,
+                color: AppColors.textBlack,
+              ),
+            ),
+            const Gap(14),
+            Row(
+              children: [
+                Expanded(
+                  child: _QuickScheduleItem(
+                    icon: AppIcons.laundry,
+                    label: 'Service',
+                    value: 'Wash & Fold',
+                    onTap: () => context.go(AppRoutes.search),
+                  ),
+                ),
+                Container(
+                  width: 1,
+                  height: 32.h,
+                  color: AppColors.outlineVariant,
+                ),
+                Expanded(
+                  child: _QuickScheduleItem(
+                    icon: AppIcons.timer,
+                    label: 'Pickup time',
+                    value: 'Today, 6–8 PM',
+                    onTap: () => context.go(AppRoutes.search),
+                  ),
+                ),
+                Container(
+                  width: 1,
+                  height: 32.h,
+                  color: AppColors.outlineVariant,
+                ),
+                Expanded(
+                  child: _QuickScheduleItem(
+                    icon: AppIcons.location,
+                    label: 'Address',
+                    value: 'Koramangala, BLR',
+                    onTap: () => context.push(AppRoutes.mapAddress),
+                  ),
+                ),
+              ],
+            ),
+            const Gap(16),
+            SizedBox(
+              width: double.infinity,
+              height: 48.h,
+              child: ElevatedButton(
+                onPressed: () => context.go(AppRoutes.search),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: AppColors.white,
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(AppRadius.button.r),
+                  ),
+                ),
+                child: Text(
+                  'Schedule pickup',
+                  style: AppTypography.buttonText.copyWith(
+                    color: AppColors.white,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _QuickScheduleItem extends StatelessWidget {
+  const _QuickScheduleItem({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Padding(
+        padding: EdgeInsets.symmetric(horizontal: 6.w),
+        child: Row(
+          children: [
+            Container(
+              padding: EdgeInsets.all(6.r),
+              decoration: const BoxDecoration(
+                color: AppColors.primaryContainer,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icon, color: AppColors.primary, size: 14.r),
+            ),
+            const Gap(6),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label,
+                    style: AppTypography.caption.copyWith(
+                      color: AppColors.textSecondary,
+                      fontSize: 10.sp,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const Gap(1),
+                  Row(
+                    children: [
+                      Flexible(
+                        child: Text(
+                          value,
+                          style: AppTypography.labelSmall.copyWith(
+                            color: AppColors.textBlack,
+                            fontWeight: FontWeight.w600,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      Icon(
+                        AppIcons.chevronDown,
+                        size: 12.r,
+                        color: AppColors.textSecondary,
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// Active Order Tracker Card
+// ═════════════════════════════════════════════════════════════════════════════
 
 class _ActiveOrderTrackerCard extends StatelessWidget {
   const _ActiveOrderTrackerCard(
@@ -495,7 +969,6 @@ class _ActiveOrderTrackerCard extends StatelessWidget {
       ),
       child: Stack(
         children: [
-          // Left accent bar (teal)
           Positioned(
             left: 0,
             top: 0,
@@ -518,10 +991,14 @@ class _ActiveOrderTrackerCard extends StatelessWidget {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      'Order #LN${(order.id.length >= 4 ? order.id.substring(order.id.length - 4) : order.id).toUpperCase()}',
-                      style: AppTypography.caption
-                          .copyWith(color: AppColors.textMuted),
+                    Flexible(
+                      child: Text(
+                        'Order #LN${(order.id.length >= 4 ? order.id.substring(order.id.length - 4) : order.id).toUpperCase()}',
+                        style: AppTypography.caption
+                            .copyWith(color: AppColors.textMuted),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
                     GestureDetector(
                       onTap: () => context.go('/orders/details/${order.id}'),
@@ -540,7 +1017,7 @@ class _ActiveOrderTrackerCard extends StatelessWidget {
                   children: [
                     Container(
                       padding: EdgeInsets.all(8.r),
-                      decoration: BoxDecoration(
+                      decoration: const BoxDecoration(
                         color: AppColors.secondaryLight,
                         shape: BoxShape.circle,
                       ),
@@ -563,7 +1040,7 @@ class _ActiveOrderTrackerCard extends StatelessWidget {
                             ),
                           ),
                           Text(
-                            '${order.items.length} items  •  ${order.items.isNotEmpty ? order.items.first.serviceName : 'Laundry'}',
+                            '${order.items.length} items · ${order.items.isNotEmpty ? order.items.first.serviceName : 'Laundry'}',
                             style: AppTypography.bodySmall
                                 .copyWith(color: AppColors.textSecondary),
                           ),
@@ -583,8 +1060,6 @@ class _ActiveOrderTrackerCard extends StatelessWidget {
                 const Gap(20),
                 const AppDivider(),
                 const Gap(16),
-
-                // Timeline tracker row (Picked up -> Cleaning -> Quality check -> Out for delivery)
                 _ActiveOrderTimelineRow(currentStep: currentStep),
               ],
             ),
@@ -597,12 +1072,11 @@ class _ActiveOrderTrackerCard extends StatelessWidget {
 
 class _ActiveOrderTimelineRow extends StatelessWidget {
   const _ActiveOrderTimelineRow({required this.currentStep});
-  final int
-      currentStep; // 0: Picked up, 1: Cleaning, 2: Quality check, 3: Out for delivery
+  final int currentStep;
 
   @override
   Widget build(BuildContext context) {
-    final List<String> steps = const [
+    const List<String> steps = [
       'Picked up',
       'Cleaning',
       'Quality check',
@@ -622,15 +1096,15 @@ class _ActiveOrderTimelineRow extends StatelessWidget {
               children: [
                 Row(
                   children: [
-                    // Dot
-                    Container(
-                      width: 14.r,
-                      height: 14.r,
+                    AnimatedContainer(
+                      duration: const Duration(milliseconds: 250),
+                      width: isCurrent ? 16.r : 14.r,
+                      height: isCurrent ? 16.r : 14.r,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         color: isCompleted
                             ? AppColors.secondary
-                            : AppColors.outline.withOpacity(0.6),
+                            : AppColors.outlineVariant,
                       ),
                       child: isCompleted && index == 0
                           ? Center(
@@ -648,7 +1122,7 @@ class _ActiveOrderTimelineRow extends StatelessWidget {
                           height: 2.h,
                           color: isCompleted
                               ? AppColors.secondary
-                              : AppColors.outline.withOpacity(0.6),
+                              : AppColors.outlineVariant,
                         ),
                       ),
                   ],
@@ -679,7 +1153,9 @@ class _ActiveOrderTimelineRow extends StatelessWidget {
   }
 }
 
-// ── Horizontal vendor card Recommended (Matches Luxe Fabric storefront style) ─
+// ═════════════════════════════════════════════════════════════════════════════
+// Horizontal Vendor Card ("Recommended near you")
+// ═════════════════════════════════════════════════════════════════════════════
 
 class _HorizontalVendorCard extends StatelessWidget {
   const _HorizontalVendorCard({required this.vendor, required this.onTap});
@@ -688,24 +1164,21 @@ class _HorizontalVendorCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Use distance from backend, or fallback for mock mode
     final double displayDistance =
         vendor.distanceKm ?? ((vendor.id.hashCode.abs() % 20) + 5) / 10;
 
     return AppCard.outlined(
       onTap: onTap,
       padding: EdgeInsets.zero,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
         children: [
-          // Store front cover
           ClipRRect(
-            borderRadius: BorderRadius.vertical(
-              top: Radius.circular(AppRadius.card.r),
+            borderRadius: BorderRadius.horizontal(
+              left: Radius.circular(AppRadius.card.r),
             ),
             child: Container(
-              height: 110.h,
-              width: double.infinity,
+              width: 115.w,
+              height: double.infinity,
               color: AppColors.shimmerBase,
               child: Hero(
                 tag: 'vendor-cover-${vendor.id}',
@@ -718,122 +1191,429 @@ class _HorizontalVendorCard extends StatelessWidget {
                         )
                       : Container(
                           color: AppColors.primaryContainer,
-                          child: Icon(AppIcons.store,
-                              size: 36.r, color: AppColors.primary),
+                          child: Icon(
+                            AppIcons.store,
+                            size: 32.r,
+                            color: AppColors.primary,
+                          ),
                         ),
                 ),
               ),
             ),
           ),
-          Padding(
-            padding: EdgeInsets.all(12.r),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Vendor Name
-                Text(
-                  vendor.name,
-                  style: AppTypography.titleSmall.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.textBlack,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const Gap(2),
-                // Rating & Distance Row
-                Row(
-                  children: [
-                    Icon(AppIcons.star, color: Colors.amber, size: 12.r),
-                    const Gap(2),
-                    Text(
-                      '${vendor.averageRating ?? 4.5}  •  ${displayDistance.toStringAsFixed(1)} km',
-                      style: AppTypography.caption.copyWith(
-                        color: AppColors.textSecondary,
-                        fontSize: 10.sp,
+          Expanded(
+            child: Padding(
+              padding: EdgeInsets.all(12.r),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        vendor.name,
+                        style: AppTypography.titleSmall.copyWith(
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.textBlack,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                    ),
-                  ],
-                ),
-                const Gap(6),
-                // Price & Pickup
-                Row(
-                  children: [
-                    Text(
-                      'From ${vendor.minOrderAmount.toCurrency}/kg',
-                      style: AppTypography.labelSmall.copyWith(
-                        color: AppColors.primary,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 11.sp,
-                      ),
-                    ),
-                    const Gap(6),
-                    Text(
-                      '•',
-                      style:
-                          TextStyle(color: AppColors.textMuted, fontSize: 8.sp),
-                    ),
-                    const Gap(6),
-                    Text(
-                      'Pickup in 30 min',
-                      style: AppTypography.caption.copyWith(
-                        color: AppColors.secondary,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 10.sp,
-                      ),
-                    ),
-                  ],
-                ),
-                const Gap(8),
-                const Gap(10),
-                // Divider
-                Container(
-                    height: 1.h, color: AppColors.outline.withOpacity(0.5)),
-                const Gap(8),
-                // Bottom row: Verified badge & Action button
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    if (vendor.isVerified)
+                      const Gap(4),
                       Row(
-                        mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(
-                            AppIcons.success,
-                            color: AppColors.secondary,
-                            size: 14.r,
+                            AppIcons.star,
+                            color: AppColors.rating,
+                            size: 13.r,
                           ),
                           const Gap(4),
-                          Text(
-                            'Verified',
-                            style: AppTypography.badge.copyWith(
-                              color: AppColors.secondary,
-                              fontSize: 9.sp,
-                              fontWeight: FontWeight.bold,
+                          Expanded(
+                            child: Text(
+                              '${vendor.averageRating ?? 4.8} · ${displayDistance.toStringAsFixed(1)} km',
+                              style: AppTypography.caption.copyWith(
+                                color: AppColors.textSecondary,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ),
                         ],
-                      )
-                    else
-                      const SizedBox.shrink(),
-                    Container(
-                      padding: EdgeInsets.all(6.r),
-                      decoration: const BoxDecoration(
-                        color: AppColors.primary,
-                        shape: BoxShape.circle,
                       ),
-                      child: Icon(
-                        AppIcons.forward,
-                        color: AppColors.white,
-                        size: 10.r,
+                    ],
+                  ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Flexible(
+                        child: Text(
+                          'From ${vendor.minOrderAmount.toCurrency}/kg',
+                          style: AppTypography.labelSmall.copyWith(
+                            color: AppColors.primary,
+                            fontWeight: FontWeight.w600,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
+                      Text(
+                        'Pickup in 30 min',
+                        style: AppTypography.caption.copyWith(
+                          color: AppColors.secondary,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: [
+                        _ServicePill(label: 'Wash & Fold'),
+                        Gap(4),
+                        _ServicePill(label: 'Dry Clean'),
+                        Gap(4),
+                        _ServicePill(label: '+3'),
+                      ],
                     ),
-                  ],
-                ),
-              ],
+                  ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      if (vendor.isVerified)
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              AppIcons.success,
+                              color: AppColors.secondary,
+                              size: 13.r,
+                            ),
+                            const Gap(4),
+                            Text(
+                              'Verified',
+                              style: AppTypography.caption.copyWith(
+                                color: AppColors.secondary,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        )
+                      else
+                        const SizedBox.shrink(),
+                      Container(
+                        padding: EdgeInsets.all(6.r),
+                        decoration: const BoxDecoration(
+                          color: AppColors.primaryContainer,
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          AppIcons.forward,
+                          color: AppColors.primary,
+                          size: 12.r,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _ServicePill extends StatelessWidget {
+  const _ServicePill({required this.label});
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 2.h),
+      decoration: BoxDecoration(
+        color: AppColors.background,
+        borderRadius: BorderRadius.circular(4.r),
+        border: Border.all(color: AppColors.outlineVariant),
+      ),
+      child: Text(
+        label,
+        style: AppTypography.caption.copyWith(
+          fontSize: 9.sp,
+          color: AppColors.textSecondary,
+        ),
+      ),
+    );
+  }
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// ISSUE 4: Special Offers Section (now tappable)
+// ═════════════════════════════════════════════════════════════════════════════
+
+class _SpecialOffersSection extends StatelessWidget {
+  const _SpecialOffersSection();
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: EdgeInsets.symmetric(horizontal: 20.w),
+          child: Text(
+            'Special offers',
+            style: AppTypography.titleLarge.copyWith(
+              fontWeight: FontWeight.w700,
+              color: AppColors.textBlack,
+            ),
+          ),
+        ),
+        const Gap(12),
+        SizedBox(
+          height: 100.h,
+          child: ListView(
+            scrollDirection: Axis.horizontal,
+            padding: EdgeInsets.symmetric(horizontal: 20.w),
+            clipBehavior: Clip.none,
+            children: [
+              _SpecialOfferCard(
+                title: 'Free ironing',
+                subtitle: 'over ₹499',
+                code: 'IRONFREE',
+                backgroundColor: AppColors.offerLavender,
+                iconColor: AppColors.primary,
+                onTap: () => _showOfferDetailsSheet(
+                  context,
+                  title: 'Free Ironing',
+                  description: 'Get free ironing on all orders above ₹499. No coupon needed — discount applied automatically at checkout.',
+                  code: 'IRONFREE',
+                ),
+              ),
+              const Gap(16),
+              _SpecialOfferCard(
+                title: '20% off',
+                subtitle: 'your first dry clean',
+                code: 'DRYCLEAN20',
+                backgroundColor: AppColors.secondaryLight,
+                iconColor: AppColors.secondaryDark,
+                onTap: () => _showOfferDetailsSheet(
+                  context,
+                  title: '20% Off Dry Cleaning',
+                  description: 'Enjoy 20% discount on your first dry cleaning order. Minimum order value ₹299.',
+                  code: 'DRYCLEAN20',
+                  terms: 'Valid once per customer. Cannot be clubbed with other offers. Valid for 30 days.',
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  static void _showOfferDetailsSheet(
+    BuildContext context, {
+    required String title,
+    required String description,
+    required String code,
+    String? terms,
+  }) {
+    AppBottomSheet.show<void>(
+      context: context,
+      title: 'Offer Details',
+      primaryActionLabel: 'Copy Code',
+      secondaryActionLabel: 'Close',
+      onSecondaryAction: () => Navigator.of(context).pop(),
+      onPrimaryAction: () {
+        Navigator.of(context).pop();
+      },
+      child: Padding(
+        padding: EdgeInsets.symmetric(vertical: 8.h),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 48.r,
+                  height: 48.r,
+                  decoration: const BoxDecoration(
+                    color: AppColors.primaryContainer,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    AppIcons.laundry,
+                    color: AppColors.primary,
+                    size: 24.r,
+                  ),
+                ),
+                Gap(AppSpacing.md.w),
+                Expanded(
+                  child: Text(
+                    title,
+                    style: AppTypography.titleLarge.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            Gap(AppSpacing.cardGap.h),
+            Text(
+              description,
+              style: AppTypography.bodyMedium.copyWith(
+                color: AppColors.onSurfaceVariant,
+                height: 1.5,
+              ),
+            ),
+            Gap(AppSpacing.md.h),
+            Container(
+              padding: EdgeInsets.symmetric(
+                horizontal: AppSpacing.md.w,
+                vertical: AppSpacing.sm.h,
+              ),
+              decoration: BoxDecoration(
+                color: AppColors.primaryContainer,
+                borderRadius: BorderRadius.circular(AppRadius.input.r),
+              ),
+              child: Row(
+                children: [
+                  Icon(AppIcons.coupon, color: AppColors.primary, size: 18.r),
+                  Gap(AppSpacing.sm.w),
+                  Expanded(
+                    child: Text(
+                      code,
+                      style: AppTypography.titleSmall.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.primary,
+                        letterSpacing: 2,
+                      ),
+                    ),
+                  ),
+                  Icon(
+                    AppIcons.copy,
+                    color: AppColors.primary,
+                    size: 18.r,
+                  ),
+                ],
+              ),
+            ),
+            if (terms != null) ...[
+              Gap(AppSpacing.md.h),
+              Text(
+                'Terms & Conditions',
+                style: AppTypography.labelMedium.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              Gap(AppSpacing.xs.h),
+              Text(
+                terms,
+                style: AppTypography.bodySmall.copyWith(
+                  color: AppColors.onSurfaceVariant,
+                  height: 1.5,
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SpecialOfferCard extends StatelessWidget {
+  const _SpecialOfferCard({
+    required this.title,
+    required this.subtitle,
+    required this.code,
+    required this.backgroundColor,
+    required this.iconColor,
+    required this.onTap,
+  });
+
+  final String title;
+  final String subtitle;
+  final String code;
+  final Color backgroundColor;
+  final Color iconColor;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 250.w,
+        padding: EdgeInsets.all(12.r),
+        decoration: BoxDecoration(
+          color: backgroundColor,
+          borderRadius: BorderRadius.circular(AppRadius.card.r),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 48.r,
+              height: 48.r,
+              decoration: const BoxDecoration(
+                color: AppColors.white,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(AppIcons.laundry, color: iconColor, size: 24.r),
+            ),
+            const Gap(12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    title,
+                    style: AppTypography.titleSmall.copyWith(
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.textBlack,
+                    ),
+                  ),
+                  Text(
+                    subtitle,
+                    style: AppTypography.caption.copyWith(
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                  const Gap(4),
+                  Container(
+                    padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 2.h),
+                    decoration: BoxDecoration(
+                      color: AppColors.white,
+                      borderRadius: BorderRadius.circular(4.r),
+                    ),
+                    child: Text(
+                      'Use code: $code',
+                      style: AppTypography.caption.copyWith(
+                        fontSize: 9.sp,
+                        fontWeight: FontWeight.w600,
+                        color: iconColor,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Container(
+              padding: EdgeInsets.all(6.r),
+              decoration: const BoxDecoration(
+                color: AppColors.white,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(AppIcons.forward, color: iconColor, size: 12.r),
+            ),
+          ],
+        ),
       ),
     );
   }

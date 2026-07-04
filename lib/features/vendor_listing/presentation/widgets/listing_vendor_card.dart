@@ -70,7 +70,7 @@ class ListingVendorCard extends StatelessWidget {
                       children: [
                         Icon(AppIcons.done, color: AppColors.white, size: 10.r),
                         const Gap(4),
-                        Text('VERIFIED',
+                        Text('Verified',
                             style: AppTypography.badge
                                 .copyWith(color: AppColors.white)),
                       ],
@@ -206,17 +206,29 @@ class _InfoBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Icon(icon, size: 14.r, color: AppColors.onSurfaceVariant),
-        const Gap(4),
-        Text(
-          label,
-          style: AppTypography.labelSmall.copyWith(
-            color: context.theme.colorScheme.onSurface,
+    return Container(
+      padding: EdgeInsets.symmetric(
+        horizontal: AppSpacing.sm.w,
+        vertical: AppSpacing.xs.h,
+      ),
+      decoration: BoxDecoration(
+        color: AppColors.primaryContainer.withOpacity(0.6),
+        borderRadius: BorderRadius.circular(AppRadius.chip.r),
+        border: Border.all(color: AppColors.outlineVariant),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14.r, color: AppColors.primary),
+          const Gap(4),
+          Text(
+            label,
+            style: AppTypography.labelSmall.copyWith(
+              color: context.theme.colorScheme.onSurface,
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
@@ -257,7 +269,7 @@ class _AvailabilityChip extends StatelessWidget {
             style: AppTypography.caption.copyWith(
               color:
                   isAvailable ? AppColors.success : AppColors.onSurfaceVariant,
-              fontWeight: isAvailable ? FontWeight.bold : FontWeight.normal,
+              fontWeight: isAvailable ? FontWeight.w600 : FontWeight.w400,
             ),
           ),
         ],

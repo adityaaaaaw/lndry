@@ -2,20 +2,15 @@ import 'dart:async';
 import 'dart:io';
 import 'package:url_launcher/url_launcher.dart';
 
-import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:gap/gap.dart';
-import 'package:go_router/go_router.dart';
 import '../../../../core/design/design_system.dart';
-import '../../../../core/widgets/widgets.dart';
 import '../../../../core/extensions/extensions.dart';
-import '../../../../core/router/app_routes.dart';
-import '../../../../shared/widgets/shared_widgets.dart';
+import '../../../../core/widgets/widgets.dart';
 import '../../../../models/models.dart';
 import '../../../../repositories/repositories.dart';
+import '../../../../shared/widgets/shared_widgets.dart';
 
 class OrderDetailsPage extends ConsumerStatefulWidget {
-  const OrderDetailsPage({super.key, required this.orderId});
+  const OrderDetailsPage({required this.orderId, super.key});
   final String orderId;
 
   @override
@@ -122,16 +117,15 @@ class _OrderDetailsPageState extends ConsumerState<OrderDetailsPage> {
                 color: AppColors.textSecondary,
               ),
             ),
-            const Gap(16),
+            Gap(AppSpacing.md.h),
             ..._cancelReasons.map((r) => Padding(
                   padding: EdgeInsets.only(bottom: 8.h),
                   child: AppCard.outlined(
                     borderColor: selectedReason == r
                         ? AppColors.error
                         : AppColors.outline,
-                    backgroundColor: selectedReason == r
-                        ? AppColors.error.withOpacity(0.08)
-                        : AppColors.transparent,
+                    backgroundColor: selectedReason == r        ? AppColors.error.withValues(alpha: 0.08)
+        : AppColors.transparent,
                     onTap: () => setModalState(() => selectedReason = r),
                     child: Text(r, style: AppTypography.bodyMedium),
                   ),
@@ -308,10 +302,15 @@ class _OrderDetailsPageState extends ConsumerState<OrderDetailsPage> {
       : id.toUpperCase();
 
   Color _statusColor(OrderStatus s) {
-    if (s.isRejected || s == OrderStatus.paymentFailed) return AppColors.error;
-    if (s == OrderStatus.delivered || s == OrderStatus.deliveryOtpVerified)
+    if (s.isRejected || s == OrderStatus.paymentFailed) {
+      return AppColors.error;
+    }
+    if (s == OrderStatus.delivered || s == OrderStatus.deliveryOtpVerified) {
       return AppColors.success;
-    if (s.hasRefundState) return AppColors.warning;
+    }
+    if (s.hasRefundState) {
+      return AppColors.warning;
+    }
     return AppColors.primary;
   }
 
@@ -368,17 +367,16 @@ class _OrderDetailsPageState extends ConsumerState<OrderDetailsPage> {
       appBar: AppBar(
         title: Text('Order #${_shortId(order.id)}',
             style: AppTypography.titleLarge),
-        centerTitle: true,
-        leading: IconButton(
-          icon: const Icon(AppIcons.back),
-          onPressed: () {
-            if (context.canPop()) {
-              context.pop();
-            } else {
-              context.go(AppRoutes.orders);
-            }
-          },
-        ),
+        centerTitle: true,          leading: IconButton(
+            icon: const Icon(AppIcons.back),
+            onPressed: () {
+              if (context.canPop()) {
+                context.pop();
+              } else {
+                context.go(AppRoutes.orders);
+              }
+            },
+          ),
         backgroundColor: isDark ? AppColors.darkSurface : AppColors.surface,
         elevation: 0,
       ),
@@ -399,7 +397,7 @@ class _OrderDetailsPageState extends ConsumerState<OrderDetailsPage> {
                     large: true,
                   ),
                 ),
-                const Gap(24),
+                Gap(AppSpacing.sectionGap.h),
 
                 // ── Vendor info with pickup/delivery estimates ─────────────
                 if (_vendor != null) ...[
@@ -418,7 +416,7 @@ class _OrderDetailsPageState extends ConsumerState<OrderDetailsPage> {
                           child: Icon(AppIcons.store,
                               color: AppColors.primary, size: 24.r),
                         ),
-                        const Gap(16),
+                        Gap(AppSpacing.cardGap.h),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -444,7 +442,7 @@ class _OrderDetailsPageState extends ConsumerState<OrderDetailsPage> {
                       ],
                     ),
                   ),
-                  const Gap(16),
+                  Gap(AppSpacing.md.h),
                 ],
 
                 // ── Payment method ─────────────────────────────────────────
@@ -456,26 +454,26 @@ class _OrderDetailsPageState extends ConsumerState<OrderDetailsPage> {
                     children: [
                       Icon(AppIcons.payment,
                           color: AppColors.primary, size: 20.r),
-                      const Gap(12),
+                      Gap(AppSpacing.cardGap.h),
                       Text(
                         'Payment: ${order.paymentMethod.label}',
                         style: AppTypography.labelMedium,
                       ),
                       const Spacer(),
                       if (order.isPaid)
-                        StatusBadge(
+                        const StatusBadge(
                           label: 'Paid',
                           color: AppColors.success,
                         )
                       else
-                        StatusBadge(
+                        const StatusBadge(
                           label: 'Unpaid',
                           color: AppColors.warning,
                         ),
                     ],
                   ),
                 ),
-                const Gap(16),
+                Gap(AppSpacing.md.h),
 
                 // ── Rejection/cancellation banner ─────────────────────────
                 if (isRejected) ...[
@@ -488,7 +486,7 @@ class _OrderDetailsPageState extends ConsumerState<OrderDetailsPage> {
                             ? 'The vendor did not respond in time.'
                             : 'The vendor was unable to accept your order.'),
                   ),
-                  const Gap(16),
+                  Gap(AppSpacing.md.h),
                 ] else if (isCancelled) ...[
                   _Banner(
                     icon: AppIcons.close,
@@ -497,13 +495,13 @@ class _OrderDetailsPageState extends ConsumerState<OrderDetailsPage> {
                     body: order.cancellationReason ??
                         'This order has been cancelled.',
                   ),
-                  const Gap(16),
+                  Gap(AppSpacing.md.h),
                 ],
 
                 // ── Timeline ───────────────────────────────────────────────
                 if (!isRejected && !isCancelled) ...[
                   Text('Order Timeline', style: AppTypography.titleMedium),
-                  const Gap(16),
+                  Gap(AppSpacing.cardGap.h),
                   AppCard.outlined(
                     padding:
                         EdgeInsets.symmetric(horizontal: 20.w, vertical: 24.h),
@@ -531,7 +529,7 @@ class _OrderDetailsPageState extends ConsumerState<OrderDetailsPage> {
                                       shape: BoxShape.circle,
                                       color: isCompleted
                                           ? AppColors.primary
-                                          : AppColors.outline.withOpacity(0.5),
+                                          : AppColors.outline.withValues(alpha: 0.5),
                                       border: isCurrent
                                           ? Border.all(
                                               color: AppColors.primaryContainer,
@@ -550,12 +548,12 @@ class _OrderDetailsPageState extends ConsumerState<OrderDetailsPage> {
                                         color: isCompleted
                                             ? AppColors.primary
                                             : AppColors.outline
-                                                .withOpacity(0.4),
+                                                .withValues(alpha: 0.4),
                                       ),
                                     ),
                                 ],
                               ),
-                              const Gap(16),
+                              Gap(AppSpacing.cardGap.h),
                               Expanded(
                                 child: Padding(
                                   padding: const EdgeInsets.only(bottom: 20),
@@ -591,13 +589,13 @@ class _OrderDetailsPageState extends ConsumerState<OrderDetailsPage> {
                       },
                     ),
                   ),
-                  const Gap(24),
+                  Gap(AppSpacing.sectionGap.h),
                 ],
 
                 // ── Order items ─────────────────────────────────────────
                 if (order.items.isNotEmpty) ...[
                   Text('Items', style: AppTypography.titleMedium),
-                  const Gap(12),
+                  Gap(AppSpacing.cardGap.h),
                   AppCard.outlined(
                     padding: EdgeInsets.all(AppSpacing.md.r),
                     child: Column(
@@ -625,7 +623,7 @@ class _OrderDetailsPageState extends ConsumerState<OrderDetailsPage> {
                           .toList(),
                     ),
                   ),
-                  const Gap(16),
+                  Gap(AppSpacing.md.h),
                 ],
 
                 // ── Pricing summary ─────────────────────────────────────
@@ -636,17 +634,17 @@ class _OrderDetailsPageState extends ConsumerState<OrderDetailsPage> {
                     gstAmount: order.gstAmount,
                     total: order.total,
                   ),
-                  const Gap(24),
+                  Gap(AppSpacing.sectionGap.h),
                 ],
 
                 // ── OTP Section (Pickup or Delivery) ────────────────────
                 if (_otp != null) ...[
                   Text('Security OTP', style: AppTypography.titleMedium),
-                  const Gap(12),
+                  Gap(AppSpacing.cardGap.h),
                   AppCard.outlined(
                     backgroundColor:
-                        AppColors.primaryContainer.withOpacity(0.15),
-                    borderColor: AppColors.primary.withOpacity(0.3),
+                        AppColors.primaryContainer.withValues(alpha: 0.15),
+                    borderColor: AppColors.primary.withValues(alpha: 0.3),
                     padding: EdgeInsets.all(AppSpacing.md.r),
                     child: Column(
                       children: [
@@ -657,7 +655,7 @@ class _OrderDetailsPageState extends ConsumerState<OrderDetailsPage> {
                           color: AppColors.primary,
                           size: 32.r,
                         ),
-                        const Gap(8),
+                        Gap(AppSpacing.sm.h),
                         Text(
                           _otp!.type == 'pickup'
                               ? 'Pickup OTP'
@@ -666,14 +664,14 @@ class _OrderDetailsPageState extends ConsumerState<OrderDetailsPage> {
                             fontWeight: FontWeight.bold,
                           ),
                         ),
-                        const Gap(8),
+                        Gap(AppSpacing.sm.h),
                         Text(
                           'Provide this code to the partner:',
                           style: AppTypography.caption.copyWith(
                             color: AppColors.onSurfaceVariant,
                           ),
                         ),
-                        const Gap(12),
+                        Gap(AppSpacing.cardGap.h),
                         Container(
                           padding: EdgeInsets.symmetric(
                             horizontal: 24.w,
@@ -684,7 +682,7 @@ class _OrderDetailsPageState extends ConsumerState<OrderDetailsPage> {
                             borderRadius:
                                 BorderRadius.circular(AppRadius.input.r),
                             border: Border.all(
-                              color: AppColors.primary.withOpacity(0.5),
+                              color: AppColors.primary.withValues(alpha: 0.5),
                             ),
                           ),
                           child: Text(
@@ -696,7 +694,7 @@ class _OrderDetailsPageState extends ConsumerState<OrderDetailsPage> {
                             ),
                           ),
                         ),
-                        const Gap(8),
+                        Gap(AppSpacing.sm.h),
                         Text(
                           'Expires at ${_otp!.expiresAt.toTimeString}',
                           style: AppTypography.caption.copyWith(
@@ -706,13 +704,13 @@ class _OrderDetailsPageState extends ConsumerState<OrderDetailsPage> {
                       ],
                     ),
                   ),
-                  const Gap(24),
+                  Gap(AppSpacing.sectionGap.h),
                 ],
 
                 // ── Invoice Section (Delivered orders) ──────────────────
                 if (_invoice != null) ...[
                   Text('Invoice', style: AppTypography.titleMedium),
-                  const Gap(12),
+                  Gap(AppSpacing.cardGap.h),
                   AppCard.outlined(
                     onTap: _handleDownloadInvoice,
                     padding: EdgeInsets.all(AppSpacing.md.r),
@@ -730,7 +728,7 @@ class _OrderDetailsPageState extends ConsumerState<OrderDetailsPage> {
                             size: 24.r,
                           ),
                         ),
-                        const Gap(16),
+                        Gap(AppSpacing.cardGap.h),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -766,7 +764,7 @@ class _OrderDetailsPageState extends ConsumerState<OrderDetailsPage> {
                       ],
                     ),
                   ),
-                  const Gap(24),
+                  Gap(AppSpacing.sectionGap.h),
                 ],
 
                 // ── Action buttons (Cancel / Reorder) ───────────────────
@@ -784,7 +782,7 @@ class _OrderDetailsPageState extends ConsumerState<OrderDetailsPage> {
                           onPressed: _showCancelSheet,
                         ),
                       ),
-                    if (order.status.isCancellable) const Gap(12),
+                    if (order.status.isCancellable) Gap(AppSpacing.cardGap.h),
                     // Reorder button (terminal orders except customer/admin-cancelled)
                     if (order.status.isTerminal &&
                         order.status != OrderStatus.customerCancelled &&
@@ -804,7 +802,7 @@ class _OrderDetailsPageState extends ConsumerState<OrderDetailsPage> {
                       if (order.status.isTerminal &&
                           order.status != OrderStatus.customerCancelled &&
                           order.status != OrderStatus.adminCancelled)
-                        const Gap(12),
+                        Gap(AppSpacing.cardGap.h),
                       Expanded(
                         child: AppButton.outlined(
                           label: 'Review',
@@ -817,7 +815,7 @@ class _OrderDetailsPageState extends ConsumerState<OrderDetailsPage> {
                     ],
                   ],
                 ),
-                const Gap(24),
+                Gap(AppSpacing.sectionGap.h),
               ],
             ),
           ),
@@ -844,17 +842,17 @@ class _Banner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: EdgeInsets.all(16.r),
+      padding: EdgeInsets.all(AppSpacing.md.r),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.08),
+        color: color.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(AppRadius.card.r),
-        border: Border.all(color: color.withOpacity(0.3)),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Icon(icon, color: color, size: 20.r),
-          const Gap(12),
+          Gap(AppSpacing.cardGap.h),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -862,7 +860,7 @@ class _Banner extends StatelessWidget {
                 Text(title,
                     style: AppTypography.labelLarge
                         .copyWith(color: color, fontWeight: FontWeight.bold)),
-                const Gap(4),
+                Gap(AppSpacing.xs.h),
                 Text(body,
                     style: AppTypography.bodySmall
                         .copyWith(color: AppColors.textSecondary)),

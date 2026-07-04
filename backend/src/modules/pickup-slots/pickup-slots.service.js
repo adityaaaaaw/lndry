@@ -25,7 +25,7 @@ export class SlotsService {
     const slotIds = slots.map(s => s.id)
     const { rows: counts } = await query(
       `SELECT
-         slot_id,
+         vs.id AS slot_id,
          (SELECT COUNT(*)::int FROM slot_holds WHERE slot_id = vs.id AND booking_date = $1 AND expires_at > NOW() AND status = 'ACTIVE') AS holds_count,
          (SELECT COUNT(*)::int FROM orders WHERE vendor_slot_id = vs.id AND pickup_date = $1 AND status NOT IN ('PAYMENT_FAILED', 'VENDOR_REJECTED', 'AUTO_REJECTED', 'CUSTOMER_CANCELLED', 'ADMIN_CANCELLED', 'REFUNDED')) AS orders_count
        FROM vendor_slots vs

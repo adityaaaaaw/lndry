@@ -4,6 +4,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'config/config.dart';
+import 'core/auth/auth_gate.dart';
 import 'core/router/app_router.dart';
 import 'core/theme/app_theme.dart';
 import 'core/theme/app_colors.dart';
@@ -71,11 +72,13 @@ class LndryApp extends ConsumerWidget {
             // DevPreviewOverlay is only shown in debug builds and only
             // when Env.showDevPreviewOverlay is true. It is never shown
             // in profile or release builds.
-            return Stack(
-              children: [
-                if (child != null) child,
-                if (Env.showDevPreviewOverlay) const DevPreviewOverlay(),
-              ],
+            return PendingAuthActionRunner(
+              child: Stack(
+                children: [
+                  if (child != null) child,
+                  if (Env.showDevPreviewOverlay) const DevPreviewOverlay(),
+                ],
+              ),
             );
           },
         );

@@ -1,27 +1,187 @@
-import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:lndry/main.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:lndry/core/constants/app_constants.dart';
 import 'package:lndry/core/services/storage_service.dart';
+import 'package:lndry/features/home/presentation/providers/home_providers.dart';
+import 'package:lndry/main.dart';
+import 'package:lndry/repositories/repositories.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
-  testWidgets('LndryApp startup smoke test', (WidgetTester tester) async {
-    SharedPreferences.setMockInitialValues({});
+  testWidgets('LndryApp bottom nav renders without overflow on small screens',
+      (WidgetTester tester) async {
+    tester.view.physicalSize = const Size(320, 568);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    SharedPreferences.resetStatic();
+    SharedPreferences.setMockInitialValues({
+      AppConstants.keyOnboardingDone: true,
+      'fresh_install_reset_done_v3': true,
+    });
     final prefs = await SharedPreferences.getInstance();
+    final storage = _TestStorageService(prefs: prefs);
 
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
           sharedPreferencesProvider.overrideWithValue(prefs),
-          storageServiceProvider.overrideWithValue(StorageService(prefs: prefs)),
+          storageServiceProvider.overrideWithValue(storage),
+          customerRepositoryProvider
+              .overrideWithValue(MockCustomerRepository()),
+          currentAddressProvider.overrideWith((ref) async => null),
+          homeCategoriesProvider.overrideWith((ref) async => const []),
+          homeVendorsProvider.overrideWith((ref) async => const []),
+          activeOrdersProvider.overrideWith((ref) async => const []),
+        ],
+        child: MediaQuery(
+          data: const MediaQueryData(textScaler: TextScaler.linear(1.5)),
+          child: const LndryApp(),
+        ),
+      ),
+    );
+
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 5));
+    await tester.pump();
+
+    expect(find.text('Book'), findsOneWidget);
+    expect(find.text('Home'), findsOneWidget);
+    expect(find.text('Explore'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('LndryApp startup smoke test', (WidgetTester tester) async {
+    tester.view.physicalSize = const Size(430, 1200);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    SharedPreferences.resetStatic();
+    SharedPreferences.setMockInitialValues({
+      AppConstants.keyOnboardingDone: true,
+      'fresh_install_reset_done_v3': true,
+    });
+    final prefs = await SharedPreferences.getInstance();
+    final storage = _TestStorageService(prefs: prefs);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          sharedPreferencesProvider.overrideWithValue(prefs),
+          storageServiceProvider.overrideWithValue(storage),
+          customerRepositoryProvider
+              .overrideWithValue(MockCustomerRepository()),
+          currentAddressProvider.overrideWith((ref) async => null),
+          homeCategoriesProvider.overrideWith((ref) async => const []),
+          homeVendorsProvider.overrideWith((ref) async => const []),
+          activeOrdersProvider.overrideWith((ref) async => const []),
         ],
         child: const LndryApp(),
       ),
     );
 
-    // Verify that the app builds without errors and initializes router/theme
     await tester.pump();
-    await tester.pump(const Duration(seconds: 3));
+    await tester.pump(const Duration(seconds: 5));
+    await tester.pump();
     expect(find.byType(LndryApp), findsOneWidget);
+    expect(
+        find.text('What would you like us to care for today?'), findsOneWidget);
+    expect(find.text('Send OTP'), findsNothing);
   });
+
+  testWidgets('login send OTP advances to OTP screen',
+      (WidgetTester tester) async {
+    tester.view.physicalSize = const Size(430, 1200);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    SharedPreferences.resetStatic();
+    SharedPreferences.setMockInitialValues({
+      AppConstants.keyOnboardingDone: true,
+      'fresh_install_reset_done_v3': true,
+    });
+    final prefs = await SharedPreferences.getInstance();
+    final storage = _TestStorageService(prefs: prefs);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          sharedPreferencesProvider.overrideWithValue(prefs),
+          storageServiceProvider.overrideWithValue(storage),
+          customerRepositoryProvider
+              .overrideWithValue(MockCustomerRepository()),
+          currentAddressProvider.overrideWith((ref) async => null),
+          homeCategoriesProvider.overrideWith((ref) async => const []),
+          homeVendorsProvider.overrideWith((ref) async => const []),
+          activeOrdersProvider.overrideWith((ref) async => const []),
+        ],
+        child: const LndryApp(),
+      ),
+    );
+
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 5));
+    await tester.pump();
+    expect(
+        find.text('What would you like us to care for today?'), findsOneWidget);
+
+    // Tap Book — triggers requireAuthenticated which shows login prompt
+    await tester.tap(find.text('Book'), warnIfMissed: false);
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
+
+    // Login prompt bottom sheet appears
+    expect(find.text('Sign in to continue'), findsOneWidget);
+
+    // Tap Sign In to proceed to login
+    await tester.tap(find.text('Sign In'));
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
+
+    expect(find.text('Send OTP'), findsOneWidget);
+    await tester.enterText(find.byType(TextFormField), '9876543210');
+    await tester.ensureVisible(find.text('Send OTP'));
+    await tester.tap(find.text('Send OTP'), warnIfMissed: false);
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 2));
+    await tester.pump();
+
+    expect(find.text('Verify Mobile Number'), findsOneWidget);
+    expect(
+      find.text('We have sent a verification code to +91 9876543210.'),
+      findsOneWidget,
+    );
+  });
+}
+
+class _TestStorageService extends StorageService {
+  _TestStorageService({required super.prefs});
+
+  final Map<String, String> _secureValues = {};
+
+  @override
+  Future<void> saveSecure(String key, String value) async {
+    _secureValues[key] = value;
+  }
+
+  @override
+  Future<String?> getSecure(String key) async => _secureValues[key];
+
+  @override
+  Future<void> deleteSecure(String key) async {
+    _secureValues.remove(key);
+  }
+
+  @override
+  Future<void> deleteAllSecure() async {
+    _secureValues.clear();
+  }
+
+  @override
+  Future<Map<String, String>> getAllSecure() async =>
+      Map<String, String>.from(_secureValues);
 }

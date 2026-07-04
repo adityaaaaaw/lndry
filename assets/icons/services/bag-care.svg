@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" role="img" aria-labelledby="title desc">
+  <title id="title">Bag care</title><desc id="desc">A premium handbag with a stitched LNDRY careline on its front panel.</desc>
+  <path d="M4 8.5h16l1 11H3l1-11Z" fill="#EAE8FF"/>
+  <g stroke="#6C63E8" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M4 8.5h16l1 11H3l1-11Z"/>
+    <path d="M8 8.5V7a4 4 0 0 1 8 0v1.5M7 12v2.25c0 .83.67 1.5 1.5 1.5h1.25"/>
+    <path d="M7 10.85v.25M7 16.35v.25M7 17.45v.25"/>
+    <path d="M14.5 12.5h2.5M15.75 11.25v2.5"/>
+  </g>
+  <circle cx="9.75" cy="15.75" r=".9" fill="#0FB5A6"/>
+</svg>

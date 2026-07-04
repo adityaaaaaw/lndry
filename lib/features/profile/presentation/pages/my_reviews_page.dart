@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:gap/gap.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/design/design_system.dart';
@@ -148,7 +147,7 @@ class _MyReviewsPageState extends ConsumerState<MyReviewsPage> {
                     child: ListView.separated(
                       padding: EdgeInsets.all(AppSpacing.pagePaddingH.w),
                       itemCount: _reviews.length,
-                      separatorBuilder: (_, __) => const Gap(12),
+                      separatorBuilder: (_, __) => Gap(AppSpacing.cardGap.h),
                       itemBuilder: (context, index) {
                         final review = _reviews[index];
                         return AppCard.outlined(
@@ -179,28 +178,28 @@ class _MyReviewsPageState extends ConsumerState<MyReviewsPage> {
                               ),
                               if (review.comment != null &&
                                   review.comment!.isNotEmpty) ...[
-                                const Gap(8),
+                                Gap(AppSpacing.sm.h),
                                 Text(
                                   review.comment!,
                                   style: AppTypography.bodySmall,
                                 ),
                               ],
-                              const Gap(8),
+                              Gap(AppSpacing.sm.h),
                               Text(
                                 review.createdAt.toDateString,
                                 style: AppTypography.caption,
                               ),
-                              const Gap(8),
+                              Gap(AppSpacing.sm.h),
                               Row(
                                 mainAxisAlignment: MainAxisAlignment.end,
                                 children: [
                                   TextButton(
                                     onPressed: () => _editReview(review),
-                                    child: const Text('Edit'),
+                                    child: Text('Edit', style: AppTypography.labelMedium),
                                   ),
                                   TextButton(
                                     onPressed: () => _deleteReview(review),
-                                    child: const Text('Delete'),
+                                    child: Text('Delete', style: AppTypography.labelMedium.copyWith(color: AppColors.error)),
                                   ),
                                 ],
                               ),

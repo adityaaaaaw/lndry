@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'app_colors.dart';
 import 'app_typography.dart';
+import 'tokens/radius.dart';
 
 /// LNDRY Material 3 Theme Configuration
 /// Decoupled static Light and Dark configurations with theme-specific TextThemes
@@ -56,7 +57,7 @@ abstract final class AppTheme {
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
           minimumSize: const Size(double.infinity, 52),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(AppRadius.button),
           ),
           textStyle: AppTypography.buttonText,
         ),
@@ -70,7 +71,7 @@ abstract final class AppTheme {
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
           minimumSize: const Size(double.infinity, 52),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(AppRadius.button),
           ),
           textStyle: AppTypography.buttonText,
         ),
@@ -82,7 +83,7 @@ abstract final class AppTheme {
           foregroundColor: AppColors.primary,
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.circular(AppRadius.chip),
           ),
           textStyle: AppTypography.labelLarge,
         ),
@@ -95,27 +96,29 @@ abstract final class AppTheme {
         contentPadding:
             const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(AppRadius.input),
           borderSide: const BorderSide(color: Color(0xFFEEEFF8), width: 1),
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(AppRadius.input),
           borderSide: const BorderSide(color: Color(0xFFEEEFF8), width: 1),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(AppRadius.input),
           borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
         ),
         errorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(AppRadius.input),
           borderSide: const BorderSide(color: AppColors.error, width: 1),
         ),
         focusedErrorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(AppRadius.input),
           borderSide: const BorderSide(color: AppColors.error, width: 1.5),
         ),
-        hintStyle: AppTypography.inputHint.copyWith(color: AppColors.lightTextHint),
-        labelStyle: AppTypography.labelMedium.copyWith(color: AppColors.lightTextBody),
+        hintStyle:
+            AppTypography.inputHint.copyWith(color: AppColors.lightTextHint),
+        labelStyle:
+            AppTypography.labelMedium.copyWith(color: AppColors.lightTextBody),
         errorStyle: AppTypography.bodySmall.copyWith(color: AppColors.error),
         prefixIconColor: AppColors.lightTextSecondary,
         suffixIconColor: AppColors.lightTextSecondary,
@@ -125,7 +128,8 @@ abstract final class AppTheme {
       chipTheme: ChipThemeData(
         backgroundColor: const Color(0xFFF0F2FF),
         selectedColor: AppColors.primaryContainer,
-        labelStyle: AppTypography.labelMedium.copyWith(color: AppColors.lightTextBody),
+        labelStyle:
+            AppTypography.labelMedium.copyWith(color: AppColors.lightTextBody),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(8),
@@ -150,8 +154,8 @@ abstract final class AppTheme {
         indicatorColor: AppColors.primaryContainer,
         labelTextStyle: WidgetStateProperty.resolveWith((states) {
           if (states.contains(WidgetState.selected)) {
-            return AppTypography.labelSmall
-                .copyWith(color: AppColors.primary, fontWeight: FontWeight.w700);
+            return AppTypography.labelSmall.copyWith(
+                color: AppColors.primary, fontWeight: FontWeight.w700);
           }
           return AppTypography.labelSmall
               .copyWith(color: AppColors.lightTextBody);
@@ -187,8 +191,8 @@ abstract final class AppTheme {
       // SnackBar
       snackBarTheme: SnackBarThemeData(
         backgroundColor: AppColors.inverseSurface,
-        contentTextStyle:
-            AppTypography.bodyMedium.copyWith(color: AppColors.inverseOnSurface),
+        contentTextStyle: AppTypography.bodyMedium
+            .copyWith(color: AppColors.inverseOnSurface),
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
@@ -200,10 +204,12 @@ abstract final class AppTheme {
         backgroundColor: const Color(0xFFFFFFFF),
         elevation: 8,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(24),
+          borderRadius: BorderRadius.circular(AppRadius.dialog),
         ),
-        titleTextStyle: AppTypography.headlineSmall.copyWith(color: AppColors.lightTextPrimary),
-        contentTextStyle: AppTypography.bodyMedium.copyWith(color: AppColors.lightTextBody),
+        titleTextStyle: AppTypography.headlineSmall
+            .copyWith(color: AppColors.lightTextPrimary),
+        contentTextStyle:
+            AppTypography.bodyMedium.copyWith(color: AppColors.lightTextBody),
       ),
 
       // BottomSheet
@@ -211,7 +217,8 @@ abstract final class AppTheme {
         backgroundColor: Color(0xFFFFFFFF),
         elevation: 0,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          borderRadius:
+              BorderRadius.vertical(top: Radius.circular(AppRadius.sheet)),
         ),
         showDragHandle: true,
         dragHandleColor: Color(0xFFEEEFF8),
@@ -254,8 +261,10 @@ abstract final class AppTheme {
       listTileTheme: ListTileThemeData(
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        titleTextStyle: AppTypography.bodyLarge.copyWith(color: AppColors.lightTextPrimary),
-        subtitleTextStyle: AppTypography.bodySmall.copyWith(color: AppColors.lightTextSecondary),
+        titleTextStyle:
+            AppTypography.bodyLarge.copyWith(color: AppColors.lightTextPrimary),
+        subtitleTextStyle: AppTypography.bodySmall
+            .copyWith(color: AppColors.lightTextSecondary),
         iconColor: AppColors.lightTextSecondary,
       ),
 
@@ -332,7 +341,7 @@ abstract final class AppTheme {
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
           minimumSize: const Size(double.infinity, 52),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(AppRadius.button),
           ),
           textStyle: AppTypography.buttonText,
         ),
@@ -346,7 +355,7 @@ abstract final class AppTheme {
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
           minimumSize: const Size(double.infinity, 52),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(AppRadius.button),
           ),
           textStyle: AppTypography.buttonText,
         ),
@@ -358,7 +367,7 @@ abstract final class AppTheme {
           foregroundColor: AppColors.primaryLight,
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.circular(AppRadius.chip),
           ),
           textStyle: AppTypography.labelLarge,
         ),
@@ -371,27 +380,30 @@ abstract final class AppTheme {
         contentPadding:
             const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(AppRadius.input),
           borderSide: const BorderSide(color: AppColors.darkOutline, width: 1),
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(AppRadius.input),
           borderSide: const BorderSide(color: AppColors.darkOutline, width: 1),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
-          borderSide: const BorderSide(color: AppColors.primaryLight, width: 1.5),
+          borderRadius: BorderRadius.circular(AppRadius.input),
+          borderSide:
+              const BorderSide(color: AppColors.primaryLight, width: 1.5),
         ),
         errorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(AppRadius.input),
           borderSide: const BorderSide(color: AppColors.error, width: 1),
         ),
         focusedErrorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(AppRadius.input),
           borderSide: const BorderSide(color: AppColors.error, width: 1.5),
         ),
-        hintStyle: AppTypography.inputHint.copyWith(color: AppColors.darkTextHint),
-        labelStyle: AppTypography.labelMedium.copyWith(color: AppColors.darkTextBody),
+        hintStyle:
+            AppTypography.inputHint.copyWith(color: AppColors.darkTextHint),
+        labelStyle:
+            AppTypography.labelMedium.copyWith(color: AppColors.darkTextBody),
         errorStyle: AppTypography.bodySmall.copyWith(color: AppColors.error),
         prefixIconColor: AppColors.darkTextSecondary,
         suffixIconColor: AppColors.darkTextSecondary,
@@ -401,7 +413,8 @@ abstract final class AppTheme {
       chipTheme: ChipThemeData(
         backgroundColor: AppColors.darkSurfaceContainer,
         selectedColor: AppColors.primaryDark,
-        labelStyle: AppTypography.labelMedium.copyWith(color: AppColors.darkTextBody),
+        labelStyle:
+            AppTypography.labelMedium.copyWith(color: AppColors.darkTextBody),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(8),
@@ -426,8 +439,8 @@ abstract final class AppTheme {
         indicatorColor: AppColors.primaryDark,
         labelTextStyle: WidgetStateProperty.resolveWith((states) {
           if (states.contains(WidgetState.selected)) {
-            return AppTypography.labelSmall
-                .copyWith(color: AppColors.primaryLight, fontWeight: FontWeight.w700);
+            return AppTypography.labelSmall.copyWith(
+                color: AppColors.primaryLight, fontWeight: FontWeight.w700);
           }
           return AppTypography.labelSmall
               .copyWith(color: AppColors.darkOnSurfaceVariant);
@@ -476,10 +489,12 @@ abstract final class AppTheme {
         backgroundColor: AppColors.darkSurfaceContainer,
         elevation: 8,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(24),
+          borderRadius: BorderRadius.circular(AppRadius.dialog),
         ),
-        titleTextStyle: AppTypography.headlineSmall.copyWith(color: AppColors.darkTextPrimary),
-        contentTextStyle: AppTypography.bodyMedium.copyWith(color: AppColors.darkTextBody),
+        titleTextStyle: AppTypography.headlineSmall
+            .copyWith(color: AppColors.darkTextPrimary),
+        contentTextStyle:
+            AppTypography.bodyMedium.copyWith(color: AppColors.darkTextBody),
       ),
 
       // BottomSheet
@@ -487,7 +502,8 @@ abstract final class AppTheme {
         backgroundColor: AppColors.darkSurfaceContainer,
         elevation: 0,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          borderRadius:
+              BorderRadius.vertical(top: Radius.circular(AppRadius.sheet)),
         ),
         showDragHandle: true,
         dragHandleColor: AppColors.darkOutline,
@@ -496,7 +512,8 @@ abstract final class AppTheme {
       // Switch
       switchTheme: SwitchThemeData(
         thumbColor: WidgetStateProperty.resolveWith((states) {
-          if (states.contains(WidgetState.selected)) return AppColors.primaryLight;
+          if (states.contains(WidgetState.selected))
+            return AppColors.primaryLight;
           return AppColors.darkOutline;
         }),
         trackColor: WidgetStateProperty.resolveWith((states) {
@@ -510,7 +527,8 @@ abstract final class AppTheme {
       // Checkbox
       checkboxTheme: CheckboxThemeData(
         fillColor: WidgetStateProperty.resolveWith((states) {
-          if (states.contains(WidgetState.selected)) return AppColors.primaryLight;
+          if (states.contains(WidgetState.selected))
+            return AppColors.primaryLight;
           return Colors.transparent;
         }),
         checkColor: WidgetStateProperty.all(AppColors.primaryDark),
@@ -521,7 +539,8 @@ abstract final class AppTheme {
       // Radio
       radioTheme: RadioThemeData(
         fillColor: WidgetStateProperty.resolveWith((states) {
-          if (states.contains(WidgetState.selected)) return AppColors.primaryLight;
+          if (states.contains(WidgetState.selected))
+            return AppColors.primaryLight;
           return AppColors.darkOutline;
         }),
       ),
@@ -530,8 +549,10 @@ abstract final class AppTheme {
       listTileTheme: ListTileThemeData(
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        titleTextStyle: AppTypography.bodyLarge.copyWith(color: AppColors.darkTextPrimary),
-        subtitleTextStyle: AppTypography.bodySmall.copyWith(color: AppColors.darkTextSecondary),
+        titleTextStyle:
+            AppTypography.bodyLarge.copyWith(color: AppColors.darkTextPrimary),
+        subtitleTextStyle: AppTypography.bodySmall
+            .copyWith(color: AppColors.darkTextSecondary),
         iconColor: AppColors.darkTextSecondary,
       ),
 

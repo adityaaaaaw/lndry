@@ -223,14 +223,15 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
     state = const AuthLoading();
     try {
+      final cleanEmail = email.trim().isEmpty ? null : email.trim();
       // Update profile on backend
-      await _repo.updateProfile(UpdateProfileRequest(name: name, email: email));
+      await _repo.updateProfile(UpdateProfileRequest(name: name, email: cleanEmail));
 
       final user = UserModel(
         id: '',
         name: name,
-        phone: phone,
-        email: email,
+        phone: phone ?? '',
+        email: cleanEmail,
         role: UserRole.customer,
         isVerified: true,
       );
@@ -246,7 +247,8 @@ class AuthNotifier extends StateNotifier<AuthState> {
       await _saveUserPrefs(persisted);
       state = AuthNeedsLocationPermission(user: persisted);
     } catch (e) {
-      state = AuthError('Failed to save profile. Please try again.');
+      state = prev;
+      rethrow;
     }
   }
 
@@ -270,7 +272,8 @@ class AuthNotifier extends StateNotifier<AuthState> {
       await _storage.saveString('user_default_address_id', savedAddress.id);
       state = AuthAuthenticated(prev.user);
     } catch (e) {
-      state = AuthError('Failed to save address. Please try again.');
+      state = prev;
+      rethrow;
     }
   }
 

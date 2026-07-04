@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" role="img" aria-labelledby="title desc">
+  <title id="title">Premium garment care</title><desc id="desc">A tailored tuxedo with the LNDRY careline as a bespoke inner seam.</desc>
+  <path d="m7.6 4.75-3.1 3.4v11.1h15V8.15l-3.1-3.4-2.2 4.1h-4.4l-2.2-4.1Z" fill="#EAE8FF"/>
+  <g stroke="#6C63E8" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+    <path d="m7.6 4.75-3.1 3.4v11.1h15V8.15l-3.1-3.4-2.2 4.1h-4.4l-2.2-4.1Z"/>
+    <path d="m9.8 8.85 2.2 2.4 2.2-2.4M12 11.25v8M7 10.75V14c0 .83.67 1.5 1.5 1.5h1.15"/>
+    <path d="M7 9.6v.25M7 16.1v.25M7 17.2v.25"/>
+    <path d="M15.4 13.5h1.8"/>
+  </g>
+  <circle cx="9.65" cy="15.5" r=".9" fill="#0FB5A6"/>
+</svg>

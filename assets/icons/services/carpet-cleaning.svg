@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" role="img" aria-labelledby="title desc">
+  <title id="title">Carpet cleaning</title><desc id="desc">A rolled carpet and care brush with an integrated LNDRY stitched edge.</desc>
+  <path d="M4 7h13.25v8.5H4z" fill="#EAE8FF"/>
+  <g stroke="#6C63E8" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M4 7h13.25v8.5H4zM17.25 7h.5a2.75 2.75 0 1 1 0 5.5h-.5"/>
+    <path d="M6.25 10v2.25c0 .83.67 1.5 1.5 1.5H9"/>
+    <path d="M6.25 8.85v.25M6.25 14.35v.25M6.25 15.35v.15"/>
+    <path d="m13.5 18.75 4.25-4.25M14.75 20l4.25-4.25M12.5 17.75l2.25 2.25"/>
+  </g>
+  <circle cx="9" cy="13.75" r=".9" fill="#0FB5A6"/>
+</svg>
