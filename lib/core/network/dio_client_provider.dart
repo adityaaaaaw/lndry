@@ -10,16 +10,17 @@ import '../constants/app_constants.dart';
 import 'api_response.dart';
 import 'api_exception.dart';
 import 'api_endpoints.dart';
+import '../../repositories/mock/mock_customer_repository.dart';
 
 // ── Dio Client Provider ─────────────────────────────────────────────────────────
 
 final dioClientProvider = Provider<Dio>((ref) {
   final storage = ref.watch(storageServiceProvider);
-  final dio = _createDio(storage);
+  final dio = _createDio(storage, ref);
   return dio;
 });
 
-Dio _createDio(StorageService storage) {
+Dio _createDio(StorageService storage, Ref ref) {
   final dio = Dio(
     BaseOptions(
       baseUrl: Env.baseUrl,
@@ -112,6 +113,17 @@ Dio _createDio(StorageService storage) {
   // ── Error interceptor: parse structured API errors ─────────────────────────
   dio.interceptors.add(InterceptorsWrapper(
     onError: (error, handler) {
+      if (Env.demoMode &&
+          (error.type == DioExceptionType.connectionTimeout ||
+           error.type == DioExceptionType.sendTimeout ||
+           error.type == DioExceptionType.receiveTimeout ||
+           error.type == DioExceptionType.connectionError ||
+           error.message?.contains('SocketException') == true ||
+           error.message?.contains('Connection refused') == true ||
+           error.message?.contains('Network is unreachable') == true ||
+           error.message?.contains('Failed host lookup') == true)) {
+        ref.read(useMocksProvider.notifier).state = true;
+      }
       final apiException = _parseError(error);
       error = DioException(
         requestOptions: error.requestOptions,

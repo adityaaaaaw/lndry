@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../api/repositories/api_customer_repository.dart';
 import '../../config/env.dart';
 import '../../core/network/network.dart';
@@ -36,15 +37,15 @@ class MockCustomerRepository implements CustomerRepository {
     Map<String, dynamic>? device,
   }) async {
     await _delay();
-    if (otp == '1234') {
+    if (otp == '1234' || otp == '123456') {
       return VerifyOtpResult(
         accessToken: 'mock_access_token',
         refreshToken: 'mock_refresh_token',
         user: UserModel(
           id: 'usr_${phone.hashCode.abs()}',
-          name: 'Test User',
+          name: 'Demo User',
           phone: phone,
-          email: 'test@example.com',
+          email: 'demo@lndry.app',
           role: UserRole.customer,
           isVerified: true,
         ),
@@ -360,45 +361,75 @@ class MockCustomerRepository implements CustomerRepository {
     ),
   ];
 
+  Future<void> _saveAddressesToStorage() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final jsonList = _addresses.map((a) => a.toJson()).toList();
+      await prefs.setString('mock_addresses', jsonEncode(jsonList));
+    } catch (_) {}
+  }
+
+  Future<void> _loadAddressesFromStorage() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final dataStr = prefs.getString('mock_addresses');
+      if (dataStr != null) {
+        final decoded = jsonDecode(dataStr) as List<dynamic>;
+        final loaded = decoded.map((item) => AddressModel.fromJson(item as Map<String, dynamic>)).toList();
+        _addresses.clear();
+        _addresses.addAll(loaded);
+      }
+    } catch (_) {}
+  }
+
   @override
   Future<List<AddressModel>> getAddresses() async {
     await _delay(fast: true);
+    await _loadAddressesFromStorage();
     return List.unmodifiable(_addresses);
   }
 
   @override
   Future<AddressModel> addAddress(AddressModel address) async {
     await _delay();
+    await _loadAddressesFromStorage();
     final a = address.copyWith(
       id: 'addr_${DateTime.now().millisecondsSinceEpoch}',
       createdAt: DateTime.now(),
     );
     _addresses.add(a);
+    await _saveAddressesToStorage();
     return a;
   }
 
   @override
   Future<AddressModel> updateAddress(AddressModel address) async {
     await _delay();
+    await _loadAddressesFromStorage();
     final idx = _addresses.indexWhere((a) => a.id == address.id);
     if (idx >= 0) _addresses[idx] = address;
+    await _saveAddressesToStorage();
     return address;
   }
 
   @override
   Future<void> deleteAddress(String addressId) async {
     await _delay(fast: true);
+    await _loadAddressesFromStorage();
     _addresses.removeWhere((a) => a.id == addressId);
+    await _saveAddressesToStorage();
   }
 
   @override
   Future<void> setDefaultAddress(String addressId) async {
     await _delay(fast: true);
+    await _loadAddressesFromStorage();
     for (var i = 0; i < _addresses.length; i++) {
       _addresses[i] = _addresses[i].copyWith(
         isDefault: _addresses[i].id == addressId,
       );
     }
+    await _saveAddressesToStorage();
   }
 
   // ── Search / Discovery ──────────────────────────────────────────────────
@@ -852,18 +883,13 @@ class MockCustomerRepository implements CustomerRepository {
       Future.delayed(Duration(milliseconds: fast ? 200 : 600));
 }
 
-// ── Riverpod Provider ─────────────────────────────────────────────────────────
+final useMocksProvider = StateProvider<bool>((ref) {
+  return Env.useMocksForVisualTestsOnly || Env.demoMode;
+});
 
-/// Resolves the active [CustomerRepository] based on the environment.
-///
-/// - When `Env.useMocksForVisualTestsOnly` is `true`, returns
-///   [MockCustomerRepository] for explicit development UI review/golden tests.
-/// - When `false`, returns [ApiCustomerRepository] wired to the live backend.
-///
-/// Switching is safe at any point — every page depends on the abstract
-/// [CustomerRepository] interface, not on any concrete implementation.
 final customerRepositoryProvider = Provider<CustomerRepository>((ref) {
-  if (Env.useMocksForVisualTestsOnly) {
+  final useMocks = ref.watch(useMocksProvider);
+  if (useMocks) {
     return MockCustomerRepository();
   }
   final dio = ref.watch(dioClientProvider);

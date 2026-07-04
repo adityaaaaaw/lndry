@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:lndry/core/constants/app_constants.dart';
 import 'package:lndry/core/services/storage_service.dart';
 import 'package:lndry/features/home/presentation/providers/home_providers.dart';
+import 'package:lndry/core/widgets/app_button.dart';
 import 'package:lndry/main.dart';
 import 'package:lndry/repositories/repositories.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -23,6 +24,9 @@ void main() {
     });
     final prefs = await SharedPreferences.getInstance();
     final storage = _TestStorageService(prefs: prefs);
+    await storage.saveSecure(AppConstants.keyAccessToken, 'mock_access_token');
+    await storage.saveSecure(AppConstants.keyRefreshToken, 'mock_refresh_token');
+    await storage.saveBool('user_has_address', value: true);
 
     await tester.pumpWidget(
       ProviderScope(
@@ -66,6 +70,9 @@ void main() {
     });
     final prefs = await SharedPreferences.getInstance();
     final storage = _TestStorageService(prefs: prefs);
+    await storage.saveSecure(AppConstants.keyAccessToken, 'mock_access_token');
+    await storage.saveSecure(AppConstants.keyRefreshToken, 'mock_refresh_token');
+    await storage.saveBool('user_has_address', value: true);
 
     await tester.pumpWidget(
       ProviderScope(
@@ -125,27 +132,20 @@ void main() {
 
     await tester.pump();
     await tester.pump(const Duration(seconds: 5));
-    await tester.pump();
-    expect(
-        find.text('What would you like us to care for today?'), findsOneWidget);
+    await tester.pumpAndSettle();
 
-    // Tap Book — triggers requireAuthenticated which shows login prompt
-    await tester.tap(find.text('Book'), warnIfMissed: false);
-    await tester.pump();
-    await tester.pump(const Duration(seconds: 1));
+    expect(find.text('Book'), findsOneWidget);
+    await tester.tap(find.text('Book'));
+    await tester.pumpAndSettle();
 
-    // Login prompt bottom sheet appears
     expect(find.text('Sign in to continue'), findsOneWidget);
-
-    // Tap Sign In to proceed to login
     await tester.tap(find.text('Sign In'));
-    await tester.pump();
-    await tester.pump(const Duration(seconds: 1));
+    await tester.pumpAndSettle();
 
     expect(find.text('Send OTP'), findsOneWidget);
     await tester.enterText(find.byType(TextFormField), '9876543210');
-    await tester.ensureVisible(find.text('Send OTP'));
-    await tester.tap(find.text('Send OTP'), warnIfMissed: false);
+    await tester.ensureVisible(find.byType(AppButton));
+    await tester.tap(find.byType(AppButton));
     await tester.pump();
     await tester.pump(const Duration(seconds: 2));
     await tester.pump();

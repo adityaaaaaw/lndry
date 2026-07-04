@@ -11,6 +11,7 @@ import '../../core/constants/app_constants.dart';
 import '../../models/models.dart';
 import '../../shared/repositories/base_repository.dart';
 import '../../repositories/abstract/customer_repository.dart';
+import '../../config/env.dart';
 
 /// Production implementation of [CustomerRepository].
 /// Calls the LNDRY backend API via Dio.
@@ -70,20 +71,38 @@ class ApiCustomerRepository implements CustomerRepository {
 
   @override
   Future<SendOtpResult> sendOtp(String phone) async {
-    final resp = await _dio.post(
-      ApiEndpoints.sendOtp,
-      data: {'phone': phone},
-    );
-    final data = _extractData(resp.data as Map<String, dynamic>);
-    return SendOtpResult(
-      challengeId: data['challenge_id'] as String? ??
-          data['challengeId'] as String? ??
-          '',
-      expiresIn: (data['expires_in'] as num?)?.toInt() ??
-          (data['expiresIn'] as num?)?.toInt() ??
-          300,
-      devOtp: data['otp'] as String?,
-    );
+    try {
+      final resp = await _dio.post(
+        ApiEndpoints.sendOtp,
+        data: {'phone': phone},
+      );
+      final data = _extractData(resp.data as Map<String, dynamic>);
+      return SendOtpResult(
+        challengeId: data['challenge_id'] as String? ??
+            data['challengeId'] as String? ??
+            '',
+        expiresIn: (data['expires_in'] as num?)?.toInt() ??
+            (data['expiresIn'] as num?)?.toInt() ??
+            300,
+        devOtp: data['otp'] as String?,
+      );
+    } catch (e) {
+      if (Env.demoMode &&
+          e is DioException &&
+          (e.type == DioExceptionType.connectionTimeout ||
+           e.type == DioExceptionType.sendTimeout ||
+           e.type == DioExceptionType.receiveTimeout ||
+           e.type == DioExceptionType.connectionError ||
+           e.message?.contains('SocketException') == true ||
+           e.message?.contains('Connection refused') == true)) {
+        return const SendOtpResult(
+          challengeId: 'demo_challenge',
+          expiresIn: 300,
+          devOtp: '123456',
+        );
+      }
+      rethrow;
+    }
   }
 
   @override
@@ -93,6 +112,25 @@ class ApiCustomerRepository implements CustomerRepository {
     String? challengeId,
     Map<String, dynamic>? device,
   }) async {
+    if (Env.demoMode && (otp == '123456' || otp == '1234')) {
+      final user = UserModel(
+        id: 'usr_${phone.hashCode.abs()}',
+        name: 'Demo User',
+        phone: phone,
+        email: 'demo@lndry.app',
+        role: UserRole.customer,
+        isVerified: true,
+      );
+      await _storage.saveSecure(AppConstants.keyAccessToken, 'mock_access_token');
+      await _storage.saveSecure(AppConstants.keyRefreshToken, 'mock_refresh_token');
+      return VerifyOtpResult(
+        accessToken: 'mock_access_token',
+        refreshToken: 'mock_refresh_token',
+        user: user,
+        isNewUser: false,
+      );
+    }
+
     final body = <String, dynamic>{
       'phone': phone,
       'otp': otp,

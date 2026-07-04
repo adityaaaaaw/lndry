@@ -19,6 +19,7 @@ import '../../../../core/widgets/app_snackbar.dart';
 import '../../../../core/widgets/app_text_field.dart';
 import '../../../../models/models.dart';
 import '../../../../providers/auth_provider.dart';
+import '../../../../config/env.dart';
 
 class MapAddressPage extends ConsumerStatefulWidget {
   const MapAddressPage({super.key});
@@ -295,15 +296,17 @@ class _MapAddressPageState extends ConsumerState<MapAddressPage> {
 
     setState(() => _isLoading = true);
     try {
-      final isServiceable = await _validateBackendServiceability(pin);
-      if (!isServiceable) {
-        if (mounted) {
-          AppSnackBar.showError(
-            context,
-            'LNDRY is not serviceable at this address yet.',
-          );
+      if (!Env.demoMode) {
+        final isServiceable = await _validateBackendServiceability(pin);
+        if (!isServiceable) {
+          if (mounted) {
+            AppSnackBar.showError(
+              context,
+              'LNDRY is not serviceable at this address yet.',
+            );
+          }
+          return;
         }
-        return;
       }
 
       final user = ref.read(currentUserProvider);

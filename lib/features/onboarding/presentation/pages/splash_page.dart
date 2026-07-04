@@ -1,8 +1,11 @@
+import 'package:dio/dio.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/design/design_system.dart';
 import '../../../../core/services/storage_service.dart';
 import '../../../../core/widgets/app_loading.dart';
 import '../../../../providers/auth_provider.dart';
+import '../../../../repositories/mock/mock_customer_repository.dart';
+import '../../../../config/env.dart';
 
 class SplashPage extends ConsumerStatefulWidget {
   const SplashPage({super.key});
@@ -20,6 +23,29 @@ class _SplashPageState extends ConsumerState<SplashPage>
   // Guards against navigating before the animation finishes AND auth resolves.
   bool _minDelayDone = false;
   bool _navigationTriggered = false;
+  bool _connectivityCheckDone = false;
+
+  Future<void> _checkConnectivity() async {
+    try {
+      final dio = Dio(BaseOptions(
+        baseUrl: Env.baseUrl,
+        connectTimeout: const Duration(milliseconds: 1500),
+        receiveTimeout: const Duration(milliseconds: 1500),
+      ));
+      // Ping the categories endpoint or another public endpoint
+      await dio.get('/categories');
+    } catch (e) {
+      if (e is DioException &&
+          (e.type == DioExceptionType.connectionTimeout ||
+           e.type == DioExceptionType.sendTimeout ||
+           e.type == DioExceptionType.receiveTimeout ||
+           e.type == DioExceptionType.connectionError ||
+           e.message?.contains('SocketException') == true ||
+           e.message?.contains('Connection refused') == true)) {
+        ref.read(useMocksProvider.notifier).state = true;
+      }
+    }
+  }
 
   @override
   void initState() {
@@ -36,6 +62,8 @@ class _SplashPageState extends ConsumerState<SplashPage>
       CurvedAnimation(parent: _logoController, curve: AppCurves.standard),
     );
     _logoController.forward();
+
+    setState(() => _connectivityCheckDone = true);
 
     // Minimum display time so the splash doesn't flash.
     Future.delayed(AppDurations.splash, () {
@@ -55,7 +83,7 @@ class _SplashPageState extends ConsumerState<SplashPage>
   /// Only navigates once both conditions are satisfied.
   void _tryNavigate() {
     if (!mounted || _navigationTriggered) return;
-    if (!_minDelayDone) return;
+    if (!_minDelayDone || !_connectivityCheckDone) return;
 
     final authState = ref.read(authProvider);
 
@@ -85,9 +113,9 @@ class _SplashPageState extends ConsumerState<SplashPage>
       case AuthNeedsAddressSelection():
         context.go(AppRoutes.mapAddress);
       case AuthUnauthenticated():
-        context.go(AppRoutes.login);
+        context.go(AppRoutes.home);
       default:
-        context.go(AppRoutes.login);
+        context.go(AppRoutes.home);
     }
   }
 

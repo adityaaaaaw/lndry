@@ -8,6 +8,7 @@ import 'package:gap/gap.dart';
 import '../../providers/auth_provider.dart';
 import '../../core/design/design_system.dart';
 import '../router/app_routes.dart';
+import '../../config/env.dart';
 
 typedef PendingAuthAction = FutureOr<void> Function(
   BuildContext context,
@@ -19,6 +20,11 @@ final pendingAuthActionProvider = StateProvider<PendingAuthAction?>((ref) {
 });
 
 bool isAuthenticated(AuthState state) => state is AuthAuthenticated;
+
+bool _isProfilePath(String? path) {
+  if (path == null) return false;
+  return path.startsWith('/profile') && !path.startsWith('/profile-setup');
+}
 
 String currentRouteLocation(BuildContext context) {
   try {
@@ -54,7 +60,8 @@ Future<void> requireAuthenticated({
   required PendingAuthAction action,
   String? returnTo,
 }) async {
-  if (isAuthenticated(ref.read(authProvider))) {
+  final target = returnTo ?? currentRouteLocation(context);
+  if (isAuthenticated(ref.read(authProvider)) || (Env.demoMode && _isProfilePath(target))) {
     await action(context, ref);
     return;
   }
@@ -70,7 +77,6 @@ Future<void> requireAuthenticated({
   if (shouldProceed != true) return;
   if (!context.mounted) return;
 
-  final target = returnTo ?? currentRouteLocation(context);
   ref.read(pendingAuthActionProvider.notifier).state = action;
   context.push(loginLocation(returnTo: target));
 }

@@ -6,6 +6,8 @@ import '../../../../core/extensions/extensions.dart';
 import '../../../../core/router/app_routes.dart';
 import '../../../../providers/auth_provider.dart';
 import '../../../../repositories/repositories.dart';
+import '../../../../config/env.dart';
+import '../../../../models/models.dart';
 
 final _profileStatsProvider = FutureProvider<UserStats>((ref) async {
   return ref.watch(customerRepositoryProvider).getUserStats();
@@ -18,15 +20,15 @@ class ProfilePage extends ConsumerWidget {
     final confirm = await AppDialog.show(
       context,
       title: 'Confirm Logout',
-      message: 'Are you sure you want to sign out of your LNDRY account?',
-      confirmLabel: 'Sign Out',
+      message: 'Are you sure you want to log out of your account?',
+      confirmLabel: 'Logout',
       isDestructive: true,
     );
 
     if (confirm == true) {
       await ref.read(authProvider.notifier).logout();
       if (context.mounted) {
-        context.go(AppRoutes.home);
+        context.go(AppRoutes.vendorListing);
       }
     }
   }
@@ -36,8 +38,16 @@ class ProfilePage extends ConsumerWidget {
     final theme = context.theme;
     final isDark = theme.brightness == Brightness.dark;
     final authState = ref.watch(authProvider);
-    final signedIn = authState is AuthAuthenticated;
-    final user = ref.watch(currentUserProvider);
+    final signedIn = authState is AuthAuthenticated || Env.demoMode;
+    final currentUser = ref.watch(currentUserProvider);
+    final user = currentUser ?? (Env.demoMode ? UserModel(
+      id: 'usr_demo',
+      name: 'Demo User',
+      phone: '9876543210',
+      email: 'demo@lndry.app',
+      role: UserRole.customer,
+      isVerified: true,
+    ) : null);
     final statsAsync = signedIn ? ref.watch(_profileStatsProvider) : null;
 
     // Build initials for avatar fallback.

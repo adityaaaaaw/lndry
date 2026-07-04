@@ -5,6 +5,7 @@ import 'app_routes.dart';
 import '../auth/auth_gate.dart';
 import '../design/design_system.dart';
 import '../../providers/auth_provider.dart';
+import '../../config/env.dart';
 
 // ── Page imports ──────────────────────────────────────────────────────────────
 
@@ -115,10 +116,10 @@ String? _globalRedirect(
     AppRoutes.onboarding,
     AppRoutes.login,
     AppRoutes.otp,
-  ];
-  const protectedPaths = [
     AppRoutes.home,
     AppRoutes.search,
+  ];
+  const protectedPaths = [
     AppRoutes.profile,
     AppRoutes.profileSetup,
     AppRoutes.locationPermission,
@@ -134,9 +135,10 @@ String? _globalRedirect(
     AppRoutes.settings,
   ];
 
-  final isProtectedPath = protectedPaths.contains(path) ||
+  final isProtectedPath = (protectedPaths.contains(path) ||
       path.startsWith('/orders/details/') ||
-      (path.startsWith('/orders/') && path.endsWith('/submitted'));
+      (path.startsWith('/orders/') && path.endsWith('/submitted'))) &&
+      !(Env.demoMode && path.startsWith('/profile') && !path.startsWith('/profile-setup'));
 
   // While initialising or loading, stay put (don't flicker).
   if (authState is AuthInitial || authState is AuthLoading) return null;
@@ -522,6 +524,15 @@ class _NavItem extends ConsumerWidget {
               context: context,
               ref: ref,
               returnTo: AppRoutes.orders,
+              action: (_, __) => goToBranch(),
+            );
+            return;
+          }
+          if (index == 4) {
+            requireAuthenticated(
+              context: context,
+              ref: ref,
+              returnTo: AppRoutes.profile,
               action: (_, __) => goToBranch(),
             );
             return;

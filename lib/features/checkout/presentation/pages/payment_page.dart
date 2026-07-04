@@ -65,7 +65,7 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
     final repo = ref.read(customerRepositoryProvider);
 
     try {
-      final isMockMode = Env.useMocksForVisualTestsOnly;
+      final isMockMode = Env.useMocksForVisualTestsOnly || ref.read(useMocksProvider);
 
       setState(() => _isProcessing = true);
 
@@ -318,7 +318,8 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
       final addressId = session?.deliveryAddressId;
       final currentCart = cart;
       final selectedSlot = session?.selectedSlot;
-      if (!Env.useMocksForVisualTestsOnly ||
+      final isMockMode = Env.useMocksForVisualTestsOnly || ref.read(useMocksProvider);
+      if (!isMockMode ||
           addressId == null ||
           addressId.isEmpty ||
           selectedSlot == null ||
@@ -358,7 +359,11 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
         _isVerifyingPayment = false;
         _verificationRetryPending = false;
       });
-      AppSnackBar.showSuccess(context, 'Payment Successful!');
+      final isMock = Env.useMocksForVisualTestsOnly || ref.read(useMocksProvider);
+      AppSnackBar.showSuccess(
+        context,
+        isMock ? 'Demo Mode: Payment Successful!' : 'Payment Successful!',
+      );
       context.go('/orders/${placedOrder.id}/submitted');
     }
   }
