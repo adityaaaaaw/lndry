@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gap/gap.dart';
+import 'package:go_router/go_router.dart';
+import '../../../../core/router/app_routes.dart';
 import '../../../../core/theme/theme.dart';
 import '../../../../core/widgets/app_button.dart';
 import '../../../../core/widgets/app_text_field.dart';
@@ -38,7 +40,13 @@ class _ProfileSetupPageState extends ConsumerState<ProfileSetupPage> {
             name: _nameController.text.trim(),
             email: _emailController.text.trim(),
           );
-      // Navigation is handled by GoRouter redirect watching authProvider state.
+      if (!mounted) return;
+      final authState = ref.read(authProvider);
+      if (authState is AuthNeedsLocationPermission) {
+        context.push(AppRoutes.locationPermission);
+      } else if (authState is AuthNeedsAddressSelection) {
+        context.push(AppRoutes.mapAddress);
+      }
     } catch (e) {
       if (mounted) AppSnackBar.showError(context, e.toString());
     } finally {
@@ -52,13 +60,27 @@ class _ProfileSetupPageState extends ConsumerState<ProfileSetupPage> {
 
     return Scaffold(
       backgroundColor: isDark ? AppColors.darkBackground : AppColors.background,
+      appBar: AppBar(
+        backgroundColor: AppColors.transparent,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(AppIcons.back),
+          onPressed: () {
+            if (Navigator.of(context).canPop()) {
+              Navigator.of(context).pop();
+            } else {
+              context.go(AppRoutes.home);
+            }
+          },
+        ),
+      ),
       body: SafeArea(
         child: _isLoading
             ? const AppLoadingPage(message: 'Saving profile...')
             : SingleChildScrollView(
                 padding: EdgeInsets.symmetric(
                   horizontal: AppSpacing.pagePaddingH.w,
-                  vertical: AppSpacing.pagePaddingV.h * 1.5,
+                  vertical: AppSpacing.pagePaddingV.h,
                 ),
                 child: Form(
                   key: _formKey,

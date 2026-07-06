@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../../core/router/app_routes.dart';
 
 import '../../../../core/design/design_system.dart';
 import '../../../../core/widgets/widgets.dart';
@@ -254,10 +255,15 @@ class _VendorListingPageState extends ConsumerState<VendorListingPage> {
       appBar: AppBar(
         title: Text('Laundry Partners', style: AppTypography.titleLarge),
         centerTitle: true,
-        // FIX #2: Back button uses context.pop() — no fallback to context.go()
         leading: IconButton(
           icon: const Icon(AppIcons.back),
-          onPressed: () => Navigator.of(context).pop(),
+          onPressed: () {
+            if (Navigator.of(context).canPop()) {
+              Navigator.of(context).pop();
+            } else {
+              context.go(AppRoutes.home);
+            }
+          },
         ),
         actions: [
           // FIX #3: Filter icon opens _showFilterSheet

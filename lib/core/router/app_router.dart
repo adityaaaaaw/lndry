@@ -90,6 +90,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     });
 
   return GoRouter(
+    navigatorKey: rootNavigatorKey,
     initialLocation: AppRoutes.splash,
     debugLogDiagnostics: false,
     refreshListenable: refreshListenable,
@@ -110,15 +111,6 @@ String? _globalRedirect(
   final path = state.uri.path;
   final returnTo = state.uri.queryParameters['returnTo'];
 
-  // Public paths that don't require authentication.
-  const publicPaths = [
-    AppRoutes.splash,
-    AppRoutes.onboarding,
-    AppRoutes.login,
-    AppRoutes.otp,
-    AppRoutes.home,
-    AppRoutes.search,
-  ];
   const protectedPaths = [
     AppRoutes.profile,
     AppRoutes.profileSetup,
@@ -143,6 +135,13 @@ String? _globalRedirect(
   // While initialising or loading, stay put (don't flicker).
   if (authState is AuthInitial || authState is AuthLoading) return null;
 
+  // Check if we are already on an auth or onboarding page.
+  final isAuthOrOnboardingPath = path == AppRoutes.login ||
+      path == AppRoutes.otp ||
+      path == AppRoutes.profileSetup ||
+      path == AppRoutes.locationPermission ||
+      path == AppRoutes.mapAddress;
+
   // Auth error: allow public browsing and send protected routes to login.
   if (authState is AuthError) {
     if (isProtectedPath) return loginLocation(returnTo: state.uri.toString());
@@ -155,16 +154,19 @@ String? _globalRedirect(
   }
 
   if (authState is AuthOtpSent) {
+    if (isAuthOrOnboardingPath) return null;
     if (path != AppRoutes.otp) return otpLocation(returnTo: returnTo);
     return null;
   }
 
   if (authState is AuthNeedsProfileSetup) {
+    if (isAuthOrOnboardingPath) return null;
     if (path != AppRoutes.profileSetup) return AppRoutes.profileSetup;
     return null;
   }
 
   if (authState is AuthNeedsLocationPermission) {
+    if (isAuthOrOnboardingPath) return null;
     if (path != AppRoutes.locationPermission) {
       return AppRoutes.locationPermission;
     }
@@ -172,17 +174,17 @@ String? _globalRedirect(
   }
 
   if (authState is AuthNeedsAddressSelection) {
+    if (isAuthOrOnboardingPath) return null;
     if (path != AppRoutes.mapAddress) return AppRoutes.mapAddress;
     return null;
   }
 
   if (authState is AuthAuthenticated) {
-    // Redirect away from auth/onboarding screens once signed in.
-    final isAuthPath = publicPaths.contains(path) ||
-        path == AppRoutes.profileSetup ||
-        path == AppRoutes.locationPermission ||
-        path == AppRoutes.mapAddress;
-    if (isAuthPath) return _safeReturnTo(returnTo) ?? AppRoutes.home;
+    // ROOT CAUSE FIX: Only redirect from auth/onboarding pages.
+    // Do NOT redirect from public pages like /search or /home.
+    if (isAuthOrOnboardingPath) {
+      return _safeReturnTo(returnTo) ?? AppRoutes.home;
+    }
     return null;
   }
 
@@ -413,77 +415,84 @@ class _DashboardShell extends ConsumerWidget {
     final navHeight = 72.h;
     final navBottom = 12.h + safeBottom;
 
-    return Scaffold(
-      body: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          Positioned.fill(
-            child: Padding(
-              padding: EdgeInsets.only(
-                bottom: navHeight + navBottom + 12.h,
+    return PopScope(
+      canPop: navigationShell.currentIndex == 0,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        navigationShell.goBranch(0);
+      },
+      child: Scaffold(
+        body: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            Positioned.fill(
+              child: Padding(
+                padding: EdgeInsets.only(
+                  bottom: navHeight + navBottom + 12.h,
+                ),
+                child: navigationShell,
               ),
-              child: navigationShell,
             ),
-          ),
-          Positioned(
-            left: 20.w,
-            right: 20.w,
-            bottom: navBottom,
-            child: Container(
-              height: navHeight,
-              decoration: BoxDecoration(
-                color: isDark ? AppColors.darkSurface : AppColors.white,
-                borderRadius: BorderRadius.circular(AppRadius.full.r),
-                boxShadow: [
-                  BoxShadow(
-                    color: AppColors.shadowColor,
-                    blurRadius: 24,
-                    offset: const Offset(0, 8),
+            Positioned(
+              left: 20.w,
+              right: 20.w,
+              bottom: navBottom,
+              child: Container(
+                height: navHeight,
+                decoration: BoxDecoration(
+                  color: isDark ? AppColors.darkSurface : AppColors.white,
+                  borderRadius: BorderRadius.circular(AppRadius.full.r),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.shadowColor,
+                      blurRadius: 24,
+                      offset: const Offset(0, 8),
+                    ),
+                  ],
+                  border: Border.all(
+                    color: AppColors.outline.withOpacity(isDark ? 0.12 : 0.45),
+                    width: 1,
                   ),
-                ],
-                border: Border.all(
-                  color: AppColors.outline.withOpacity(isDark ? 0.12 : 0.45),
-                  width: 1,
+                ),
+                padding: EdgeInsets.symmetric(horizontal: 4.w),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceAround,
+                  children: [
+                    _NavItem(
+                      shell: navigationShell,
+                      index: 0,
+                      unselected: AppIcons.homeOutlined,
+                      selected: AppIcons.home,
+                      label: 'Home',
+                    ),
+                    _NavItem(
+                      shell: navigationShell,
+                      index: 1,
+                      unselected: Icons.grid_view_outlined,
+                      selected: Icons.grid_view_rounded,
+                      label: 'Explore',
+                    ),
+                    _CenterBookItem(shell: navigationShell),
+                    _NavItem(
+                      shell: navigationShell,
+                      index: 3,
+                      unselected: AppIcons.ordersOutlined,
+                      selected: AppIcons.orders,
+                      label: 'Orders',
+                    ),
+                    _NavItem(
+                      shell: navigationShell,
+                      index: 4,
+                      unselected: AppIcons.profileOutlined,
+                      selected: AppIcons.profile,
+                      label: 'Profile',
+                    ),
+                  ],
                 ),
               ),
-              padding: EdgeInsets.symmetric(horizontal: 4.w),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: [
-                  _NavItem(
-                    shell: navigationShell,
-                    index: 0,
-                    unselected: AppIcons.homeOutlined,
-                    selected: AppIcons.home,
-                    label: 'Home',
-                  ),
-                  _NavItem(
-                    shell: navigationShell,
-                    index: 1,
-                    unselected: Icons.grid_view_outlined,
-                    selected: Icons.grid_view_rounded,
-                    label: 'Explore',
-                  ),
-                  _CenterBookItem(shell: navigationShell),
-                  _NavItem(
-                    shell: navigationShell,
-                    index: 3,
-                    unselected: AppIcons.ordersOutlined,
-                    selected: AppIcons.orders,
-                    label: 'Orders',
-                  ),
-                  _NavItem(
-                    shell: navigationShell,
-                    index: 4,
-                    unselected: AppIcons.profileOutlined,
-                    selected: AppIcons.profile,
-                    label: 'Profile',
-                  ),
-                ],
-              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -513,6 +522,16 @@ class _NavItem extends ConsumerWidget {
         behavior: HitTestBehavior.opaque,
         onTap: () {
           void goToBranch() {
+            final navigator = rootNavigatorKey.currentState;
+            if (navigator != null && navigator.canPop()) {
+              navigator.popUntil((route) => 
+                route.settings.name != AppRouteNames.login &&
+                route.settings.name != AppRouteNames.otp &&
+                route.settings.name != AppRouteNames.profileSetup &&
+                route.settings.name != AppRouteNames.locationPermission &&
+                route.settings.name != AppRouteNames.mapAddress
+              );
+            }
             shell.goBranch(
               index,
               initialLocation: index == shell.currentIndex,
@@ -583,8 +602,19 @@ class _CenterBookItem extends ConsumerWidget {
           context: context,
           ref: ref,
           returnTo: AppRoutes.cart,
-          action: (_, __) =>
-              shell.goBranch(2, initialLocation: 2 == shell.currentIndex),
+          action: (actionContext, __) {
+            final navigator = rootNavigatorKey.currentState;
+            if (navigator != null && navigator.canPop()) {
+              navigator.popUntil((route) => 
+                route.settings.name != AppRouteNames.login &&
+                route.settings.name != AppRouteNames.otp &&
+                route.settings.name != AppRouteNames.profileSetup &&
+                route.settings.name != AppRouteNames.locationPermission &&
+                route.settings.name != AppRouteNames.mapAddress
+              );
+            }
+            shell.goBranch(2, initialLocation: 2 == shell.currentIndex);
+          },
         ),
         child: OverflowBox(
           minHeight: 0,

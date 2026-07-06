@@ -33,7 +33,6 @@ class _SearchPageState extends ConsumerState<SearchPage> {
     super.initState();
     _loadCategories();
     _loadVendors();
-    _initSpeech();
   }
 
   void _initSpeech() async {
@@ -56,7 +55,31 @@ class _SearchPageState extends ConsumerState<SearchPage> {
 
   void _startListening() async {
     if (!_speechEnabled) {
-      await _speech.initialize();
+      try {
+        _speechEnabled = await _speech.initialize(
+          onError: (val) => debugPrint('[SpeechToText] Error: $val'),
+          onStatus: (status) {
+            if (status == 'listening') {
+              setState(() => _isListening = true);
+            } else if (status == 'notListening' || status == 'done') {
+              setState(() => _isListening = false);
+            }
+          },
+        );
+      } catch (e) {
+        debugPrint('[SpeechToText] Init failed: $e');
+        if (mounted) {
+          AppSnackBar.showError(context, 'Failed to initialize speech recognition.');
+        }
+        return;
+      }
+    }
+
+    if (!_speechEnabled) {
+      if (mounted) {
+        AppSnackBar.showError(context, 'Voice search is not available on this device.');
+      }
+      return;
     }
     
     final hasPermission = await _speech.hasPermission;
@@ -483,7 +506,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                       ),
                       // Rounded Square Map Button
                       GestureDetector(
-                        onTap: () => context.go(AppRoutes.vendorListing),
+                        onTap: () => context.push(AppRoutes.vendorListing),
                         child: Container(
                           width: 40.r,
                           height: 40.r,
@@ -618,7 +641,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                       itemBuilder: (context, idx) {
                         final cat = _categories[idx];
                         return GestureDetector(
-                          onTap: () => context.go('/category/${cat.id}'),
+                          onTap: () => context.push('/category/${cat.id}'),
                           child: Container(
                             padding: EdgeInsets.all(8.r),
                             decoration: BoxDecoration(
@@ -789,7 +812,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                                 final vendor = _vendors[idx];
                                 return _ListVendorCard(
                                   vendor: vendor,
-                                  onTap: () => context.go('/vendor/${vendor.id}'),
+                                  onTap: () => context.push('/vendor/${vendor.id}'),
                                 );
                               },
                             ),
@@ -803,7 +826,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
               right: 20.w,
               bottom: 20.h,
               child: FloatingActionButton.extended(
-                onPressed: () => context.go(AppRoutes.vendorListing),
+                onPressed: () => context.push(AppRoutes.vendorListing),
                 backgroundColor: AppColors.surface,
                 foregroundColor: AppColors.primary,
                 elevation: 3,

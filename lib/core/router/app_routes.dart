@@ -1,3 +1,7 @@
+import 'package:flutter/widgets.dart';
+
+final GlobalKey<NavigatorState> rootNavigatorKey = GlobalKey<NavigatorState>();
+
 /// LNDRY Route Path Constants
 /// Matches the canonical route inventory in spec Appendix B.
 abstract final class AppRoutes {

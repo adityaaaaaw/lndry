@@ -140,7 +140,7 @@ class _CategoryPageState extends ConsumerState<CategoryPage> {
                               final vendor = _vendors[idx];
                               return VendorCard(
                                 vendor: vendor,
-                                onTap: () => context.go(
+                                onTap: () => context.push(
                                   '/vendor/${vendor.id}',
                                 ),
                               );

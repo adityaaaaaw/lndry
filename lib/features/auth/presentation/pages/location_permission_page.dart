@@ -31,7 +31,7 @@ class _LocationPermissionPageState
       AppSnackBar.showSuccess(context, 'Location permission granted.');
       await ref.read(authProvider.notifier).completeLocationSetup();
       if (mounted) {
-        context.go(AppRoutes.mapAddress);
+        context.push(AppRoutes.mapAddress);
       }
     }
   }
@@ -40,7 +40,7 @@ class _LocationPermissionPageState
     // Standard skip setup
     await ref.read(authProvider.notifier).completeLocationSetup();
     if (mounted) {
-      context.go(AppRoutes.mapAddress);
+      context.push(AppRoutes.mapAddress);
     }
   }
 
@@ -51,6 +51,20 @@ class _LocationPermissionPageState
 
     return Scaffold(
       backgroundColor: isDark ? AppColors.darkBackground : AppColors.background,
+      appBar: AppBar(
+        backgroundColor: AppColors.transparent,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(AppIcons.back),
+          onPressed: () {
+            if (Navigator.of(context).canPop()) {
+              Navigator.of(context).pop();
+            } else {
+              context.go(AppRoutes.home);
+            }
+          },
+        ),
+      ),
       body: SafeArea(
         child: Padding(
           padding: EdgeInsets.symmetric(

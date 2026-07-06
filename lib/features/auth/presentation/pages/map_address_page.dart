@@ -11,6 +11,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart' as gm;
 
+import '../../../../core/auth/auth_gate.dart';
 import '../../../../core/network/network.dart';
 import '../../../../core/router/app_routes.dart';
 import '../../../../core/theme/theme.dart';
@@ -329,11 +330,14 @@ class _MapAddressPageState extends ConsumerState<MapAddressPage> {
         ),
       );
 
+      final hasPendingAction = ref.read(pendingAuthActionProvider) != null;
       await ref.read(authProvider.notifier).completeAddressSelection(address);
 
       if (mounted) {
         AppSnackBar.showSuccess(context, 'Address saved as default.');
-        context.go(AppRoutes.home);
+        if (!hasPendingAction) {
+          context.go(AppRoutes.home);
+        }
       }
     } on DioException catch (e) {
       if (mounted) {
@@ -368,6 +372,16 @@ class _MapAddressPageState extends ConsumerState<MapAddressPage> {
         title:
             Text('Select Delivery Location', style: AppTypography.titleLarge),
         centerTitle: true,
+        leading: IconButton(
+          icon: const Icon(AppIcons.back),
+          onPressed: () {
+            if (Navigator.of(context).canPop()) {
+              Navigator.of(context).pop();
+            } else {
+              context.go(AppRoutes.home);
+            }
+          },
+        ),
         backgroundColor: isDark ? AppColors.darkSurface : AppColors.surface,
         elevation: 0,
       ),

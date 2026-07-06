@@ -99,7 +99,13 @@ class _OtpPageState extends ConsumerState<OtpPage> {
           );
     } else {
       setState(() => _isLoading = false);
-      // All other auth states are handled by the GoRouter redirect.
+      if (authState is AuthNeedsProfileSetup) {
+        context.push(AppRoutes.profileSetup);
+      } else if (authState is AuthNeedsLocationPermission) {
+        context.push(AppRoutes.locationPermission);
+      } else if (authState is AuthNeedsAddressSelection) {
+        context.push(AppRoutes.mapAddress);
+      }
     }
   }
 
@@ -148,9 +154,13 @@ class _OtpPageState extends ConsumerState<OtpPage> {
             // Cancel OTP flow and return to login.
             ref.read(authProvider.notifier).clearError();
             if (context.mounted) {
-              context.go(loginLocation(
-                returnTo: returnToFrom(context) ?? AppRoutes.home,
-              ));
+              if (Navigator.of(context).canPop()) {
+                Navigator.of(context).pop();
+              } else {
+                context.go(loginLocation(
+                  returnTo: returnToFrom(context) ?? AppRoutes.home,
+                ));
+              }
             }
           },
         ),

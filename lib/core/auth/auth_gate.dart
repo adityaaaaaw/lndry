@@ -77,7 +77,25 @@ Future<void> requireAuthenticated({
   if (shouldProceed != true) return;
   if (!context.mounted) return;
 
-  ref.read(pendingAuthActionProvider.notifier).state = action;
+  final PendingAuthAction wrappedAction = (ctx, r) async {
+    final isBookingFlow = target == AppRoutes.checkout ||
+        target.startsWith('/vendor/') ||
+        target.startsWith('/category/') ||
+        target == AppRoutes.cart;
+
+    final navigator = rootNavigatorKey.currentState;
+    if (navigator != null && navigator.canPop()) {
+      navigator.popUntil((route) =>
+          route.settings.name != AppRouteNames.login &&
+          route.settings.name != AppRouteNames.otp &&
+          route.settings.name != AppRouteNames.profileSetup &&
+          route.settings.name != AppRouteNames.locationPermission &&
+          route.settings.name != AppRouteNames.mapAddress);
+    }
+    await action(ctx, r);
+  };
+
+  ref.read(pendingAuthActionProvider.notifier).state = wrappedAction;
   context.push(loginLocation(returnTo: target));
 }
 

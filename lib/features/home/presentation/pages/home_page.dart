@@ -291,18 +291,24 @@ class _HomePageState extends ConsumerState<HomePage> {
                             ),
                           ),
                           const Gap(8),
-                          Container(
-                            width: 36.r,
-                            height: 36.r,
-                            decoration: const BoxDecoration(
-                              color: AppColors.primaryContainer,
-                              shape: BoxShape.circle,
-                            ),
-                            child: Center(
-                              child: Icon(
-                                AppIcons.filter,
-                                color: AppColors.primary,
-                                size: 18.r,
+                          GestureDetector(
+                            onTap: () {
+                              final navShell = StatefulNavigationShell.of(context);
+                              navShell.goBranch(1);
+                            },
+                            child: Container(
+                              width: 36.r,
+                              height: 36.r,
+                              decoration: const BoxDecoration(
+                                color: AppColors.primaryContainer,
+                                shape: BoxShape.circle,
+                              ),
+                              child: Center(
+                                child: Icon(
+                                  AppIcons.filter,
+                                  color: AppColors.primary,
+                                  size: 18.r,
+                                ),
                               ),
                             ),
                           ),
@@ -335,7 +341,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                         ),
                       ),
                       GestureDetector(
-                        onTap: () => context.go(AppRoutes.search),
+                        onTap: () => StatefulNavigationShell.of(context).goBranch(1),
                         child: Text(
                           'View all',
                           style: AppTypography.labelMedium.copyWith(
@@ -379,7 +385,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                                   _selectedCategoryIdx = -1;
                                 } else {
                                   _selectedCategoryIdx = idx;
-                                  context.go('/category/${cat.id}');
+                                  context.push('/category/${cat.id}');
                                 }
                               });
                             },
@@ -674,6 +680,7 @@ class _OfferBannerCarouselState extends State<_OfferBannerCarousel> {
   }
 }
 
+/// FIX #1: Banner now uses shell.goBranch(1) so it works both before and after login.
 class _BannerPage extends StatelessWidget {
   const _BannerPage({
     required this.title,
@@ -694,7 +701,7 @@ class _BannerPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: () => context.go(AppRoutes.search),
+      onTap: () => StatefulNavigationShell.of(context).goBranch(1),
       child: Container(
         clipBehavior: Clip.antiAlias,
         decoration: BoxDecoration(
@@ -814,7 +821,7 @@ class _QuickScheduleCard extends StatelessWidget {
                     icon: AppIcons.laundry,
                     label: 'Service',
                     value: 'Wash & Fold',
-                    onTap: () => context.go(AppRoutes.search),
+                    onTap: () => StatefulNavigationShell.of(context).goBranch(1),
                   ),
                 ),
                 Container(
@@ -827,7 +834,7 @@ class _QuickScheduleCard extends StatelessWidget {
                     icon: AppIcons.timer,
                     label: 'Pickup time',
                     value: 'Today, 6–8 PM',
-                    onTap: () => context.go(AppRoutes.search),
+                    onTap: () => StatefulNavigationShell.of(context).goBranch(1),
                   ),
                 ),
                 Container(
@@ -850,11 +857,12 @@ class _QuickScheduleCard extends StatelessWidget {
               width: double.infinity,
               height: 48.h,
               child: ElevatedButton(
-                onPressed: () => context.go(AppRoutes.search),
+                onPressed: () => StatefulNavigationShell.of(context).goBranch(1),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.primary,
                   foregroundColor: AppColors.white,
                   elevation: 0,
+                  padding: EdgeInsets.zero, // FIX #2: removes default padding so text is perfectly centered
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(AppRadius.button.r),
                   ),
@@ -865,6 +873,7 @@ class _QuickScheduleCard extends StatelessWidget {
                     color: AppColors.white,
                     fontWeight: FontWeight.w600,
                   ),
+                  textAlign: TextAlign.center,
                 ),
               ),
             ),
@@ -1001,7 +1010,7 @@ class _ActiveOrderTrackerCard extends StatelessWidget {
                       ),
                     ),
                     GestureDetector(
-                      onTap: () => context.go('/orders/details/${order.id}'),
+                      onTap: () => context.push('/orders/details/${order.id}'),
                       child: Text(
                         'Track',
                         style: AppTypography.labelSmall.copyWith(

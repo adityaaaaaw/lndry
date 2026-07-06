@@ -216,6 +216,86 @@ class OrderModel with _$OrderModel {
     DateTime? updatedAt,
   }) = _OrderModel;
 
-  factory OrderModel.fromJson(Map<String, dynamic> json) =>
-      _$OrderModelFromJson(json);
+  factory OrderModel.fromJson(Map<String, dynamic> json) {
+    // FIX #3: Normalize status and payment method to prevent crashes on
+    // unknown or differently cased values from mock/backend data.
+    final normalized = Map<String, dynamic>.from(json);
+    if (json['status'] is String) {
+      normalized['status'] = _normalizeStatus(json['status'] as String);
+    }
+    if (json['paymentMethod'] is String) {
+      normalized['paymentMethod'] =
+          _normalizePaymentMethod(json['paymentMethod'] as String);
+    }
+    return _$OrderModelFromJson(normalized);
+  }
+}
+
+/// Normalizes an order status string to match the canonical enum values.
+/// Handles case-insensitive matching and provides a safe fallback for
+/// unknown or malformed statuses so the UI never crashes on parsing.
+String _normalizeStatus(String raw) {
+  final upper = raw.toUpperCase().trim();
+  // Map of known aliases for backwards compatibility.
+  const aliases = <String, String>{
+    'CONFIRMED': 'VENDOR_ACCEPTED',
+  };
+  // Canonical status strings from _$OrderStatusEnumMap.
+  const validStatuses = <String>[
+    'PAYMENT_PENDING',
+    'PAYMENT_FAILED',
+    'WAITING_FOR_VENDOR_CONFIRMATION',
+    'VENDOR_ACCEPTED',
+    'PICKUP_ASSIGNED',
+    'GOING_FOR_PICKUP',
+    'PICKUP_OTP_VERIFIED',
+    'PICKED_UP',
+    'RECEIVED_AT_VENDOR',
+    'PROCESSING',
+    'PACKED',
+    'DELIVERY_ASSIGNED',
+    'OUT_FOR_DELIVERY',
+    'DELIVERY_OTP_VERIFIED',
+    'DELIVERED',
+    'VENDOR_REJECTED',
+    'AUTO_REJECTED',
+    'CUSTOMER_CANCELLED',
+    'ADMIN_CANCELLED',
+    'REFUND_PENDING',
+    'REFUNDED',
+  ];
+
+  // Check aliases first.
+  if (aliases.containsKey(upper)) return aliases[upper]!;
+  // Check direct match (case-insensitive).
+  for (final v in validStatuses) {
+    if (v == upper) return v;
+  }
+  // Safe fallback — unknown status defaults to PAYMENT_PENDING.
+  return 'PAYMENT_PENDING';
+}
+
+/// Normalizes a payment method string to match the canonical enum values.
+/// Handles case-insensitive matching and provides a safe fallback.
+String _normalizePaymentMethod(String raw) {
+  final upper = raw.toUpperCase().trim();
+  // Map of known aliases/legacy values.
+  const aliases = <String, String>{
+    'CASH': 'upi',
+    'COD': 'upi',
+    'CREDIT_CARD': 'card',
+    'DEBIT_CARD': 'card',
+    'NET_BANKING': 'upi',
+  };
+  // Canonical payment method strings.
+  const validMethods = <String>['upi', 'card', 'wallet'];
+
+  // Check aliases first (case-insensitive).
+  if (aliases.containsKey(upper)) return aliases[upper]!;
+  // Check direct match (case-insensitive).
+  for (final v in validMethods) {
+    if (v.toUpperCase() == upper) return v;
+  }
+  // Safe fallback.
+  return 'upi';
 }

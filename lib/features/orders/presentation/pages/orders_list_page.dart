@@ -235,7 +235,7 @@ class _ActiveOrderTileState extends ConsumerState<_ActiveOrderTile> {
     return AppCard.outlined(
       borderColor: AppColors.primary.withValues(alpha: 0.3),
       backgroundColor: AppColors.primaryContainer.withValues(alpha: 0.12),
-      onTap: () => context.go('/orders/details/${order.id}'),
+      onTap: () => context.push('/orders/details/${order.id}'),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -272,12 +272,12 @@ class _ActiveOrderTileState extends ConsumerState<_ActiveOrderTile> {
               ),
             ],
           ),
-          Gap(AppSpacing.md.h),
+          Gap(AppSpacing.sm.h), // FIX #4: reduced from md (16h) to sm (8h) to prevent overflow
           Wrap(
             alignment: WrapAlignment.spaceBetween,
             crossAxisAlignment: WrapCrossAlignment.center,
-            spacing: 12.w,
-            runSpacing: 8.h,
+            spacing: 8.w,
+            runSpacing: 4.h,
             children: [
               Text(
                 '${order.items.length} items • ${order.total.toCurrencyDecimal}',
@@ -299,7 +299,7 @@ class _ActiveOrderTileState extends ConsumerState<_ActiveOrderTile> {
                       ),
                     ),
                   if (order.status.isCancellable && !_isCancelling)
-                    Gap(AppSpacing.cardGap.h),
+                    Gap(AppSpacing.sm.w), // FIX #4: reduced from cardGap (12w)
                   if (_isCancelling)
                     SizedBox(
                       width: 16.r,
@@ -309,7 +309,7 @@ class _ActiveOrderTileState extends ConsumerState<_ActiveOrderTile> {
                         color: AppColors.error,
                       ),
                     ),
-                  if (_isCancelling) Gap(AppSpacing.sm.w),
+                  if (_isCancelling) Gap(AppSpacing.xs.w),
                   Text(
                     'Track',
                     style: AppTypography.labelMedium.copyWith(
@@ -369,7 +369,7 @@ class _PastOrderTileState extends ConsumerState<_PastOrderTile> {
     final isDelivered = order.status == OrderStatus.delivered;
 
     return AppCard.outlined(
-      onTap: () => context.go('/orders/details/${order.id}'),
+      onTap: () => context.push('/orders/details/${order.id}'),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -406,12 +406,12 @@ class _PastOrderTileState extends ConsumerState<_PastOrderTile> {
               ),
             ],
           ),
-          Gap(AppSpacing.md.h),
+          Gap(AppSpacing.sm.h), // FIX #4: reduced from md (16h) to sm (8h) to prevent overflow
           Wrap(
             alignment: WrapAlignment.spaceBetween,
             crossAxisAlignment: WrapCrossAlignment.center,
-            spacing: 12.w,
-            runSpacing: 8.h,
+            spacing: 8.w,
+            runSpacing: 4.h,
             children: [
               Text(
                 '${order.items.length} items • ${order.total.toCurrencyDecimal}',

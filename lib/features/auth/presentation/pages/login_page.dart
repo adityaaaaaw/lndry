@@ -6,6 +6,7 @@ import 'package:gap/gap.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/auth/auth_gate.dart';
 import '../../../../core/design/design_system.dart';
+import '../../../../core/router/app_routes.dart';
 import '../../../../core/widgets/app_button.dart';
 import '../../../../core/widgets/app_text_field.dart';
 import '../../../../core/widgets/app_loading.dart';
@@ -46,7 +47,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
         return;
       }
       if (authState is AuthOtpSent) {
-        context.go(otpLocation(returnTo: returnToFrom(context)));
+        context.push(otpLocation(returnTo: returnToFrom(context)));
       }
     } catch (e) {
       if (mounted) AppSnackBar.showError(context, e.toString());
@@ -62,13 +63,27 @@ class _LoginPageState extends ConsumerState<LoginPage> {
 
     return Scaffold(
       backgroundColor: isDark ? AppColors.darkBackground : AppColors.background,
+      appBar: AppBar(
+        backgroundColor: AppColors.transparent,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(AppIcons.back),
+          onPressed: () {
+            if (Navigator.of(context).canPop()) {
+              Navigator.of(context).pop();
+            } else {
+              context.go(AppRoutes.home);
+            }
+          },
+        ),
+      ),
       body: SafeArea(
         child: _isLoading
             ? const AppLoadingPage(message: 'Sending verification code...')
             : SingleChildScrollView(
                 padding: EdgeInsets.symmetric(
                   horizontal: AppSpacing.pagePaddingH.w,
-                  vertical: AppSpacing.pagePaddingV.h * 2,
+                  vertical: AppSpacing.pagePaddingV.h,
                 ),
                 child: Form(
                   key: _formKey,

@@ -300,7 +300,8 @@ class ProfilePage extends ConsumerWidget {
               ),
               Gap(AppSpacing.sectionGap.h * 1.5),
 
-              signedIn
+              // Show Sign Out only when actually authenticated (not just demo mode).
+              authState is AuthAuthenticated
                   ? AppButton.outlined(
                       label: 'Sign Out',
                       icon: const Icon(AppIcons.close, color: AppColors.error),

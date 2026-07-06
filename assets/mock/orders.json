@@ -13,7 +13,7 @@
         "totalPrice": 237.0
       }
     ],
-    "status": "delivered",
+    "status": "DELIVERED",
     "subtotal": 237.0,
     "platformFee": 11.85,
     "gstAmount": 44.73,
@@ -47,12 +47,12 @@
         "totalPrice": 138.0
       }
     ],
-    "status": "out_for_delivery",
+    "status": "OUT_FOR_DELIVERY",
     "subtotal": 138.0,
     "platformFee": 6.9,
     "gstAmount": 26.06,
     "total": 170.96,
-    "paymentMethod": "cash",
+    "paymentMethod": "upi",
     "isPaid": false,
     "pickupAddressId": "addr_1",
     "deliveryAddressId": "addr_1",
@@ -88,7 +88,7 @@
         "totalPrice": 498.0
       }
     ],
-    "status": "confirmed",
+    "status": "VENDOR_ACCEPTED",
     "subtotal": 847.0,
     "platformFee": 42.35,
     "gstAmount": 160.09,

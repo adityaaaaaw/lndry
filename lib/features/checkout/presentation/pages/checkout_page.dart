@@ -569,7 +569,13 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
           centerTitle: true,
           leading: IconButton(
             icon: const Icon(AppIcons.back),
-            onPressed: () => context.pop(),
+            onPressed: () {
+              if (Navigator.of(context).canPop()) {
+                Navigator.of(context).pop();
+              } else {
+                context.go(AppRoutes.home);
+              }
+            },
           ),
           backgroundColor: AppColors.background,
           elevation: 0,
@@ -600,7 +606,13 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
         centerTitle: true,
         leading: IconButton(
           icon: const Icon(AppIcons.back),
-          onPressed: () => context.pop(),
+          onPressed: () {
+            if (Navigator.of(context).canPop()) {
+              Navigator.of(context).pop();
+            } else {
+              context.go(AppRoutes.home);
+            }
+          },
         ),
         backgroundColor: isDark ? AppColors.darkSurface : AppColors.surface,
         elevation: 0,
