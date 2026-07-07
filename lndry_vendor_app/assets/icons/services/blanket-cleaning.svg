@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" role="img" aria-labelledby="title desc">
+  <title id="title">Blanket cleaning</title><desc id="desc">A folded blanket with a woven LNDRY careline at its edge.</desc>
+  <path d="M4.5 5h12.75a2.25 2.25 0 0 1 2.25 2.25v10.5H6.75A2.25 2.25 0 0 1 4.5 15.5V5Z" fill="#EAE8FF"/>
+  <g stroke="#6C63E8" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M4.5 5h12.75a2.25 2.25 0 0 1 2.25 2.25v10.5H6.75A2.25 2.25 0 0 1 4.5 15.5V5Z"/>
+    <path d="M7.25 5v7.75c0 .83.67 1.5 1.5 1.5h3.5"/>
+    <path d="M7.25 7.25v.35M7.25 8.75v.35M7.25 10.25v.35"/>
+    <path d="M12.25 14.25v3.5M15 14.25v3.5M17.75 14.25v3.5"/>
+  </g>
+  <circle cx="12.25" cy="14.25" r=".9" fill="#0FB5A6"/>
+</svg>

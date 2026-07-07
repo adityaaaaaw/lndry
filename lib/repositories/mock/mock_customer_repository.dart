@@ -43,13 +43,13 @@ class MockCustomerRepository implements CustomerRepository {
         refreshToken: 'mock_refresh_token',
         user: UserModel(
           id: 'usr_${phone.hashCode.abs()}',
-          name: 'Demo User',
+          name: '',
           phone: phone,
-          email: 'demo@lndry.app',
+          email: null,
           role: UserRole.customer,
           isVerified: true,
         ),
-        isNewUser: false,
+        isNewUser: true,
       );
     }
     throw const ApiException(
@@ -321,9 +321,9 @@ class MockCustomerRepository implements CustomerRepository {
 
   UserModel _mockUser = const UserModel(
     id: 'usr_demo',
-    name: 'Aditya Kumar',
+    name: '',
     phone: '9876543210',
-    email: 'aditya@example.com',
+    email: null,
     role: UserRole.customer,
     isVerified: true,
   );

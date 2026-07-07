@@ -7,7 +7,6 @@ import '../../../../core/router/app_routes.dart';
 import '../../../../providers/auth_provider.dart';
 import '../../../../repositories/repositories.dart';
 import '../../../../config/env.dart';
-import '../../../../models/models.dart';
 
 final _profileStatsProvider = FutureProvider<UserStats>((ref) async {
   return ref.watch(customerRepositoryProvider).getUserStats();
@@ -40,14 +39,7 @@ class ProfilePage extends ConsumerWidget {
     final authState = ref.watch(authProvider);
     final signedIn = authState is AuthAuthenticated || Env.demoMode;
     final currentUser = ref.watch(currentUserProvider);
-    final user = currentUser ?? (Env.demoMode ? UserModel(
-      id: 'usr_demo',
-      name: 'Demo User',
-      phone: '9876543210',
-      email: 'demo@lndry.app',
-      role: UserRole.customer,
-      isVerified: true,
-    ) : null);
+    final user = currentUser;
     final statsAsync = signedIn ? ref.watch(_profileStatsProvider) : null;
 
     // Build initials for avatar fallback.

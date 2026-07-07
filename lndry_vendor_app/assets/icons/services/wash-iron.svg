@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" role="img" aria-labelledby="title desc">
+  <title id="title">Wash and iron</title><desc id="desc">A steam iron and folded cloth with a stitched LNDRY careline.</desc>
+  <path d="M4.2 15.8h15.6l-1.25 2.7H5.1L4.2 15.8Z" fill="#EAE8FF"/>
+  <g stroke="#6C63E8" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M4.2 15.8c1.3-4.35 4.05-6.6 8.35-6.75h3.8c1.55 0 2.65.95 2.9 2.4l.55 4.35H4.2Z"/>
+    <path d="M10.25 9.35V7.9c0-.78.62-1.4 1.4-1.4h3.1c.83 0 1.5.67 1.5 1.5v1.05"/>
+    <path d="M7.15 12.25v1.35c0 .83.67 1.5 1.5 1.5h1.25"/>
+    <path d="M7.15 11.1v.25M7.15 10.1v.25M7.15 9.1v.25"/>
+    <path d="M4.2 15.8 5.1 18.5h13.45l1.25-2.7"/>
+  </g>
+  <circle cx="9.9" cy="15.1" r=".95" fill="#0FB5A6"/>
+</svg>

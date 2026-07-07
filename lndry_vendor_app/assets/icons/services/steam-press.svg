@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" role="img" aria-labelledby="title desc">
+  <title id="title">Steam press</title><desc id="desc">A garment steamer whose hose completes the LNDRY careline.</desc>
+  <path d="M7 14.25h10.5v5.25H7z" fill="#EAE8FF"/>
+  <g stroke="#6C63E8" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M9 4.25h6M12 4.25v10M8 14.25h8a1.5 1.5 0 0 1 1.5 1.5v3.75H6.5v-3.75a1.5 1.5 0 0 1 1.5-1.5Z"/>
+    <path d="M9 18h6M15 6.5c2.2.2 3.5 1.5 3.5 3.8v2.2c0 1.1.9 2 2 2"/>
+    <path d="M8.75 14.25v1.5c0 .83.67 1.5 1.5 1.5h1"/>
+    <path d="M8.75 13.15v.25M8.75 17.85v.25M8.75 18.9v.25"/>
+  </g>
+  <circle cx="11.25" cy="17.25" r=".9" fill="#0FB5A6"/>
+  <path d="M6.2 5.2c-.65.6-.65 1.2 0 1.8M4.2 4.5c-1.25 1.1-1.25 2.2 0 3.3" stroke="#887CF6" stroke-width="1.5" stroke-linecap="round"/>
+</svg>
