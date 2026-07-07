@@ -1,5 +1,5 @@
-import 'dart:math';
-import 'package:flutter/foundation.dart';
+
+import 'dart:convert';
 import '../../core/network/api_exception.dart';
 import '../../core/services/storage_service.dart';
 import '../../core/constants/app_constants.dart';
@@ -12,6 +12,7 @@ class DemoVendorRepository implements VendorRepository {
     required StorageService storage,
   }) : _storage = storage {
     _initDefaultData();
+    _loadPersistedData();
   }
 
   final StorageService _storage;
@@ -24,6 +25,15 @@ class DemoVendorRepository implements VendorRepository {
   final List<EmployeeModel> _employees = [];
   final List<PickupSlotModel> _slots = [];
   int _maxOrdersPerDay = 50;
+  final Map<int, Map<String, dynamic>> _workingHours = {
+    0: {'isOpen': true, 'openTime': '08:00', 'closeTime': '20:00'},
+    1: {'isOpen': true, 'openTime': '08:00', 'closeTime': '20:00'},
+    2: {'isOpen': true, 'openTime': '08:00', 'closeTime': '20:00'},
+    3: {'isOpen': true, 'openTime': '08:00', 'closeTime': '20:00'},
+    4: {'isOpen': true, 'openTime': '08:00', 'closeTime': '20:00'},
+    5: {'isOpen': true, 'openTime': '08:00', 'closeTime': '20:00'},
+    6: {'isOpen': true, 'openTime': '08:00', 'closeTime': '20:00'},
+  };
 
   void _initDefaultData() {
     // 1. Profile Initialisation
@@ -216,8 +226,6 @@ class DemoVendorRepository implements VendorRepository {
     ]);
 
     // Generate 35 additional realistic orders dynamically
-    final firstNames = ['Ramesh', 'Suresh', 'Amit', 'Rajesh', 'Priya', 'Neha', 'Vijay', 'Vikram', 'Anjali', 'Karan', 'Deepak', 'Sanjay', 'Sunita', 'Geeta', 'Rahul', 'Arun'];
-    final lastNames = ['Sharma', 'Verma', 'Gupta', 'Patel', 'Kumar', 'Singh', 'Reddy', 'Nair', 'Joshi', 'Mehta', 'Rao', 'Mishra', 'Choudhary', 'Yadav'];
     final servicesList = [
       {'id': 'wash_1', 'name': 'Premium Wash', 'price': 50.0},
       {'id': 'iron_1', 'name': 'Steam Press', 'price': 20.0},
@@ -413,13 +421,14 @@ class DemoVendorRepository implements VendorRepository {
       name: name.isNotEmpty ? name : _profile.name,
       email: email.isNotEmpty ? email : _profile.email,
     );
+    await _saveProfile();
     return _profile;
   }
 
   @override
   Future<VendorModel> toggleStoreOpen(bool isOpen) async {
-    // Note: StoreModel / VendorModel does not contain is_open property directly,
-    // so we store it in memory and simulate response successfully
+    _profile = _profile.copyWith(isOpen: isOpen);
+    await _saveProfile();
     return _profile;
   }
 
@@ -654,26 +663,41 @@ class DemoVendorRepository implements VendorRepository {
 
   @override
   Future<Map<String, dynamic>> getDashboardStats() async {
+    final now = DateTime.now();
+    final todayStart = DateTime(now.year, now.month, now.day);
+    final todayEnd = todayStart.add(const Duration(days: 1));
+
     final pendingCount = _orders.where((o) => o.status == OrderStatus.waitingForVendorConfirmation).length;
-    final activeCount = _orders.where((o) => 
-      o.status == OrderStatus.vendorAccepted || 
-      o.status == OrderStatus.receivedAtVendor || 
+    final activeCount = _orders.where((o) =>
+      o.status == OrderStatus.vendorAccepted ||
+      o.status == OrderStatus.receivedAtVendor ||
+      o.status == OrderStatus.pickupAssigned ||
+      o.status == OrderStatus.goingForPickup ||
+      o.status == OrderStatus.pickupOtpVerified ||
+      o.status == OrderStatus.pickedUp ||
       o.status == OrderStatus.processing).length;
     final readyCount = _orders.where((o) => o.status == OrderStatus.packed).length;
 
+    // Revenue: only count delivered orders from TODAY
     double todayRevenue = 0.0;
+    int todayDeliveredCount = 0;
     for (final o in _orders) {
-      if (o.status == OrderStatus.delivered) {
+      if (o.status == OrderStatus.delivered &&
+          o.createdAt.isAfter(todayStart) &&
+          o.createdAt.isBefore(todayEnd)) {
         todayRevenue += o.total;
+        todayDeliveredCount++;
       }
     }
 
     return {
-      'today_orders_count': _orders.length,
-      'pending_orders_count': pendingCount,
-      'active_orders_count': activeCount,
-      'ready_orders_count': readyCount,
-      'today_revenue_paise': (todayRevenue * 100).toInt(),
+      'today_orders_count': _orders.where((o) =>
+        o.createdAt.isAfter(todayStart) && o.createdAt.isBefore(todayEnd)).length,
+      'pending_orders': pendingCount,
+      'processing_orders': activeCount,
+      'packed_orders': readyCount,
+      'revenue_today_paise': (todayRevenue * 100).toInt(),
+      'today_delivered_count': todayDeliveredCount,
     };
   }
 
@@ -778,6 +802,7 @@ class DemoVendorRepository implements VendorRepository {
       isActive: true,
     );
     _slots.add(slot);
+    await _saveSlots();
     return slot;
   }
 
@@ -800,6 +825,7 @@ class DemoVendorRepository implements VendorRepository {
         isActive: isActive ?? s.isActive,
       );
       _slots[idx] = updated;
+      await _saveSlots();
       return updated;
     }
     throw const ApiException(message: 'Slot not found');
@@ -808,5 +834,176 @@ class DemoVendorRepository implements VendorRepository {
   @override
   Future<void> deletePickupSlot(String id) async {
     _slots.removeWhere((s) => s.id == id);
+    await _saveSlots();
+  }
+
+  // ── Analytics Implementation ─────────────────────────────────────────────────
+  @override
+  Future<Map<String, dynamic>> getAnalyticsSummary({String period = 'week'}) async {
+    final now = DateTime.now();
+    final cutoff = period == 'week'
+        ? now.subtract(const Duration(days: 7))
+        : now.subtract(const Duration(days: 30));
+
+    final periodOrders = _orders.where((o) => o.createdAt.isAfter(cutoff)).toList();
+
+    double totalRevenue = 0.0;
+    int deliveredCount = 0;
+    int cancelledCount = 0;
+    int processingCount = 0;
+    int pendingCount = 0;
+
+    final Map<String, double> categoryRevenue = {};
+
+    for (final o in periodOrders) {
+      if (o.status == OrderStatus.delivered) {
+        totalRevenue += o.total;
+        deliveredCount++;
+        // Accumulate per-category
+        for (final item in o.items) {
+          categoryRevenue.update(
+            item.serviceName,
+            (existing) => existing + item.totalPrice,
+            ifAbsent: () => item.totalPrice,
+          );
+        }
+      } else if ([
+        OrderStatus.vendorRejected,
+        OrderStatus.customerCancelled,
+        OrderStatus.adminCancelled,
+        OrderStatus.autoRejected,
+      ].contains(o.status)) {
+        cancelledCount++;
+      } else if (o.status == OrderStatus.processing) {
+        processingCount++;
+      } else if (o.status == OrderStatus.waitingForVendorConfirmation) {
+        pendingCount++;
+      }
+    }
+
+    // Daily breakdown for chart (last 7 days always shown)
+    final List<Map<String, dynamic>> dailyData = [];
+    for (int i = 6; i >= 0; i--) {
+      final day = now.subtract(Duration(days: i));
+      final dayStart = DateTime(day.year, day.month, day.day);
+      final dayEnd = dayStart.add(const Duration(days: 1));
+      final dayOrders = _orders.where((o) =>
+        o.createdAt.isAfter(dayStart) && o.createdAt.isBefore(dayEnd) &&
+        o.status == OrderStatus.delivered,
+      );
+      double dayRevenue = 0.0;
+      int dayCount = 0;
+      for (final o in dayOrders) {
+        dayRevenue += o.total;
+        dayCount++;
+      }
+      final weekday = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'][day.weekday - 1];
+      dailyData.add({
+        'label': weekday,
+        'revenue': dayRevenue,
+        'orders': dayCount,
+      });
+    }
+
+    // Normalise category revenue into percentage breakdown
+    final List<Map<String, dynamic>> categoryBreakdown = [];
+    if (totalRevenue > 0) {
+      categoryRevenue.forEach((name, rev) {
+        categoryBreakdown.add({
+          'name': name,
+          'revenue': rev,
+          'percentage': (rev / totalRevenue * 100).roundToDouble(),
+        });
+      });
+      categoryBreakdown.sort((a, b) =>
+          (b['revenue'] as double).compareTo(a['revenue'] as double));
+    }
+
+    final totalOrders = periodOrders.length;
+    final fulfillmentRate = totalOrders > 0
+        ? (deliveredCount / totalOrders * 100).roundToDouble()
+        : 0.0;
+    final avgTicket = deliveredCount > 0 ? totalRevenue / deliveredCount : 0.0;
+
+    return {
+      'period': period,
+      'total_revenue': totalRevenue,
+      'total_orders': totalOrders,
+      'delivered_orders': deliveredCount,
+      'cancelled_orders': cancelledCount,
+      'processing_orders': processingCount,
+      'pending_orders': pendingCount,
+      'fulfillment_rate': fulfillmentRate,
+      'avg_ticket_size': avgTicket,
+      'daily_data': dailyData,
+      'category_breakdown': categoryBreakdown,
+      'repeat_customer_rate': 82.0,
+      'on_time_delivery_rate': 94.0,
+    };
+  }
+
+  @override
+  Future<Map<int, Map<String, dynamic>>> getWorkingHours() async {
+    return _workingHours;
+  }
+
+  @override
+  Future<void> updateWorkingHours(int dayOfWeek, {required bool isOpen, required String openTime, required String closeTime}) async {
+    _workingHours[dayOfWeek] = {
+      'isOpen': isOpen,
+      'openTime': openTime,
+      'closeTime': closeTime,
+    };
+    await _saveWorkingHours();
+  }
+
+  void _loadPersistedData() {
+    final profileJson = _storage.getString('demo_profile');
+    if (profileJson != null) {
+      try {
+        _profile = VendorModel.fromJson(jsonDecode(profileJson) as Map<String, dynamic>);
+      } catch (_) {}
+    }
+
+    final workingHoursJson = _storage.getString('demo_working_hours');
+    if (workingHoursJson != null) {
+      try {
+        final decoded = jsonDecode(workingHoursJson) as Map<String, dynamic>;
+        decoded.forEach((key, val) {
+          final day = int.tryParse(key);
+          if (day != null) {
+            _workingHours[day] = val as Map<String, dynamic>;
+          }
+        });
+      } catch (_) {}
+    }
+
+    final slotsJson = _storage.getString('demo_slots');
+    if (slotsJson != null) {
+      try {
+        final decoded = jsonDecode(slotsJson) as List<dynamic>;
+        _slots.clear();
+        for (final item in decoded) {
+          _slots.add(PickupSlotModel.fromJson(item as Map<String, dynamic>));
+        }
+      } catch (_) {}
+    }
+  }
+
+  Future<void> _saveProfile() async {
+    await _storage.saveString('demo_profile', jsonEncode(_profile.toJson()));
+  }
+
+  Future<void> _saveWorkingHours() async {
+    final stringKeyed = <String, Map<String, dynamic>>{};
+    _workingHours.forEach((k, v) {
+      stringKeyed[k.toString()] = v;
+    });
+    await _storage.saveString('demo_working_hours', jsonEncode(stringKeyed));
+  }
+
+  Future<void> _saveSlots() async {
+    final list = _slots.map((s) => s.toJson()).toList();
+    await _storage.saveString('demo_slots', jsonEncode(list));
   }
 }

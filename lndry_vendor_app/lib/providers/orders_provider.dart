@@ -3,6 +3,9 @@ import '../models/models.dart';
 import '../repositories/repositories.dart';
 import '../shared/repositories/base_repository.dart';
 
+import 'dashboard_provider.dart';
+import 'analytics_provider.dart';
+
 class OrdersFilter {
   const OrdersFilter({
     this.status,
@@ -23,11 +26,12 @@ class OrdersFilter {
 }
 
 class OrdersNotifier extends StateNotifier<AsyncValue<PaginatedResponse<OrderModel>>> {
-  OrdersNotifier(this._repo) : super(const AsyncValue.loading()) {
+  OrdersNotifier(this._repo, this._ref) : super(const AsyncValue.loading()) {
     fetchOrders();
   }
 
   final VendorRepository _repo;
+  final Ref _ref;
   OrdersFilter _filter = const OrdersFilter();
 
   OrdersFilter get filter => _filter;
@@ -46,9 +50,15 @@ class OrdersNotifier extends StateNotifier<AsyncValue<PaginatedResponse<OrderMod
     }
   }
 
+  void _syncStats() {
+    _ref.invalidate(dashboardStatsProvider);
+    _ref.invalidate(analyticsStatsProvider);
+  }
+
   Future<void> acceptOrder(String orderId) async {
     try {
       await _repo.acceptOrder(orderId);
+      _syncStats();
       await fetchOrders();
     } catch (e) {
       rethrow;
@@ -58,6 +68,7 @@ class OrdersNotifier extends StateNotifier<AsyncValue<PaginatedResponse<OrderMod
   Future<void> rejectOrder(String orderId, {String? reason}) async {
     try {
       await _repo.rejectOrder(orderId, reason: reason);
+      _syncStats();
       await fetchOrders();
     } catch (e) {
       rethrow;
@@ -67,6 +78,7 @@ class OrdersNotifier extends StateNotifier<AsyncValue<PaginatedResponse<OrderMod
   Future<void> updateStage(String orderId, String stage) async {
     try {
       await _repo.updateProcessingStage(orderId, stage);
+      _syncStats();
       await fetchOrders();
     } catch (e) {
       rethrow;
@@ -86,6 +98,7 @@ class OrdersNotifier extends StateNotifier<AsyncValue<PaginatedResponse<OrderMod
         confirmedWeightKg: confirmedWeightKg,
         adjustmentReason: adjustmentReason,
       );
+      _syncStats();
       await fetchOrders();
     } catch (e) {
       rethrow;
@@ -96,10 +109,13 @@ class OrdersNotifier extends StateNotifier<AsyncValue<PaginatedResponse<OrderMod
 final ordersListProvider = StateNotifierProvider.autoDispose<
     OrdersNotifier, AsyncValue<PaginatedResponse<OrderModel>>>((ref) {
   final repo = ref.watch(vendorRepositoryProvider);
-  return OrdersNotifier(repo);
+  return OrdersNotifier(repo, ref);
 });
 
 final orderDetailsProvider = FutureProvider.family.autoDispose<OrderModel, String>((ref, id) async {
   final repo = ref.watch(vendorRepositoryProvider);
   return repo.getOrder(id);
 });
+
+// Used by dashboard to jump to a specific orders tab
+final selectedOrdersTabProvider = StateProvider<int>((ref) => 0);

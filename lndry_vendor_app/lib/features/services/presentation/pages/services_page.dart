@@ -407,7 +407,22 @@ class _ServicesPageState extends ConsumerState<ServicesPage> {
             );
           },
           loading: () => const Center(child: CircularProgressIndicator()),
-          error: (err, _) => Center(child: Text('Failed to load services: $err')),
+          error: (err, _) => Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.error_outline_rounded, color: AppColors.error, size: 48.r),
+                SizedBox(height: 16.h),
+                Text('Failed to load services: $err', style: AppTypography.bodyMedium),
+                SizedBox(height: 8.h),
+                ElevatedButton.icon(
+                  onPressed: () => ref.invalidate(servicesListProvider),
+                  icon: const Icon(Icons.refresh_rounded),
+                  label: const Text('Retry'),
+                ),
+              ],
+            ),
+          ),
         ),
       ),
       floatingActionButton: FloatingActionButton(

@@ -125,6 +125,14 @@ abstract interface class VendorRepository {
   });
 
   Future<void> deletePickupSlot(String id);
+
+  // -- Analytics
+  /// Returns computed analytics summary for the given period ('week' or 'month').
+  Future<Map<String, dynamic>> getAnalyticsSummary({String period = 'week'});
+
+  // -- Working Hours
+  Future<Map<int, Map<String, dynamic>>> getWorkingHours();
+  Future<void> updateWorkingHours(int dayOfWeek, {required bool isOpen, required String openTime, required String closeTime});
 }
 
 class SendOtpResult {

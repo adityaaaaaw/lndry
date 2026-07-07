@@ -567,6 +567,33 @@ class ApiVendorRepository implements VendorRepository {
       _ => OrderStatus.waitingForVendorConfirmation,
     };
   }
+
+  @override
+  Future<Map<String, dynamic>> getAnalyticsSummary({String period = 'week'}) async {
+    final resp = await _dio.get(
+      '/vendor/analytics/summary',
+      queryParameters: {'period': period},
+    );
+    return _extractData(resp.data as Map<String, dynamic>);
+  }
+
+  @override
+  Future<Map<int, Map<String, dynamic>>> getWorkingHours() async {
+    return {
+      0: {'isOpen': true, 'openTime': '08:00', 'closeTime': '20:00'},
+      1: {'isOpen': true, 'openTime': '08:00', 'closeTime': '20:00'},
+      2: {'isOpen': true, 'openTime': '08:00', 'closeTime': '20:00'},
+      3: {'isOpen': true, 'openTime': '08:00', 'closeTime': '20:00'},
+      4: {'isOpen': true, 'openTime': '08:00', 'closeTime': '20:00'},
+      5: {'isOpen': true, 'openTime': '08:00', 'closeTime': '20:00'},
+      6: {'isOpen': true, 'openTime': '08:00', 'closeTime': '20:00'},
+    };
+  }
+
+  @override
+  Future<void> updateWorkingHours(int dayOfWeek, {required bool isOpen, required String openTime, required String closeTime}) async {
+    // Stub for API
+  }
 }
 
 // ── Provider ────────────────────────────────────────────────────────────────────

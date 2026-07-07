@@ -20,7 +20,12 @@ class _OrdersPageState extends ConsumerState<OrdersPage> with SingleTickerProvid
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 4, vsync: this);
+    final initialTab = ref.read(selectedOrdersTabProvider);
+    _tabController = TabController(
+      length: 4,
+      vsync: this,
+      initialIndex: initialTab,
+    );
   }
 
   @override
@@ -35,6 +40,12 @@ class _OrdersPageState extends ConsumerState<OrdersPage> with SingleTickerProvid
 
   @override
   Widget build(BuildContext context) {
+    ref.listen<int>(selectedOrdersTabProvider, (previous, next) {
+      if (next != null && next != _tabController.index) {
+        _tabController.animateTo(next);
+      }
+    });
+
     final ordersAsync = ref.watch(ordersListProvider);
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
@@ -217,25 +228,34 @@ class _OrdersPageState extends ConsumerState<OrdersPage> with SingleTickerProvid
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
-                    'Order #${order.id.substring(0, 8).toUpperCase()}',
-                    style: AppTypography.bodyLarge.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: isDark ? AppColors.white : AppColors.textBlack,
+                  Expanded(
+                    child: Text(
+                      'Order #${order.id.substring(0, 8).toUpperCase()}',
+                      style: AppTypography.bodyLarge.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: isDark ? AppColors.white : AppColors.textBlack,
+                      ),
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
-                  Container(
-                    padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 4.h),
-                    decoration: BoxDecoration(
-                      color: statusColor.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(20.r),
-                      border: Border.all(color: statusColor.withOpacity(0.3)),
-                    ),
-                    child: Text(
-                      order.status.label.toUpperCase(),
-                      style: AppTypography.bodySmall.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: statusColor,
+                  SizedBox(width: 8.w),
+                  Flexible(
+                    child: Container(
+                      padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 4.h),
+                      decoration: BoxDecoration(
+                        color: statusColor.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(20.r),
+                        border: Border.all(color: statusColor.withOpacity(0.3)),
+                      ),
+                      child: Text(
+                        order.status.label.toUpperCase(),
+                        style: AppTypography.bodySmall.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: statusColor,
+                          fontSize: 9.sp,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
                   ),
@@ -259,13 +279,17 @@ class _OrdersPageState extends ConsumerState<OrdersPage> with SingleTickerProvid
                 children: [
                   Icon(Icons.access_time_rounded, size: 16.r, color: AppColors.textSecondary),
                   SizedBox(width: 6.w),
-                  Text(
-                    order.scheduledPickupAt != null
-                        ? 'Pickup: ${_formatDateTime(order.scheduledPickupAt!)}'
-                        : 'Created: ${_formatDateTime(order.createdAt)}',
-                    style: AppTypography.bodySmall.copyWith(color: AppColors.textSecondary),
+                  Expanded(
+                    child: Text(
+                      order.scheduledPickupAt != null
+                          ? 'Pickup: ${_formatDateTime(order.scheduledPickupAt!)}'
+                          : 'Created: ${_formatDateTime(order.createdAt)}',
+                      style: AppTypography.bodySmall.copyWith(color: AppColors.textSecondary),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
-                  const Spacer(),
+                  SizedBox(width: 12.w),
                   Text(
                     '₹${order.total.toStringAsFixed(2)}',
                     style: AppTypography.bodyLarge.copyWith(

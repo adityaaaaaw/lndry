@@ -331,16 +331,23 @@ class _EmployeesPageState extends ConsumerState<EmployeesPage> {
   Widget build(BuildContext context) {
     final employeesAsync = ref.watch(employeesListProvider);
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final canPop = context.canPop();
 
-    return Scaffold(
-      backgroundColor: isDark ? AppColors.darkBackground : const Color(0xFFF8F9FD),
-      appBar: AppBar(
-        backgroundColor: isDark ? AppColors.darkSurface : AppColors.white,
-        elevation: 0,
-        leading: IconButton(
-          icon: Icon(Icons.arrow_back_ios_new_rounded, color: isDark ? AppColors.white : AppColors.textBlack),
-          onPressed: () => context.pop(),
-        ),
+    return PopScope(
+      canPop: canPop,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        context.go('/profile');
+      },
+      child: Scaffold(
+        backgroundColor: isDark ? AppColors.darkBackground : const Color(0xFFF8F9FD),
+        appBar: AppBar(
+          backgroundColor: isDark ? AppColors.darkSurface : AppColors.white,
+          elevation: 0,
+          leading: IconButton(
+            icon: Icon(Icons.arrow_back_ios_new_rounded, color: isDark ? AppColors.white : AppColors.textBlack),
+            onPressed: () => context.canPop() ? context.pop() : context.go('/profile'),
+          ),
         title: Text(
           'Shop Employees',
           style: AppTypography.headlineMedium.copyWith(
@@ -492,6 +499,7 @@ class _EmployeesPageState extends ConsumerState<EmployeesPage> {
         foregroundColor: AppColors.white,
         child: const Icon(Icons.add),
       ),
-    );
-  }
+    ),
+  );
+}
 }

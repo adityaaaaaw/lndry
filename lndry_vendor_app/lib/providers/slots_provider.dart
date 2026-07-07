@@ -66,14 +66,47 @@ class SlotsNotifier extends StateNotifier<AsyncValue<List<PickupSlotModel>>> {
   }
 }
 
-final slotsListProvider = StateNotifierProvider.autoDispose<
+final slotsListProvider = StateNotifierProvider<
     SlotsNotifier, AsyncValue<List<PickupSlotModel>>>((ref) {
   final repo = ref.watch(vendorRepositoryProvider);
   return SlotsNotifier(repo);
 });
 
 // FutureProvider for daily capacity limit settings
-final dailyCapacityProvider = FutureProvider.autoDispose<Map<String, dynamic>>((ref) async {
+final dailyCapacityProvider = FutureProvider<Map<String, dynamic>>((ref) async {
   final repo = ref.watch(vendorRepositoryProvider);
   return repo.getCapacity();
+});
+
+class WorkingHoursNotifier extends StateNotifier<AsyncValue<Map<int, Map<String, dynamic>>>> {
+  WorkingHoursNotifier(this._repo) : super(const AsyncValue.loading()) {
+    fetchWorkingHours();
+  }
+
+  final VendorRepository _repo;
+
+  Future<void> fetchWorkingHours() async {
+    state = const AsyncValue.loading();
+    try {
+      final hours = await _repo.getWorkingHours();
+      state = AsyncValue.data(hours);
+    } catch (e, st) {
+      state = AsyncValue.error(e, st);
+    }
+  }
+
+  Future<void> updateHours(int dayOfWeek, {required bool isOpen, required String openTime, required String closeTime}) async {
+    try {
+      await _repo.updateWorkingHours(dayOfWeek, isOpen: isOpen, openTime: openTime, closeTime: closeTime);
+      await fetchWorkingHours();
+    } catch (e) {
+      rethrow;
+    }
+  }
+}
+
+final workingHoursProvider = StateNotifierProvider<
+    WorkingHoursNotifier, AsyncValue<Map<int, Map<String, dynamic>>>>((ref) {
+  final repo = ref.watch(vendorRepositoryProvider);
+  return WorkingHoursNotifier(repo);
 });

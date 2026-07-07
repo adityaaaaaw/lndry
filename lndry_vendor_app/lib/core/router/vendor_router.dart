@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../design/design_system.dart';
@@ -21,6 +22,13 @@ import '../../features/analytics/presentation/pages/analytics_page.dart';
 import '../../features/notifications/presentation/pages/notifications_page.dart';
 import '../../features/profile/presentation/pages/profile_page.dart';
 import '../../features/settings/presentation/pages/settings_page.dart';
+import '../../features/help/presentation/pages/help_page.dart';
+
+final dashboardNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'dashboardNav');
+final ordersNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'ordersNav');
+final servicesNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'servicesNav');
+final analyticsNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'analyticsNav');
+final profileNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'profileNav');
 
 // ── Custom Transitions ────────────────────────────────────────────────────────
 
@@ -197,74 +205,95 @@ final List<RouteBase> _vendorRoutes = [
     builder: (_, __, shell) => _VendorShell(navigationShell: shell),
     branches: [
       // Tab 0: Dashboard
-      StatefulShellBranch(routes: [
-        GoRoute(
-          path: AppRoutes.dashboard,
-          name: AppRouteNames.dashboard,
-          builder: (c, s) => const DashboardPage(),
-        ),
-      ]),
+      StatefulShellBranch(
+        navigatorKey: dashboardNavigatorKey,
+        routes: [
+          GoRoute(
+            path: AppRoutes.dashboard,
+            name: AppRouteNames.dashboard,
+            builder: (c, s) => const DashboardPage(),
+          ),
+        ],
+      ),
 
       // Tab 1: Orders
-      StatefulShellBranch(routes: [
-        GoRoute(
-          path: AppRoutes.orders,
-          name: AppRouteNames.orders,
-          builder: (c, s) => const OrdersPage(),
-          routes: [
-            GoRoute(
-              path: 'details/:orderId',
-              name: AppRouteNames.orderDetails,
-              pageBuilder: (c, s) => _slideTransition(
-                context: c,
-                state: s,
-                child: OrderDetailsPage(orderId: s.pathParameters['orderId']!),
+      StatefulShellBranch(
+        navigatorKey: ordersNavigatorKey,
+        routes: [
+          GoRoute(
+            path: AppRoutes.orders,
+            name: AppRouteNames.orders,
+            builder: (c, s) => const OrdersPage(),
+            routes: [
+              GoRoute(
+                path: 'details/:orderId',
+                name: AppRouteNames.orderDetails,
+                pageBuilder: (c, s) => _slideTransition(
+                  context: c,
+                  state: s,
+                  child: OrderDetailsPage(orderId: s.pathParameters['orderId']!),
+                ),
               ),
-            ),
-          ],
-        ),
-      ]),
+            ],
+          ),
+        ],
+      ),
 
       // Tab 2: Services
-      StatefulShellBranch(routes: [
-        GoRoute(
-          path: AppRoutes.services,
-          name: AppRouteNames.services,
-          builder: (c, s) => const ServicesPage(),
-        ),
-      ]),
+      StatefulShellBranch(
+        navigatorKey: servicesNavigatorKey,
+        routes: [
+          GoRoute(
+            path: AppRoutes.services,
+            name: AppRouteNames.services,
+            builder: (c, s) => const ServicesPage(),
+          ),
+        ],
+      ),
 
       // Tab 3: Analytics
-      StatefulShellBranch(routes: [
-        GoRoute(
-          path: AppRoutes.analytics,
-          name: AppRouteNames.analytics,
-          builder: (c, s) => const AnalyticsPage(),
-        ),
-      ]),
+      StatefulShellBranch(
+        navigatorKey: analyticsNavigatorKey,
+        routes: [
+          GoRoute(
+            path: AppRoutes.analytics,
+            name: AppRouteNames.analytics,
+            builder: (c, s) => const AnalyticsPage(),
+          ),
+        ],
+      ),
 
       // Tab 4: Profile
-      StatefulShellBranch(routes: [
-        GoRoute(
-          path: AppRoutes.profile,
-          name: AppRouteNames.profile,
-          builder: (c, s) => const ProfilePage(),
-          routes: [
-            GoRoute(
-              path: 'settings',
-              name: AppRouteNames.settings,
-              pageBuilder: (c, s) => _slideTransition(
-                  context: c, state: s, child: const SettingsPage()),
-            ),
-            GoRoute(
-              path: 'notifications',
-              name: AppRouteNames.notifications,
-              pageBuilder: (c, s) => _slideTransition(
-                  context: c, state: s, child: const NotificationsPage()),
-            ),
-          ],
-        ),
-      ]),
+      StatefulShellBranch(
+        navigatorKey: profileNavigatorKey,
+        routes: [
+          GoRoute(
+            path: AppRoutes.profile,
+            name: AppRouteNames.profile,
+            builder: (c, s) => const ProfilePage(),
+            routes: [
+              GoRoute(
+                path: 'settings',
+                name: AppRouteNames.settings,
+                pageBuilder: (c, s) => _slideTransition(
+                    context: c, state: s, child: const SettingsPage()),
+              ),
+              GoRoute(
+                path: 'notifications',
+                name: AppRouteNames.notifications,
+                pageBuilder: (c, s) => _slideTransition(
+                    context: c, state: s, child: const NotificationsPage()),
+              ),
+              GoRoute(
+                path: 'help',
+                name: AppRouteNames.help,
+                pageBuilder: (c, s) => _slideTransition(
+                    context: c, state: s, child: const HelpPage()),
+              ),
+            ],
+          ),
+        ],
+      ),
     ],
   ),
 
@@ -308,11 +337,28 @@ class _VendorShell extends ConsumerWidget {
     final navHeight = 72.h;
     final navBottom = 12.h + safeBottom;
 
+    final currentIndex = navigationShell.currentIndex;
+    final NavigatorState? currentNavigator = switch (currentIndex) {
+      0 => dashboardNavigatorKey.currentState,
+      1 => ordersNavigatorKey.currentState,
+      2 => servicesNavigatorKey.currentState,
+      3 => analyticsNavigatorKey.currentState,
+      4 => profileNavigatorKey.currentState,
+      _ => null,
+    };
+    final canPop = currentNavigator?.canPop() ?? false;
+
     return PopScope(
-      canPop: navigationShell.currentIndex == 0,
+      canPop: false,
       onPopInvokedWithResult: (didPop, result) {
         if (didPop) return;
-        navigationShell.goBranch(0);
+        if (canPop) {
+          currentNavigator?.pop();
+        } else if (currentIndex != 0) {
+          navigationShell.goBranch(0);
+        } else {
+          _showExitDialog(context);
+        }
       },
       child: Scaffold(
         body: Stack(
@@ -394,6 +440,35 @@ class _VendorShell extends ConsumerWidget {
         ),
       ),
     );
+  }
+
+  Future<void> _showExitDialog(BuildContext context) async {
+    final exit = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Exit Application?'),
+        content: const Text('Are you sure you want to exit LNDRY Vendor?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.error,
+              foregroundColor: Colors.white,
+              minimumSize: const Size(80, 40),
+            ),
+            child: const Text('Exit'),
+          ),
+        ],
+      ),
+    );
+    if (exit == true) {
+      await SystemNavigator.pop();
+    }
   }
 }
 
