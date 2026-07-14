@@ -41,7 +41,7 @@ export const verifyOtpSchema = {
     properties: {
       phone: { type: 'string', minLength: 10, maxLength: 15 },
       otp: { type: 'string', minLength: 4, maxLength: 8 },
-      role: { type: 'string', enum: ['CUSTOMER', 'RIDER', 'DELIVERY'] },
+      role: { type: 'string', enum: ['CUSTOMER', 'RIDER', 'DELIVERY', 'vendor', 'VENDOR'] },
       challenge_id: { type: 'string', format: 'uuid' },
       device: {
         type: 'object',

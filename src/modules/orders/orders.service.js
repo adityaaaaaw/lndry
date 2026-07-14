@@ -700,11 +700,13 @@ export class OrdersService {
     }
 
     // Customers can only access their own invoices
-    if (order.user_id !== userId) {
+    const orderOwner = order.userId || order.user_id
+    if (orderOwner !== userId) {
       return { success: false, statusCode: 403, message: 'Access denied' }
     }
 
-    if (order.payment_status !== 'PAID') {
+    const payStatus = order.paymentStatus || order.payment_status
+    if (payStatus !== 'PAID') {
       return { success: false, statusCode: 400, message: 'Invoice available only for paid orders' }
     }
 
@@ -1380,6 +1382,15 @@ export class OrdersService {
       await client.query('UPDATE slot_holds SET status = \'CONSUMED\' WHERE id = $1', [hold.id])
 
       await client.query('COMMIT')
+
+      // Generate pickup OTP immediately for customer display
+      try {
+        const { OrderOtpService } = await import('../order-otp/order-otp.service.js')
+        const otpService = new OrderOtpService()
+        await otpService.generateOtp(order.id, 'PICKUP')
+      } catch (err) {
+        logger.warn({ err: err.message, orderId: order.id }, 'Pickup OTP generation failed')
+      }
 
       // Notify vendor
       try {

@@ -5,6 +5,7 @@ import pg from 'pg'
 import dotenv from 'dotenv'
 import { seedCategories } from './categories.seed.js'
 import { seedProducts } from './products.seed.js'
+import { seedVendors } from './vendors.seed.js'
 import { waitForDb } from '../waitForDb.js'
 
 dotenv.config()
@@ -30,6 +31,7 @@ async function run() {
 
     const categories = await seedCategories(pool)
     await seedProducts(pool, categories)
+    await seedVendors(pool)
 
     console.log('\n🎉 All seeds completed!')
   } catch (err) {

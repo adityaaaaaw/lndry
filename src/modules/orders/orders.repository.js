@@ -1,4 +1,5 @@
 import { query, getClient } from '../../config/database.js'
+import { ACTIVE_ORDER_STATUSES } from '../../constants/orderStatus.js'
 
 /**
  * Orders repository — all SQL queries for orders + order_items
@@ -266,15 +267,18 @@ export class OrdersRepository {
    * Find active order for user (latest non-completed)
    */
   async findActiveByUser(userId) {
+    const placeholders = ACTIVE_ORDER_STATUSES
+      .map((_, index) => `$${index + 2}`)
+      .join(',')
     const { rows } = await query(
       `SELECT o.*, ru.name AS rider_name, ru.phone AS rider_phone
        FROM orders o
        LEFT JOIN users ru ON ru.id = o.rider_id
        WHERE o.user_id = $1
-         AND o.status IN ('PENDING','CONFIRMED','PREPARING','PACKED','OUT_FOR_DELIVERY')
+         AND o.status IN (${placeholders})
        ORDER BY o.created_at DESC
        LIMIT 1`,
-      [userId]
+      [userId, ...ACTIVE_ORDER_STATUSES]
     )
     return rows[0] ? this._format(rows[0]) : null
   }

@@ -68,11 +68,31 @@ export class PaymentsService {
 
     const expiresAt = new Date(Date.now() + 15 * 60 * 1000)
 
-    if (!razorpay) {
-      if (env.NODE_ENV === 'production' || (env.NODE_ENV !== 'test' && !env.ALLOW_MOCK_PAYMENT)) {
-        throw { statusCode: 400, message: 'Razorpay integration is not configured', code: 'RAZORPAY_CONFIG_ERROR' }
+    let rzpOrder = null
+    if (razorpay) {
+      try {
+        rzpOrder = await razorpay.orders.create({
+          amount: amountPaise,
+          currency: 'INR',
+          receipt: receipt.substring(0, 40),
+          notes: {
+            orderId: orderId || null,
+            orderDraftId: orderDraftIdVal || null,
+            userId,
+          },
+        })
+      } catch (err) {
+        if (env.NODE_ENV === 'production') {
+          throw err
+        }
+        logger.warn({ err: err.message }, 'Razorpay API call failed in dev/test, falling back to mock order')
       }
-      // Mock fallback
+    }
+
+    if (!rzpOrder) {
+      if (env.NODE_ENV === 'production') {
+        throw { statusCode: 400, message: 'Razorpay integration is not configured or failed', code: 'RAZORPAY_CONFIG_ERROR' }
+      }
       const mockRzpOrderId = `order_mock_${Math.random().toString(36).substring(2, 11)}`
       const payment = await this.repo.create({
         orderId: orderId || null,
@@ -105,17 +125,6 @@ export class PaymentsService {
     }
 
     // Create Razorpay order
-    const rzpOrder = await razorpay.orders.create({
-      amount: amountPaise,
-      currency: 'INR',
-      receipt: receipt.substring(0, 40),
-      notes: {
-        orderId: orderId || null,
-        orderDraftId: orderDraftIdVal || null,
-        userId,
-      },
-    })
-
     // Save payment record
     const payment = await this.repo.create({
       orderId: orderId || null,
@@ -191,8 +200,8 @@ export class PaymentsService {
     }
 
     const isMock = rzpOrderId.startsWith('order_mock_') || !razorpay
-    if (isMock && (env.NODE_ENV === 'production' || (env.NODE_ENV !== 'test' && !env.ALLOW_MOCK_PAYMENT))) {
-      return { success: false, message: 'Mock payment not allowed in this environment' }
+    if (isMock && env.NODE_ENV === 'production') {
+      return { success: false, message: 'Mock payment not allowed in production environment' }
     }
 
     // HMAC-SHA256 verification

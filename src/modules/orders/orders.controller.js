@@ -127,7 +127,8 @@ export class OrdersController {
   }
 
   async placeOrderFromDraft(request, reply) {
-    const result = await this.service.placeOrderFromDraft(request.user.id, request.body)
+    const orderDraftId = request.body.orderDraftId || request.body.order_draft_id
+    const result = await this.service.placeOrderFromDraft(request.user.id, { ...request.body, orderDraftId })
     if (!result.success) {
       const code = result.code || 'PLACE_ORDER_FAILED'
       return reply.code(400).send(error(result.message, code))
