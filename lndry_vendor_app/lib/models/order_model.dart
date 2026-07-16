@@ -216,19 +216,20 @@ class OrderModel with _$OrderModel {
     DateTime? updatedAt,
   }) = _OrderModel;
 
-  factory OrderModel.fromJson(Map<String, dynamic> json) {
-    // FIX #3: Normalize status and payment method to prevent crashes on
-    // unknown or differently cased values from mock/backend data.
-    final normalized = Map<String, dynamic>.from(json);
-    if (json['status'] is String) {
-      normalized['status'] = _normalizeStatus(json['status'] as String);
-    }
-    if (json['paymentMethod'] is String) {
-      normalized['paymentMethod'] =
-          _normalizePaymentMethod(json['paymentMethod'] as String);
-    }
-    return _$OrderModelFromJson(normalized);
+  factory OrderModel.fromJson(Map<String, dynamic> json) =>
+      _$OrderModelFromJson(_normalizeOrderJson(json));
+}
+
+Map<String, dynamic> _normalizeOrderJson(Map<String, dynamic> json) {
+  final normalized = Map<String, dynamic>.from(json);
+  if (json['status'] is String) {
+    normalized['status'] = _normalizeStatus(json['status'] as String);
   }
+  if (json['paymentMethod'] is String) {
+    normalized['paymentMethod'] =
+        _normalizePaymentMethod(json['paymentMethod'] as String);
+  }
+  return normalized;
 }
 
 /// Normalizes an order status string to match the canonical enum values.

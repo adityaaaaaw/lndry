@@ -18,17 +18,20 @@ class PickupSlotModel {
   final bool isActive;
 
   factory PickupSlotModel.fromJson(Map<String, dynamic> json) {
+    int toInt(dynamic val, int fallback) {
+      if (val == null) return fallback;
+      if (val is num) return val.toInt();
+      if (val is String) return int.tryParse(val) ?? fallback;
+      return fallback;
+    }
+
     return PickupSlotModel(
       id: json['id'] as String? ?? '',
       vendorId: json['vendor_id'] as String? ?? json['vendorId'] as String? ?? '',
-      dayOfWeek: (json['day_of_week'] as num?)?.toInt() ??
-          (json['dayOfWeek'] as num?)?.toInt() ??
-          0,
+      dayOfWeek: toInt(json['day_of_week'] ?? json['dayOfWeek'], 0),
       startTime: json['start_time'] as String? ?? json['startTime'] as String? ?? '',
       endTime: json['end_time'] as String? ?? json['endTime'] as String? ?? '',
-      maxOrders: (json['max_orders'] as num?)?.toInt() ??
-          (json['maxOrders'] as num?)?.toInt() ??
-          5,
+      maxOrders: toInt(json['max_orders'] ?? json['maxOrders'], 5),
       isActive: json['is_active'] as bool? ?? json['isActive'] as bool? ?? true,
     );
   }

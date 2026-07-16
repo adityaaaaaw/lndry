@@ -73,6 +73,9 @@ class _OtpPageState extends ConsumerState<OtpPage> {
     final authState = ref.watch(authProvider);
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final phoneNum = authState is AuthOtpSent ? authState.phone : '';
+    if (authState is AuthOtpSent && authState.devOtp != null && _otpController.text.isEmpty) {
+      _otpController.text = authState.devOtp!;
+    }
 
     return GestureDetector(
       onTap: () => FocusScope.of(context).unfocus(),

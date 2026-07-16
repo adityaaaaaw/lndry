@@ -58,7 +58,7 @@ export class VendorsRepository {
       `SELECT id, name, slug, branch_code, description, logo_url, banner_url,
         phone, email, address_line1, address_line2, city, state, pincode,
         lat, lng, serviceable_pincodes, delivery_radius_km,
-        is_active, operating_hours, commission_rate, status,
+        is_active, is_open, operating_hours, commission_rate, status,
         bank_account_number, bank_ifsc, bank_name, bank_holder_name,
         gst_number, pan_number, created_by, created_at, updated_at,
         vendor_approved, account_enabled, marketplace_published,
@@ -75,7 +75,7 @@ export class VendorsRepository {
       `SELECT id, name, slug, branch_code, description, logo_url, banner_url,
         phone, email, address_line1, address_line2, city, state, pincode,
         lat, lng, serviceable_pincodes, delivery_radius_km,
-        is_active, operating_hours, commission_rate, status,
+        is_active, is_open, operating_hours, commission_rate, status,
         bank_account_number, bank_ifsc, bank_name, bank_holder_name,
         gst_number, pan_number, created_by, created_at, updated_at,
         vendor_approved, account_enabled, marketplace_published,
@@ -105,6 +105,7 @@ export class VendorsRepository {
       lng: 'lng',
       delivery_radius_km: 'delivery_radius_km',
       is_active: 'is_active',
+      is_open: 'is_open',
       status: 'status',
       commission_rate: 'commission_rate',
       bank_account_number: 'bank_account_number',
@@ -218,7 +219,7 @@ export class VendorsRepository {
       query(
         `SELECT id, name, slug, branch_code, description, logo_url, banner_url,
           phone, email, address_line1, address_line2, city, state, pincode,
-          lat, lng, delivery_radius_km, is_active, status, created_at
+          lat, lng, delivery_radius_km, is_active, is_open, status, created_at
         FROM vendors
         WHERE ${where}
         ORDER BY created_at DESC

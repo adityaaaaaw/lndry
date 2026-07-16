@@ -31,10 +31,18 @@ export class AuthController {
    */
   async verifyOtp(request, reply) {
     const { phone, challenge_id, otp, device, role } = request.body
+    request.log.info({ phone, challenge_id, otpLength: otp?.length, device, role }, 'verifyOtp controller invoked')
 
-    const result = await this.service.verifyOtp(phone, challenge_id || otp, otp || role, device || role)
+    let result;
+    try {
+      result = await this.service.verifyOtp(phone, challenge_id || otp, otp || role, device || role)
+    } catch (err) {
+      request.log.error({ err, phone, challenge_id }, 'verifyOtp service execution failed')
+      return reply.code(err.statusCode || 500).send(error(err.message || 'Verification failed', err.code || 'VERIFICATION_ERROR'))
+    }
 
     if (!result.success) {
+      request.log.warn({ phone, challenge_id, message: result.message }, 'verifyOtp verification challenge rejected')
       return reply.code(400).send(error(result.message, 'INVALID_OTP'))
     }
 

@@ -11,16 +11,16 @@ abstract final class AssetConstants {
   static const String _svg = 'assets/svg';
 
   // ── Images ────────────────────────────────────────────────────────────────
-  static const String logoFull = '$_images/logo_full.png';
-  static const String logoMark = '$_images/logo_mark.png';
-  static const String logoDark = '$_images/logo_dark.png';
+  static const String logoFull = 'assets/images/logo/lndry_logo.png';
+  static const String logoMark = 'assets/images/logo/lndry_logo.png';
+  static const String logoDark = 'assets/images/logo/lndry_logo.png';
   static const String splashBg = '$_images/splash_bg.png';
   static const String onboarding1 = '$_images/onboarding_1.png';
   static const String onboarding2 = '$_images/onboarding_2.png';
   static const String onboarding3 = '$_images/onboarding_3.png';
   static const String avatarPlaceholder = '$_images/avatar_placeholder.png';
   static const String servicePlaceholder = '$_images/service_placeholder.png';
-  static const String logo = '$_images/logo.png';
+  static const String logo = 'assets/images/logo/lndry_logo.png';
   static const String firstPickupBanner =
       '$_images/banners/first-pickup-v1.png';
 

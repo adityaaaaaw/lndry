@@ -156,7 +156,7 @@ export class AuthRepository {
          s.name         AS shop_name,
          ss.role        AS role,
          ss.permissions AS permissions
-       FROM vendor_staff ss
+       FROM vendor_employees ss
        JOIN vendors s ON s.id = ss.vendor_id
       WHERE ss.user_id    = $1
         AND ss.is_active  = true
@@ -186,7 +186,7 @@ export class AuthRepository {
          s.name         AS shop_name,
          ss.role        AS role,
          ss.permissions AS permissions
-       FROM vendor_staff ss
+       FROM vendor_employees ss
        JOIN vendors s ON s.id = ss.vendor_id
       WHERE ss.user_id    = $1
         AND ss.vendor_id    = $2

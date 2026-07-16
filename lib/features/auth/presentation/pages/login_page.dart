@@ -102,7 +102,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                             borderRadius: BorderRadius.circular(AppRadius.xl.r),
                           ),
                           child: Image.asset(
-                            'assets/images/logo.png',
+                            'assets/images/logo/lndry_logo.png',
                             width: 40.r,
                             height: 40.r,
                             fit: BoxFit.contain,

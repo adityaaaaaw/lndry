@@ -45,7 +45,7 @@ LNDRY Platform Requirements and Technical Security, Maps, payment, capacity, thi
 3
 Annexure acceptance requirements.
 Exact visual implementation: layout, spacing,
-Approved UI/UX screen images and asset pack
+Approved UI/UX screen images and asset packflutter run -d emulator-5554
 4 typography, colours, icons, illustrations, copy and
 supplied by the project owner
 screen states.

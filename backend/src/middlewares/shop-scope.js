@@ -107,7 +107,7 @@ async function isStaffActive(userId, shopId) {
 
   const { rows } = await query(
     `SELECT ss.id
-       FROM vendor_staff ss
+       FROM vendor_employees ss
        JOIN vendors s ON s.id = ss.vendor_id
       WHERE ss.user_id = $1
         AND ss.vendor_id = $2

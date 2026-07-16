@@ -19,6 +19,11 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
+  final _descriptionController = TextEditingController();
+  final _addressLine1Controller = TextEditingController();
+  final _cityController = TextEditingController();
+  final _stateController = TextEditingController();
+  final _pincodeController = TextEditingController();
   bool _isSaving = false;
   bool _isEditing = false;
 
@@ -26,6 +31,11 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
   void dispose() {
     _nameController.dispose();
     _emailController.dispose();
+    _descriptionController.dispose();
+    _addressLine1Controller.dispose();
+    _cityController.dispose();
+    _stateController.dispose();
+    _pincodeController.dispose();
     super.dispose();
   }
 
@@ -36,6 +46,11 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
         await ref.read(authProvider.notifier).updateProfile(
               name: _nameController.text.trim(),
               email: _emailController.text.trim(),
+              description: _descriptionController.text.trim(),
+              addressLine1: _addressLine1Controller.text.trim(),
+              city: _cityController.text.trim(),
+              stateStr: _stateController.text.trim(),
+              pincode: _pincodeController.text.trim(),
             );
         setState(() => _isEditing = false);
         if (mounted) {
@@ -101,11 +116,14 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
 
     final vendor = authState.vendor;
 
-    if (_nameController.text.isEmpty) {
+    if (!_isEditing) {
       _nameController.text = vendor.name;
-    }
-    if (_emailController.text.isEmpty && vendor.email != null) {
-      _emailController.text = vendor.email!;
+      _emailController.text = vendor.email ?? '';
+      _descriptionController.text = vendor.description;
+      _addressLine1Controller.text = vendor.address.line1;
+      _cityController.text = vendor.address.city;
+      _stateController.text = vendor.address.state;
+      _pincodeController.text = vendor.address.pincode;
     }
 
     return Scaffold(
@@ -130,11 +148,6 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
             onPressed: () {
               setState(() {
                 _isEditing = !_isEditing;
-                if (!_isEditing) {
-                  // reset on cancel
-                  _nameController.text = vendor.name;
-                  _emailController.text = vendor.email ?? '';
-                }
               });
             },
           ),
@@ -146,57 +159,63 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             // ── Profile Header Card ────────────────────────────────────────
-            Container(
-              padding: EdgeInsets.all(20.r),
-              decoration: BoxDecoration(
-                gradient: AppColors.primaryGradient,
-                borderRadius: BorderRadius.circular(20.r),
-                boxShadow: AppElevation.medium,
-              ),
-              child: Column(
-                children: [
-                  Stack(
+            Stack(
+              children: [
+                Container(
+                  padding: EdgeInsets.all(20.r),
+                  decoration: BoxDecoration(
+                    gradient: AppColors.primaryGradient,
+                    borderRadius: BorderRadius.circular(20.r),
+                    boxShadow: AppElevation.medium,
+                  ),
+                  child: Column(
                     children: [
-                      CircleAvatar(
-                        radius: 40.r,
-                        backgroundColor: Colors.white.withValues(alpha: 0.2),
-                        child: Icon(Icons.storefront_rounded,
-                            color: Colors.white, size: 40.r),
-                      ),
-                      if (_isEditing)
-                        Positioned(
-                          right: 0,
-                          bottom: 0,
-                          child: Container(
-                            padding: EdgeInsets.all(4.r),
-                            decoration: const BoxDecoration(
-                              color: Colors.white,
-                              shape: BoxShape.circle,
-                            ),
-                            child: Icon(Icons.camera_alt_rounded,
-                                size: 16.r, color: AppColors.primary),
+                      Stack(
+                        children: [
+                          CircleAvatar(
+                            radius: 40.r,
+                            backgroundColor: Colors.white.withValues(alpha: 0.2),
+                            child: Icon(Icons.storefront_rounded,
+                                color: Colors.white, size: 40.r),
                           ),
-                        ),
-                    ],
-                  ),
-                  SizedBox(height: 12.h),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        vendor.name,
-                        style: AppTypography.headlineMedium.copyWith(
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
+                          if (_isEditing)
+                            Positioned(
+                              right: 0,
+                              bottom: 0,
+                              child: Container(
+                                padding: EdgeInsets.all(4.r),
+                                decoration: const BoxDecoration(
+                                  color: Colors.white,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Icon(Icons.camera_alt_rounded,
+                                    size: 16.r, color: AppColors.primary),
+                              ),
+                            ),
+                        ],
                       ),
-                      if (vendor.isVerified) ...[ 
-                        SizedBox(width: 6.w),
-                        Icon(Icons.verified_rounded,
-                            color: Colors.amber, size: 20.r),
-                      ],
-                    ],
-                  ),
+                      SizedBox(height: 12.h),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Flexible(
+                            child: Text(
+                              vendor.name,
+                              style: AppTypography.headlineMedium.copyWith(
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          if (vendor.isVerified) ...[ 
+                            SizedBox(width: 6.w),
+                            Icon(Icons.verified_rounded,
+                                color: Colors.amber, size: 20.r),
+                          ],
+                        ],
+                      ),
                   SizedBox(height: 4.h),
                   Text(
                     vendor.phone,
@@ -226,7 +245,32 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                 ],
               ),
             ),
-            SizedBox(height: 20.h),
+            if (vendor.isVerified)
+              Positioned(
+                top: 0,
+                right: 0,
+                child: Container(
+                  padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 4.h),
+                  decoration: BoxDecoration(
+                    color: AppColors.success,
+                    borderRadius: BorderRadius.only(
+                      topRight: Radius.circular(20.r),
+                      bottomLeft: Radius.circular(12.r),
+                    ),
+                  ),
+                  child: Text(
+                    'APPROVED',
+                    style: AppTypography.badge.copyWith(
+                      color: AppColors.white,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
+        SizedBox(height: 20.h),
 
             // ── Edit Form (conditional) ────────────────────────────────────
             if (_isEditing) ...[
@@ -263,6 +307,58 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                         decoration: const InputDecoration(
                           labelText: 'Business Email',
                           prefixIcon: Icon(Icons.email_outlined),
+                        ),
+                        validator: (v) =>
+                            v == null || v.isEmpty ? 'Required' : null,
+                      ),
+                      SizedBox(height: 12.h),
+                      TextFormField(
+                        controller: _descriptionController,
+                        maxLines: 3,
+                        decoration: const InputDecoration(
+                          labelText: 'Business Description',
+                          prefixIcon: Icon(Icons.info_outline),
+                        ),
+                        validator: (v) =>
+                            v == null || v.isEmpty ? 'Required' : null,
+                      ),
+                      SizedBox(height: 12.h),
+                      TextFormField(
+                        controller: _addressLine1Controller,
+                        decoration: const InputDecoration(
+                          labelText: 'Address Line 1',
+                          prefixIcon: Icon(Icons.location_on_outlined),
+                        ),
+                        validator: (v) =>
+                            v == null || v.isEmpty ? 'Required' : null,
+                      ),
+                      SizedBox(height: 12.h),
+                      TextFormField(
+                        controller: _cityController,
+                        decoration: const InputDecoration(
+                          labelText: 'City',
+                          prefixIcon: Icon(Icons.location_city_outlined),
+                        ),
+                        validator: (v) =>
+                            v == null || v.isEmpty ? 'Required' : null,
+                      ),
+                      SizedBox(height: 12.h),
+                      TextFormField(
+                        controller: _stateController,
+                        decoration: const InputDecoration(
+                          labelText: 'State',
+                          prefixIcon: Icon(Icons.map_outlined),
+                        ),
+                        validator: (v) =>
+                            v == null || v.isEmpty ? 'Required' : null,
+                      ),
+                      SizedBox(height: 12.h),
+                      TextFormField(
+                        controller: _pincodeController,
+                        keyboardType: TextInputType.number,
+                        decoration: const InputDecoration(
+                          labelText: 'Pincode',
+                          prefixIcon: Icon(Icons.pin_drop_outlined),
                         ),
                         validator: (v) =>
                             v == null || v.isEmpty ? 'Required' : null,

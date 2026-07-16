@@ -211,6 +211,7 @@ class _ServicesPageState extends ConsumerState<ServicesPage> {
           name: _nameController.text.trim(),
           description: _descController.text.trim(),
           category: _selectedCategory,
+          categoryId: existing?.categoryId ?? _selectedCategory.id,
           pricePerPiece: price,
           minWeightKg: minWeight,
           isAvailable: existing?.isAvailable ?? true,
@@ -352,11 +353,15 @@ class _ServicesPageState extends ConsumerState<ServicesPage> {
                     contentPadding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
                     title: Row(
                       children: [
-                        Text(
-                          service.name,
-                          style: AppTypography.bodyLarge.copyWith(
-                            fontWeight: FontWeight.bold,
-                            color: isDark ? AppColors.white : AppColors.textBlack,
+                        Expanded(
+                          child: Text(
+                            service.name,
+                            style: AppTypography.bodyLarge.copyWith(
+                              fontWeight: FontWeight.bold,
+                              color: isDark ? AppColors.white : AppColors.textBlack,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
                         SizedBox(width: 8.w),

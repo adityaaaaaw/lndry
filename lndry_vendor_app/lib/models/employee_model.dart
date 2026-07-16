@@ -28,9 +28,9 @@ class EmployeeModel {
       id: json['id'] as String? ?? '',
       vendorId: json['vendor_id'] as String? ?? json['vendorId'] as String? ?? '',
       userId: json['user_id'] as String? ?? json['userId'] as String? ?? '',
-      name: json['name'] as String? ?? '',
-      email: json['email'] as String? ?? '',
-      phone: json['phone'] as String?,
+      name: json['name'] as String? ?? json['user_name'] as String? ?? '',
+      email: json['email'] as String? ?? json['user_email'] as String? ?? '',
+      phone: json['phone'] as String? ?? json['user_phone'] as String?,
       role: json['role'] as String? ?? 'VENDOR_STAFF',
       permissions: (json['permissions'] as List<dynamic>?)
               ?.map((e) => e.toString())

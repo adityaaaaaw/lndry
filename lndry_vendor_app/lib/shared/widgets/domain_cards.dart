@@ -170,15 +170,14 @@ class VendorCard extends StatelessWidget {
                   top: AppSpacing.sm.h,
                   right: AppSpacing.sm.w,
                   child: Container(
-                    padding: EdgeInsets.all(AppSpacing.xs.r * 1.5),
-                    decoration: const BoxDecoration(
+                    padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
+                    decoration: BoxDecoration(
                       color: AppColors.success,
-                      shape: BoxShape.circle,
+                      borderRadius: BorderRadius.circular(AppRadius.tag.r),
                     ),
-                    child: Icon(
-                      AppIcons.done,
-                      color: AppColors.white,
-                      size: 14.r,
+                    child: Text(
+                      'APPROVED',
+                      style: AppTypography.badge.copyWith(color: AppColors.white),
                     ),
                   ),
                 ),
@@ -219,9 +218,9 @@ class VendorCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    Expanded(
+                    Flexible(
                       child: Text(
                         vendor.name,
                         style: AppTypography.titleMedium,
@@ -229,6 +228,10 @@ class VendorCard extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
+                    if (vendor.isVerified) ...[
+                      const Gap(4),
+                      Icon(Icons.verified_rounded, color: AppColors.primary, size: 16.r),
+                    ],
                     if (vendor.averageRating != null) ...[
                       const Gap(4),
                       RatingRow(

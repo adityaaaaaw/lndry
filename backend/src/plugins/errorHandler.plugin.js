@@ -17,6 +17,7 @@ async function errorHandlerPlugin(fastify) {
         field: v.instancePath?.replace('/', '') || v.params?.missingProperty,
         message: v.message,
       }))
+      request.log.warn({ validationErrors: fieldErrors, body: request.body, path: request.url }, 'JSON Schema validation failed')
       return reply.code(400).send({
         success: false,
         message: 'Validation error',

@@ -21,6 +21,11 @@ abstract interface class VendorRepository {
   Future<VendorModel> updateProfile({
     required String name,
     required String email,
+    String? description,
+    String? addressLine1,
+    String? city,
+    String? state,
+    String? pincode,
   });
 
   Future<VendorModel> toggleStoreOpen(bool isOpen);
@@ -133,6 +138,14 @@ abstract interface class VendorRepository {
   // -- Working Hours
   Future<Map<int, Map<String, dynamic>>> getWorkingHours();
   Future<void> updateWorkingHours(int dayOfWeek, {required bool isOpen, required String openTime, required String closeTime});
+
+  // -- Support Tickets
+  Future<Map<String, dynamic>> createSupportTicket({
+    required String title,
+    required String description,
+    required String category,
+  });
+  Future<List<Map<String, dynamic>>> getSupportTickets();
 }
 
 class SendOtpResult {
@@ -162,9 +175,11 @@ class VerifyOtpVendorResult {
     required this.accessToken,
     required this.refreshToken,
     required this.vendor,
+    this.userPhone,
   });
 
   final String accessToken;
   final String refreshToken;
   final VendorModel vendor;
+  final String? userPhone;
 }

@@ -389,6 +389,7 @@ class DemoVendorRepository implements VendorRepository {
       accessToken: 'demo_access_token',
       refreshToken: 'demo_refresh_token',
       vendor: _profile,
+      userPhone: phone,
     );
   }
 
@@ -416,10 +417,22 @@ class DemoVendorRepository implements VendorRepository {
   Future<VendorModel> updateProfile({
     required String name,
     required String email,
+    String? description,
+    String? addressLine1,
+    String? city,
+    String? state,
+    String? pincode,
   }) async {
     _profile = _profile.copyWith(
       name: name.isNotEmpty ? name : _profile.name,
       email: email.isNotEmpty ? email : _profile.email,
+      description: description ?? _profile.description,
+      address: _profile.address.copyWith(
+        line1: addressLine1 ?? _profile.address.line1,
+        city: city ?? _profile.address.city,
+        state: state ?? _profile.address.state,
+        pincode: pincode ?? _profile.address.pincode,
+      ),
     );
     await _saveProfile();
     return _profile;
@@ -629,8 +642,8 @@ class DemoVendorRepository implements VendorRepository {
         newItems = confirmedLines.map((line) {
           final srvId = line['serviceId'] as String? ?? '';
           final name = line['serviceName'] as String? ?? 'Service';
-          final qty = (line['quantity'] as num?)?.toInt() ?? 0;
-          final unitPrice = (line['unitPrice'] as num?)?.toDouble() ?? 0.0;
+          final qty = line['quantity'] is num ? (line['quantity'] as num).toInt() : int.tryParse(line['quantity']?.toString() ?? '') ?? 0;
+          final unitPrice = line['unitPrice'] is num ? (line['unitPrice'] as num).toDouble() : double.tryParse(line['unitPrice']?.toString() ?? '') ?? 0.0;
           return OrderItem(
             serviceId: srvId,
             serviceName: name,
@@ -955,6 +968,53 @@ class DemoVendorRepository implements VendorRepository {
       'closeTime': closeTime,
     };
     await _saveWorkingHours();
+  }
+
+  // In-memory demo tickets
+  final List<Map<String, dynamic>> _demoTicketsList = [
+    {
+      'id': '00000000-0000-0000-0000-000000000001',
+      'ticket_ref': 'TKT-1001',
+      'title': 'Customer marked order not received',
+      'category': 'Order Issue',
+      'status': 'RESOLVED',
+      'created_at': '2024-01-13T10:00:00.000Z',
+      'updated_at': '2024-01-13T12:00:00.000Z',
+    },
+    {
+      'id': '00000000-0000-0000-0000-000000000002',
+      'ticket_ref': 'TKT-1002',
+      'title': 'Payout not received for last week',
+      'category': 'Payout',
+      'status': 'IN_PROGRESS',
+      'created_at': '2024-01-10T10:00:00.000Z',
+      'updated_at': '2024-01-10T10:00:00.000Z',
+    },
+  ];
+
+  @override
+  Future<Map<String, dynamic>> createSupportTicket({
+    required String title,
+    required String description,
+    required String category,
+  }) async {
+    final ticket = <String, dynamic>{
+      'id': '00000000-0000-0000-0000-${DateTime.now().millisecondsSinceEpoch}',
+      'ticket_ref': 'TKT-${1003 + _demoTicketsList.length}',
+      'title': title,
+      'description': description,
+      'category': category,
+      'status': 'OPEN',
+      'created_at': DateTime.now().toIso8601String(),
+      'updated_at': DateTime.now().toIso8601String(),
+    };
+    _demoTicketsList.insert(0, ticket);
+    return ticket;
+  }
+
+  @override
+  Future<List<Map<String, dynamic>>> getSupportTickets() async {
+    return List<Map<String, dynamic>>.from(_demoTicketsList);
   }
 
   void _loadPersistedData() {

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/design/design_system.dart';
+import '../../../../repositories/repositories.dart';
 
 class HelpPage extends ConsumerStatefulWidget {
   const HelpPage({super.key});
@@ -64,37 +65,16 @@ class _HelpPageState extends ConsumerState<HelpPage>
     },
   ];
 
-  final List<Map<String, dynamic>> _demoTickets = [
-    {
-      'id': 'TKT-001',
-      'title': 'Customer marked order not received',
-      'category': 'Order Issue',
-      'status': 'Resolved',
-      'date': '2 days ago',
-      'statusColor': 0xFF11998e,
-    },
-    {
-      'id': 'TKT-002',
-      'title': 'Payout not received for last week',
-      'category': 'Payout',
-      'status': 'In Progress',
-      'date': '5 days ago',
-      'statusColor': 0xFFF2994A,
-    },
-    {
-      'id': 'TKT-003',
-      'title': 'App not loading slots',
-      'category': 'Technical',
-      'status': 'Closed',
-      'date': '10 days ago',
-      'statusColor': 0xFF9E9E9E,
-    },
-  ];
+  // Live ticket list fetched from backend (replaces _demoTickets hardcoded list)
+  List<Map<String, dynamic>> _tickets = [];
+  bool _ticketsLoading = false;
+  String? _ticketsError;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
+    _loadTickets();
   }
 
   @override
@@ -105,19 +85,53 @@ class _HelpPageState extends ConsumerState<HelpPage>
     super.dispose();
   }
 
+  Future<void> _loadTickets() async {
+    if (!mounted) return;
+    setState(() { _ticketsLoading = true; _ticketsError = null; });
+    try {
+      final repo = ref.read(vendorRepositoryProvider);
+      final list = await repo.getSupportTickets();
+      if (mounted) setState(() { _tickets = List<Map<String, dynamic>>.from(list); _ticketsLoading = false; });
+    } catch (e) {
+      if (mounted) setState(() { _ticketsError = e.toString(); _ticketsLoading = false; });
+    }
+  }
+
   Future<void> _submitTicket() async {
     if (!_ticketFormKey.currentState!.validate()) return;
     setState(() => _isCreatingTicket = true);
-    await Future.delayed(const Duration(seconds: 1));
-    if (mounted) {
-      setState(() => _isCreatingTicket = false);
-      Navigator.pop(context);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Support ticket created successfully! We will respond within 24 hours.'),
-          backgroundColor: Color(0xFF11998e),
-        ),
+    try {
+      final repo = ref.read(vendorRepositoryProvider);
+      final ticket = await repo.createSupportTicket(
+        title: _ticketTitleController.text.trim(),
+        description: _ticketDescController.text.trim(),
+        category: _ticketCategory,
       );
+      if (mounted) {
+        setState(() {
+          _tickets.insert(0, Map<String, dynamic>.from(ticket));
+          _isCreatingTicket = false;
+        });
+        Navigator.pop(context);
+        // Switch to the Tickets tab so the user sees the new ticket
+        _tabController.animateTo(2);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Support ticket created! We will respond within 24 hours.'),
+            backgroundColor: Color(0xFF11998e),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isCreatingTicket = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to create ticket: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
@@ -528,6 +542,36 @@ class _HelpPageState extends ConsumerState<HelpPage>
 
   // ── Tickets Tab ────────────────────────────────────────────────────────────
 
+  Color _statusColor(String status) {
+    switch (status.toUpperCase()) {
+      case 'RESOLVED': return const Color(0xFF11998e);
+      case 'IN_PROGRESS': return const Color(0xFFF2994A);
+      case 'OPEN': return const Color(0xFF0083B0);
+      case 'CLOSED': return const Color(0xFF9E9E9E);
+      default: return AppColors.primary;
+    }
+  }
+
+  String _statusLabel(String status) {
+    switch (status.toUpperCase()) {
+      case 'RESOLVED': return 'Resolved';
+      case 'IN_PROGRESS': return 'In Progress';
+      case 'OPEN': return 'Open';
+      case 'CLOSED': return 'Closed';
+      default: return status;
+    }
+  }
+
+  String _relativeDate(String? isoDate) {
+    if (isoDate == null) return '';
+    final dt = DateTime.tryParse(isoDate);
+    if (dt == null) return '';
+    final diff = DateTime.now().difference(dt);
+    if (diff.inDays > 0) return '${diff.inDays}d ago';
+    if (diff.inHours > 0) return '${diff.inHours}h ago';
+    return 'Just now';
+  }
+
   Widget _buildTicketsTab(bool isDark) {
     return SingleChildScrollView(
       padding: EdgeInsets.all(16.r),
@@ -551,56 +595,82 @@ class _HelpPageState extends ConsumerState<HelpPage>
                   fontWeight: FontWeight.bold,
                   color: isDark ? AppColors.white : AppColors.textBlack)),
           SizedBox(height: 12.h),
-          ..._demoTickets.map((ticket) => Padding(
-            padding: EdgeInsets.only(bottom: 12.h),
-            child: Material(
-              color: isDark ? AppColors.darkSurface : AppColors.white,
-              borderRadius: BorderRadius.circular(16.r),
+          if (_ticketsLoading)
+            const Center(child: CircularProgressIndicator())
+          else if (_ticketsError != null)
+            Center(
+              child: Column(children: [
+                Text('Failed to load tickets', style: AppTypography.bodyMedium.copyWith(color: Colors.red)),
+                SizedBox(height: 8.h),
+                TextButton(onPressed: _loadTickets, child: const Text('Retry')),
+              ]),
+            )
+          else if (_tickets.isEmpty)
+            Center(
               child: Padding(
-                padding: EdgeInsets.all(16.r),
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                    Text(ticket['id'] as String,
-                        style: AppTypography.bodySmall.copyWith(
-                            color: AppColors.primary, fontWeight: FontWeight.bold)),
-                    Container(
-                      padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 3.h),
-                      decoration: BoxDecoration(
-                        color: Color(ticket['statusColor'] as int).withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(20.r),
-                      ),
-                      child: Text(ticket['status'] as String,
-                          style: AppTypography.bodySmall.copyWith(
-                              color: Color(ticket['statusColor'] as int),
-                              fontWeight: FontWeight.bold,
-                              fontSize: 10.sp)),
-                    ),
-                  ]),
-                  SizedBox(height: 8.h),
-                  Text(ticket['title'] as String,
-                      style: AppTypography.bodyMedium.copyWith(
-                          fontWeight: FontWeight.w600,
-                          color: isDark ? AppColors.white : AppColors.textBlack)),
+                padding: EdgeInsets.symmetric(vertical: 32.h),
+                child: Column(children: [
+                  Icon(Icons.confirmation_number_outlined, size: 48.r, color: AppColors.textSecondary),
+                  SizedBox(height: 12.h),
+                  Text('No tickets yet', style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary)),
                   SizedBox(height: 4.h),
-                  Row(children: [
-                    Container(
-                      padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 2.h),
-                      decoration: BoxDecoration(
-                        color: AppColors.primaryContainer,
-                        borderRadius: BorderRadius.circular(8.r),
-                      ),
-                      child: Text(ticket['category'] as String,
-                          style: AppTypography.bodySmall
-                              .copyWith(color: AppColors.primary, fontSize: 10.sp)),
-                    ),
-                    SizedBox(width: 8.w),
-                    Text(ticket['date'] as String,
-                        style: AppTypography.bodySmall.copyWith(color: AppColors.textSecondary)),
-                  ]),
+                  Text('Create a ticket and we will respond within 24 hours.',
+                      style: AppTypography.bodySmall.copyWith(color: AppColors.textSecondary),
+                      textAlign: TextAlign.center),
                 ]),
               ),
-            ),
-          )),
+            )
+          else
+            ..._tickets.map((ticket) => Padding(
+              padding: EdgeInsets.only(bottom: 12.h),
+              child: Material(
+                color: isDark ? AppColors.darkSurface : AppColors.white,
+                borderRadius: BorderRadius.circular(16.r),
+                child: Padding(
+                  padding: EdgeInsets.all(16.r),
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                      Text(ticket['ticket_ref'] as String? ?? '',
+                          style: AppTypography.bodySmall.copyWith(
+                              color: AppColors.primary, fontWeight: FontWeight.bold)),
+                      Container(
+                        padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 3.h),
+                        decoration: BoxDecoration(
+                          color: _statusColor(ticket['status'] as String? ?? '').withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(20.r),
+                        ),
+                        child: Text(_statusLabel(ticket['status'] as String? ?? ''),
+                            style: AppTypography.bodySmall.copyWith(
+                                color: _statusColor(ticket['status'] as String? ?? ''),
+                                fontWeight: FontWeight.bold,
+                                fontSize: 10.sp)),
+                      ),
+                    ]),
+                    SizedBox(height: 8.h),
+                    Text(ticket['title'] as String? ?? '',
+                        style: AppTypography.bodyMedium.copyWith(
+                            fontWeight: FontWeight.w600,
+                            color: isDark ? AppColors.white : AppColors.textBlack)),
+                    SizedBox(height: 4.h),
+                    Row(children: [
+                      Container(
+                        padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 2.h),
+                        decoration: BoxDecoration(
+                          color: AppColors.primaryContainer,
+                          borderRadius: BorderRadius.circular(8.r),
+                        ),
+                        child: Text(ticket['category'] as String? ?? '',
+                            style: AppTypography.bodySmall
+                                .copyWith(color: AppColors.primary, fontSize: 10.sp)),
+                      ),
+                      SizedBox(width: 8.w),
+                      Text(_relativeDate(ticket['created_at'] as String?),
+                          style: AppTypography.bodySmall.copyWith(color: AppColors.textSecondary)),
+                    ]),
+                  ]),
+                ),
+              ),
+            )),
         ],
       ),
     );

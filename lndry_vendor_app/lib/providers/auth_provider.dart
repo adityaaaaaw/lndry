@@ -70,6 +70,15 @@ class AuthNotifier extends StateNotifier<AuthState> {
   final VendorRepository _repo;
   final StorageService _storage;
 
+  // Helper to override the vendor's business phone number with the OTP login number
+  VendorModel _mergeAuthPhone(VendorModel vendor) {
+    final authPhone = _storage.getString('auth_user_phone');
+    if (authPhone != null && authPhone.isNotEmpty) {
+      return vendor.copyWith(phone: authPhone);
+    }
+    return vendor;
+  }
+
   // ── Initialisation (session restore via stored tokens) ──────────────────────
 
   Future<void> _init() async {
@@ -105,7 +114,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
       await _saveVendorPrefs(vendor);
       await _registerDeviceIfPossible();
 
-      state = AuthAuthenticated(vendor);
+      state = AuthAuthenticated(_mergeAuthPhone(vendor));
     } catch (_) {
       // Token refresh failed — clear everything and go to login.
       await _storage.clearSession();
@@ -149,10 +158,18 @@ class AuthNotifier extends StateNotifier<AuthState> {
       // Persist tokens
       await _storage.saveSecure(AppConstants.keyAccessToken, result.accessToken);
       await _storage.saveSecure(AppConstants.keyRefreshToken, result.refreshToken);
-      await _saveVendorPrefs(result.vendor);
+
+      // Priority 1: result.userPhone from response.
+      // Priority 2: prev.phone (login input phone).
+      final authPhone = result.userPhone ?? prev.phone;
+      await _storage.saveString('auth_user_phone', authPhone);
+      
+      // Load the full vendor profile immediately using the verified session
+      final vendor = await _repo.getProfile();
+      await _saveVendorPrefs(vendor);
       await _registerDeviceIfPossible();
 
-      state = AuthAuthenticated(result.vendor);
+      state = AuthAuthenticated(_mergeAuthPhone(vendor));
     } on ApiException catch (e) {
       state = AuthError(e.message);
     } catch (e) {
@@ -177,23 +194,45 @@ class AuthNotifier extends StateNotifier<AuthState> {
   Future<void> updateAuthenticatedVendor({
     required String name,
     required String email,
+    String? description,
+    String? addressLine1,
+    String? city,
+    String? stateStr,
+    String? pincode,
   }) async {
     final prev = state;
     if (prev is! AuthAuthenticated) return;
 
     try {
-      final updated = await _repo.updateProfile(
+      await _repo.updateProfile(
         name: name,
         email: email,
+        description: description,
+        addressLine1: addressLine1,
+        city: city,
+        state: stateStr,
+        pincode: pincode,
       );
-      await _saveVendorPrefs(updated);
-      state = AuthAuthenticated(updated);
+      // Immediately fetch the latest profile from the API
+      final fresh = await _repo.getProfile();
+      await _saveVendorPrefs(fresh);
+      state = AuthAuthenticated(_mergeAuthPhone(fresh));
     } catch (e) {
       // Fallback: update locally if API fails
-      final updated = prev.vendor.copyWith(name: name, email: email);
+      final updated = prev.vendor.copyWith(
+        name: name,
+        email: email,
+        description: description ?? prev.vendor.description,
+        address: prev.vendor.address.copyWith(
+          line1: addressLine1 ?? prev.vendor.address.line1,
+          city: city ?? prev.vendor.address.city,
+          state: stateStr ?? prev.vendor.address.state,
+          pincode: pincode ?? prev.vendor.address.pincode,
+        ),
+      );
       await _storage.saveString('vendor_name', name);
       await _storage.saveString('vendor_email', email);
-      state = AuthAuthenticated(updated);
+      state = AuthAuthenticated(_mergeAuthPhone(updated));
     }
   }
 
@@ -201,14 +240,35 @@ class AuthNotifier extends StateNotifier<AuthState> {
     final prev = state;
     if (prev is! AuthAuthenticated) return;
     final updated = await _repo.toggleStoreOpen(isOpen);
-    state = AuthAuthenticated(updated);
+    state = AuthAuthenticated(_mergeAuthPhone(updated));
+  }
+
+  Future<void> refreshProfile() async {
+    final prev = state;
+    if (prev is! AuthAuthenticated) return;
+    final updated = await _repo.getProfile();
+    await _saveVendorPrefs(updated);
+    state = AuthAuthenticated(_mergeAuthPhone(updated));
   }
 
   Future<void> updateProfile({
     required String name,
     required String email,
+    String? description,
+    String? addressLine1,
+    String? city,
+    String? stateStr,
+    String? pincode,
   }) async {
-    await updateAuthenticatedVendor(name: name, email: email);
+    await updateAuthenticatedVendor(
+      name: name,
+      email: email,
+      description: description,
+      addressLine1: addressLine1,
+      city: city,
+      stateStr: stateStr,
+      pincode: pincode,
+    );
   }
 
   // ── Logout ────────────────────────────────────────────────────────────────
@@ -246,6 +306,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
       _storage.remove('vendor_name'),
       _storage.remove('vendor_email'),
       _storage.remove('vendor_phone'),
+      _storage.remove('auth_user_phone'),
     ]);
   }
 

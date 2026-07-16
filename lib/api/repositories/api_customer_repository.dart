@@ -1141,8 +1141,8 @@ class ApiCustomerRepository implements CustomerRepository {
       logoUrl: json['logo_url'] as String?,
       averageRating: (json['rating'] as num?)?.toDouble(),
       distanceKm: (json['distance_km'] as num?)?.toDouble(),
-      isOpen: true,
-      isVerified: true,
+      isOpen: json['is_open'] as bool? ?? json['isOpen'] as bool? ?? true,
+      isVerified: json['is_verified'] as bool? ?? json['isVerified'] as bool? ?? false,
       deliveryRadiusKm:
           (json['approved_service_radius_km'] as num?)?.toDouble() ?? 0.0,
       estimatedTurnaroundHours: 24,

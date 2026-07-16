@@ -44,7 +44,7 @@ abstract final class Env {
   /// When true, the app will run entirely locally using mock repositories,
   /// bypass backend network calls, and accept the 123456 OTP.
   /// When false, the app reverts to normal production behavior.
-  static const bool demoMode = true;
+  static const bool demoMode = false;
 
   // Build mode flags.
   static const bool isReleaseBuild = bool.fromEnvironment('dart.vm.product');

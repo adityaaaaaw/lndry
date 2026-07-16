@@ -319,7 +319,7 @@ class _PricingPageState extends ConsumerState<PricingPage> {
       itemBuilder: (context, idx) {
         final rate = list[idx] as Map<String, dynamic>;
         final garmentName = rate['garment_name'] as String? ?? 'Unknown';
-        final ratePaise = (rate['rate_paise'] as num?)?.toDouble() ?? 0.0;
+        final ratePaise = (rate['rate_paise'] is num ? (rate['rate_paise'] as num).toDouble() : double.tryParse(rate['rate_paise']?.toString() ?? '')) ?? 0.0;
         final unit = rate['unit'] as String? ?? 'piece';
         final garmentTypeId = rate['garment_rate_id'] as String? ?? '';
 

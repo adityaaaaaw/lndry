@@ -22,6 +22,9 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
   Future<void> _refreshData() async {
     ref.invalidate(dashboardStatsProvider);
     ref.read(ordersListProvider.notifier).fetchOrders();
+    try {
+      await ref.read(authProvider.notifier).refreshProfile();
+    } catch (_) {}
   }
 
   Future<void> _showStoreStatusDialog(bool isCurrentlyOpen) async {
@@ -131,22 +134,35 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                   : null,
             ),
             SizedBox(width: 12.w),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(children: [
-                  Text(vendor.name,
-                      style: AppTypography.bodyLarge.copyWith(
-                          fontWeight: FontWeight.bold,
-                          color: isDark ? AppColors.white : AppColors.textBlack)),
-                  if (vendor.isVerified) ...[
-                    SizedBox(width: 4.w),
-                    Icon(Icons.verified_rounded, color: AppColors.primary, size: 16.r),
-                  ],
-                ]),
-                Text('Partner Portal',
-                    style: AppTypography.bodySmall.copyWith(color: AppColors.textSecondary)),
-              ],
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Row(children: [
+                    Flexible(
+                      child: Text(
+                        vendor.name,
+                        style: AppTypography.bodyLarge.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: isDark ? AppColors.white : AppColors.textBlack),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    if (vendor.isVerified) ...[
+                      SizedBox(width: 4.w),
+                      Icon(Icons.verified_rounded, color: AppColors.primary, size: 16.r),
+                    ],
+                  ]),
+                  Text(
+                    vendor.description.isNotEmpty ? vendor.description : 'Laundry Partner',
+                    style: AppTypography.bodySmall.copyWith(color: AppColors.textSecondary),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
             ),
           ],
         ),
@@ -210,26 +226,53 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Container(
-                padding: EdgeInsets.all(16.r),
-                decoration: BoxDecoration(
-                  gradient: AppColors.primaryGradient,
-                  borderRadius: BorderRadius.circular(20.r),
-                  boxShadow: AppElevation.medium,
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceAround,
-                  children: [
-                    _buildTopBannerStat(icon: Icons.star_rounded, label: 'Avg Rating',
-                        value: vendor.averageRating?.toStringAsFixed(1) ?? 'N/A', color: Colors.amber),
-                    _buildDivider(),
-                    _buildTopBannerStat(icon: Icons.reviews_rounded, label: 'Total Reviews',
-                        value: '${vendor.reviewCount}', color: AppColors.white),
-                    _buildDivider(),
-                    _buildTopBannerStat(icon: Icons.timelapse_rounded, label: 'Avg Turnaround',
-                        value: '${vendor.estimatedTurnaroundHours} hrs', color: AppColors.white),
-                  ],
-                ),
+              Stack(
+                children: [
+                  Container(
+                    padding: EdgeInsets.all(16.r),
+                    decoration: BoxDecoration(
+                      gradient: AppColors.primaryGradient,
+                      borderRadius: BorderRadius.circular(20.r),
+                      boxShadow: AppElevation.medium,
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                      children: [
+                        _buildTopBannerStat(icon: Icons.star_rounded, label: 'Avg Rating',
+                            value: vendor.averageRating?.toStringAsFixed(1) ?? 'N/A', color: Colors.amber),
+                        _buildDivider(),
+                        _buildTopBannerStat(icon: Icons.reviews_rounded, label: 'Total Reviews',
+                            value: '${vendor.reviewCount}', color: AppColors.white),
+                        _buildDivider(),
+                        _buildTopBannerStat(icon: Icons.timelapse_rounded, label: 'Avg Turnaround',
+                            value: '${vendor.estimatedTurnaroundHours} hrs', color: AppColors.white),
+                      ],
+                    ),
+                  ),
+                  if (vendor.isVerified)
+                    Positioned(
+                      top: 0,
+                      right: 0,
+                      child: Container(
+                        padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 4.h),
+                        decoration: BoxDecoration(
+                          color: AppColors.success,
+                          borderRadius: BorderRadius.only(
+                            topRight: Radius.circular(20.r),
+                            bottomLeft: Radius.circular(12.r),
+                          ),
+                        ),
+                        child: Text(
+                          'APPROVED',
+                          style: AppTypography.badge.copyWith(
+                            color: AppColors.white,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
               ),
               SizedBox(height: 24.h),
               Text("Today's Operations",
@@ -246,7 +289,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                   children: [
                     _buildMetricCard(
                       title: "Today's Revenue",
-                      value: '₹${(((stats["revenue_today_paise"] as num?)?.toDouble() ?? 0.0) / 100.0).toStringAsFixed(0)}',
+                      value: '₹${(((stats["revenue_today_paise"] is num ? (stats["revenue_today_paise"] as num).toDouble() : double.tryParse(stats["revenue_today_paise"]?.toString() ?? '')) ?? 0.0) / 100.0).toStringAsFixed(0)}',
                       icon: Icons.currency_rupee_rounded,
                       gradient: const LinearGradient(colors: [Color(0xFF00B4DB), Color(0xFF0083B0)]),
                       onTap: () => context.push(AppRoutes.analytics),

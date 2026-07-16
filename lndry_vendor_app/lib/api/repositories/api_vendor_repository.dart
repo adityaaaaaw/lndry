@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../config/config.dart';
@@ -89,10 +90,14 @@ class ApiVendorRepository implements VendorRepository {
       await _storage.saveSecure(AppConstants.keyRefreshToken, refreshToken);
     }
 
+    final userJson = data['user'] as Map<String, dynamic>? ?? {};
+    final userPhone = userJson['phone'] as String? ?? '';
+
     return VerifyOtpVendorResult(
       accessToken: accessToken,
       refreshToken: refreshToken,
       vendor: vendor,
+      userPhone: userPhone.isNotEmpty ? userPhone : null,
     );
   }
 
@@ -134,7 +139,7 @@ class ApiVendorRepository implements VendorRepository {
   // -- Profile
   @override
   Future<VendorModel> getProfile() async {
-    final resp = await _dio.get('/api/v1/vendor/profile');
+    final resp = await _dio.get('/vendor/profile');
     final json = _extractData(resp.data as Map<String, dynamic>);
     return _parseVendor(json);
   }
@@ -143,19 +148,29 @@ class ApiVendorRepository implements VendorRepository {
   Future<VendorModel> updateProfile({
     required String name,
     required String email,
+    String? description,
+    String? addressLine1,
+    String? city,
+    String? state,
+    String? pincode,
   }) async {
     final data = <String, dynamic>{};
     if (name.isNotEmpty) data['name'] = name;
     if (email.isNotEmpty) data['email'] = email;
+    if (description != null) data['description'] = description;
+    if (addressLine1 != null) data['address_line1'] = addressLine1;
+    if (city != null) data['city'] = city;
+    if (state != null) data['state'] = state;
+    if (pincode != null) data['pincode'] = pincode;
 
-    final resp = await _dio.patch('/api/v1/vendor/profile', data: data);
+    final resp = await _dio.patch('/vendor/profile', data: data);
     final json = _extractData(resp.data as Map<String, dynamic>);
     return _parseVendor(json);
   }
 
   @override
   Future<VendorModel> toggleStoreOpen(bool isOpen) async {
-    final resp = await _dio.patch('/api/v1/vendor/profile', data: {'is_open': isOpen});
+    final resp = await _dio.patch('/vendor/profile', data: {'is_open': isOpen});
     final json = _extractData(resp.data as Map<String, dynamic>);
     return _parseVendor(json);
   }
@@ -163,53 +178,59 @@ class ApiVendorRepository implements VendorRepository {
   // -- Services
   @override
   Future<List<ServiceModel>> getMyServices() async {
-    final resp = await _dio.get('/api/v1/vendor/services');
+    final resp = await _dio.get('/vendor/services');
     final list = _extractList(resp.data as Map<String, dynamic>);
     return list.map((e) => _parseService(e as Map<String, dynamic>)).toList();
   }
 
   @override
   Future<ServiceModel> addService(ServiceModel service) async {
-    final resp = await _dio.post('/api/v1/vendor/services', data: {
+    final payload = <String, dynamic>{
+      'category_id': service.categoryId ?? service.category.id,
+      'category': service.category.name,
       'name': service.name,
       'description': service.description,
-      'category': service.category.name,
       'price_per_piece': ((service.pricePerPiece ?? 0.0) * 100).toInt(),
       'min_weight_kg': service.minWeightKg,
-    });
+    };
+    debugPrint('Outgoing POST /vendor/services request: $payload');
+    final resp = await _dio.post('/vendor/services', data: payload);
     final json = _extractData(resp.data as Map<String, dynamic>);
     return _parseService(json);
   }
 
   @override
   Future<ServiceModel> updateService(ServiceModel service) async {
-    final resp = await _dio.patch('/api/v1/vendor/services/${service.id}', data: {
+    final payload = <String, dynamic>{
+      'category_id': service.categoryId ?? service.category.id,
+      'category': service.category.name,
       'name': service.name,
       'description': service.description,
-      'category': service.category.name,
       'price_per_piece': ((service.pricePerPiece ?? 0.0) * 100).toInt(),
       'min_weight_kg': service.minWeightKg,
       'is_available': service.isAvailable,
-    });
+    };
+    debugPrint('Outgoing PATCH /vendor/services/${service.id} request: $payload');
+    final resp = await _dio.patch('/vendor/services/${service.id}', data: payload);
     final json = _extractData(resp.data as Map<String, dynamic>);
     return _parseService(json);
   }
 
   @override
   Future<void> toggleServiceAvailability(String serviceId, bool isAvailable) async {
-    await _dio.patch('/api/v1/vendor/services/$serviceId', data: {
+    await _dio.patch('/vendor/services/$serviceId', data: {
       'is_available': isAvailable,
     });
   }
 
   @override
   Future<void> deleteService(String serviceId) async {
-    await _dio.delete('/api/v1/vendor/services/$serviceId');
+    await _dio.delete('/vendor/services/$serviceId');
   }
 
   @override
   Future<Map<String, dynamic>> getServiceDetails(String serviceId) async {
-    final resp = await _dio.get('/api/v1/vendor/services/$serviceId');
+    final resp = await _dio.get('/vendor/services/$serviceId');
     return _extractData(resp.data as Map<String, dynamic>);
   }
 
@@ -227,18 +248,18 @@ class ApiVendorRepository implements VendorRepository {
       if (garmentTypeName != null) 'garment_type_name': garmentTypeName,
       if (rateUnit != null) 'rate_unit': rateUnit,
     };
-    await _dio.post('/api/v1/vendor/services/$serviceId/garment-rates', data: data);
+    await _dio.post('/vendor/services/$serviceId/garment-rates', data: data);
   }
 
   @override
   Future<void> deleteGarmentRate(String serviceId, String garmentTypeId) async {
-    await _dio.delete('/api/v1/vendor/services/$serviceId/garment-rates/$garmentTypeId');
+    await _dio.delete('/vendor/services/$serviceId/garment-rates/$garmentTypeId');
   }
 
   // -- Orders
   @override
   Future<OrderModel> getOrder(String orderId) async {
-    final resp = await _dio.get('/api/v1/vendor-orders/$orderId');
+    final resp = await _dio.get('/vendor/orders/$orderId');
     final json = _extractData(resp.data as Map<String, dynamic>);
     return _parseOrder(json);
   }
@@ -249,7 +270,7 @@ class ApiVendorRepository implements VendorRepository {
     String? status,
   }) async {
     final resp = await _dio.get(
-      '/api/v1/vendor-orders',
+      '/vendor/orders',
       queryParameters: {
         'page': params.page,
         'limit': params.pageSize,
@@ -275,7 +296,7 @@ class ApiVendorRepository implements VendorRepository {
 
   @override
   Future<OrderModel> acceptOrder(String orderId) async {
-    final resp = await _dio.post('/api/v1/vendor-orders/$orderId/accept');
+    final resp = await _dio.post('/vendor/orders/$orderId/accept');
     final json = _extractData(resp.data as Map<String, dynamic>);
     return _parseOrder(json);
   }
@@ -283,7 +304,7 @@ class ApiVendorRepository implements VendorRepository {
   @override
   Future<OrderModel> rejectOrder(String orderId, {String? reason}) async {
     final resp = await _dio.post(
-      '/api/v1/vendor-orders/$orderId/reject',
+      '/vendor/orders/$orderId/reject',
       data: reason != null ? {'reason': reason} : null,
     );
     final json = _extractData(resp.data as Map<String, dynamic>);
@@ -298,7 +319,7 @@ class ApiVendorRepository implements VendorRepository {
   @override
   Future<OrderModel> updateProcessingStage(String orderId, String stage) async {
     final resp = await _dio.post(
-      '/api/v1/vendor-orders/$orderId/processing-stage',
+      '/vendor/orders/$orderId/processing-stage',
       data: {'status': stage},
     );
     final json = _extractData(resp.data as Map<String, dynamic>);
@@ -318,7 +339,7 @@ class ApiVendorRepository implements VendorRepository {
     if (adjustmentReason != null) body['adjustment_reason'] = adjustmentReason;
 
     final resp = await _dio.post(
-      '/api/v1/vendor-orders/$orderId/reconcile',
+      '/vendor/orders/$orderId/reconcile',
       data: body,
     );
     final json = _extractData(resp.data as Map<String, dynamic>);
@@ -327,7 +348,7 @@ class ApiVendorRepository implements VendorRepository {
 
   @override
   Future<Map<String, dynamic>> getDashboardStats() async {
-    final resp = await _dio.get('/api/v1/vendor-orders/stats');
+    final resp = await _dio.get('/vendor/orders/stats');
     return _extractData(resp.data as Map<String, dynamic>);
   }
 
@@ -350,12 +371,66 @@ class ApiVendorRepository implements VendorRepository {
     await _dio.delete('${ApiEndpoints.devices}/$deviceId');
   }
 
+  List<String> _mapUiPermissionsToBackend(List<String> uiPermissions) {
+    final backend = <String>[];
+    for (final p in uiPermissions) {
+      switch (p) {
+        case 'orders:read':
+          backend.add('shop_orders.view');
+          break;
+        case 'orders:write':
+          backend.addAll(['shop_orders.view', 'shop_orders.update_status', 'shop_orders.assign_rider', 'shop_orders.cancel']);
+          break;
+        case 'catalog:write':
+          backend.addAll(['vendor_services.create', 'vendor_services.update', 'vendor_services.delete', 'vendor_services.view']);
+          break;
+        case 'staff:write':
+          backend.addAll(['vendor_staff.create', 'vendor_staff.update', 'vendor_staff.delete', 'vendor_staff.view']);
+          break;
+        default:
+          backend.add(p);
+      }
+    }
+    return backend.toSet().toList();
+  }
+
+  List<String> _mapBackendPermissionsToUi(List<String> backendPermissions) {
+    final ui = <String>[];
+    final backendSet = backendPermissions.toSet();
+    if (backendSet.contains('shop_orders.view')) {
+      ui.add('orders:read');
+    }
+    if (backendSet.contains('shop_orders.update_status')) {
+      ui.add('orders:write');
+    }
+    if (backendSet.contains('vendor_services.create') ||
+        backendSet.contains('vendor_services.update')) {
+      ui.add('catalog:write');
+    }
+    if (backendSet.contains('vendor_staff.create') ||
+        backendSet.contains('vendor_staff.update')) {
+      ui.add('staff:write');
+    }
+    return ui;
+  }
+
+  EmployeeModel _parseEmployee(Map<String, dynamic> json) {
+    final mappedJson = Map<String, dynamic>.from(json);
+    if (mappedJson['permissions'] != null) {
+      mappedJson['permissions'] = _mapBackendPermissionsToUi(
+        (mappedJson['permissions'] as List<dynamic>).map((e) => e.toString()).toList(),
+      );
+    }
+    return EmployeeModel.fromJson(mappedJson);
+  }
+
   // -- Employees
   @override
   Future<List<EmployeeModel>> getEmployees() async {
-    final resp = await _dio.get('/api/v1/vendor/employees');
-    final list = _extractList(resp.data as Map<String, dynamic>);
-    return list.map((e) => EmployeeModel.fromJson(e as Map<String, dynamic>)).toList();
+    final resp = await _dio.get('/vendor/employees');
+    final data = _extractData(resp.data as Map<String, dynamic>);
+    final list = data['staff'] as List<dynamic>? ?? [];
+    return list.map((e) => _parseEmployee(e as Map<String, dynamic>)).toList();
   }
 
   @override
@@ -366,15 +441,15 @@ class ApiVendorRepository implements VendorRepository {
     String? phone,
     List<String>? permissions,
   }) async {
-    final resp = await _dio.post('/api/v1/vendor/employees', data: {
+    final resp = await _dio.post('/vendor/employees', data: {
       'name': name,
       'email': email,
       'role': role,
       if (phone != null) 'phone': phone,
-      if (permissions != null) 'permissions': permissions,
+      if (permissions != null) 'permissions': _mapUiPermissionsToBackend(permissions),
     });
     final json = _extractData(resp.data as Map<String, dynamic>);
-    return EmployeeModel.fromJson(json);
+    return _parseEmployee(json);
   }
 
   @override
@@ -384,23 +459,23 @@ class ApiVendorRepository implements VendorRepository {
     required List<String> permissions,
     required bool isActive,
   }) async {
-    final resp = await _dio.patch('/api/v1/vendor/employees/$id', data: {
+    final resp = await _dio.patch('/vendor/employees/$id', data: {
       'role': role,
-      'permissions': permissions,
+      'permissions': _mapUiPermissionsToBackend(permissions),
       'is_active': isActive,
     });
     final json = _extractData(resp.data as Map<String, dynamic>);
-    return EmployeeModel.fromJson(json);
+    return _parseEmployee(json);
   }
 
   @override
   Future<void> deleteEmployee(String id) async {
-    await _dio.delete('/api/v1/vendor/employees/$id');
+    await _dio.delete('/vendor/employees/$id');
   }
 
   @override
   Future<void> resetEmployeePassword(String id, String newPassword) async {
-    await _dio.post('/api/v1/vendor/employees/$id/reset-password', data: {
+    await _dio.post('/vendor/employees/$id/reset-password', data: {
       'password': newPassword,
     });
   }
@@ -408,20 +483,20 @@ class ApiVendorRepository implements VendorRepository {
   // -- Capacity & Slots
   @override
   Future<Map<String, dynamic>> getCapacity() async {
-    final resp = await _dio.get('/api/v1/vendor/capacity');
+    final resp = await _dio.get('/vendor/capacity');
     return _extractData(resp.data as Map<String, dynamic>);
   }
 
   @override
   Future<void> updateCapacityDailyLimit(int maxOrdersPerDay) async {
-    await _dio.put('/api/v1/vendor/capacity/daily-limit', data: {
+    await _dio.put('/vendor/capacity/daily-limit', data: {
       'max_orders_per_day': maxOrdersPerDay,
     });
   }
 
   @override
   Future<List<PickupSlotModel>> getPickupSlots() async {
-    final resp = await _dio.get('/api/v1/vendor/pickup-slots');
+    final resp = await _dio.get('/vendor/pickup-slots');
     final list = _extractList(resp.data as Map<String, dynamic>);
     return list.map((e) => PickupSlotModel.fromJson(e as Map<String, dynamic>)).toList();
   }
@@ -433,7 +508,7 @@ class ApiVendorRepository implements VendorRepository {
     required String endTime,
     int? maxOrders,
   }) async {
-    final resp = await _dio.post('/api/v1/vendor/pickup-slots', data: {
+    final resp = await _dio.post('/vendor/pickup-slots', data: {
       'day_of_week': dayOfWeek,
       'start': startTime,
       'end': endTime,
@@ -453,71 +528,116 @@ class ApiVendorRepository implements VendorRepository {
     if (maxOrders != null) data['max_orders'] = maxOrders;
     if (isActive != null) data['is_active'] = isActive;
 
-    final resp = await _dio.patch('/api/v1/vendor/pickup-slots/$id', data: data);
+    final resp = await _dio.patch('/vendor/pickup-slots/$id', data: data);
     final json = _extractData(resp.data as Map<String, dynamic>);
     return PickupSlotModel.fromJson(json);
   }
 
   @override
   Future<void> deletePickupSlot(String id) async {
-    await _dio.delete('/api/v1/vendor/pickup-slots/$id');
+    await _dio.delete('/vendor/pickup-slots/$id');
   }
 
   // -- Parsers
+  double? _toDouble(dynamic val) {
+    if (val == null) return null;
+    if (val is num) return val.toDouble();
+    if (val is String) return double.tryParse(val);
+    return null;
+  }
+
+  int? _toInt(dynamic val) {
+    if (val == null) return null;
+    if (val is num) return val.toInt();
+    if (val is String) return int.tryParse(val);
+    return null;
+  }
+
   VendorModel _parseVendor(Map<String, dynamic> json) => VendorModel(
         id: json['id'] as String? ?? '',
         name: json['name'] as String? ?? '',
         phone: json['phone'] as String? ?? '',
         email: json['email'] as String?,
         isVerified: json['is_verified'] as bool? ?? json['isVerified'] as bool? ?? false,
+        isOpen: json['is_open'] as bool? ?? json['isOpen'] as bool? ?? true,
         description: json['description'] as String? ?? '',
         ownerName: json['owner_name'] as String? ?? json['ownerName'] as String? ?? '',
+        logoUrl: json['logo_url'] as String? ?? json['logoUrl'] as String?,
+        coverImageUrl: json['banner_url'] as String? ?? json['bannerUrl'] as String? ?? json['coverImageUrl'] as String?,
+        averageRating: _toDouble(json['rating']) ?? _toDouble(json['average_rating']) ?? _toDouble(json['averageRating']),
+        reviewCount: _toInt(json['review_count']) ?? _toInt(json['reviewCount']) ?? 0,
+        estimatedTurnaroundHours: _toInt(json['estimated_turnaround_hours']) ?? _toInt(json['estimatedTurnaroundHours']) ?? 24,
         address: json['address'] != null
             ? AddressModel.fromJson(json['address'] as Map<String, dynamic>)
-            : const AddressModel(
-                id: '',
+            : AddressModel(
+                id: json['id'] as String? ?? '',
                 userId: '',
-                line1: '',
-                city: '',
-                state: '',
-                pincode: '',
+                line1: json['address_line1'] as String? ?? '',
+                line2: json['address_line2'] as String?,
+                city: json['city'] as String? ?? '',
+                state: json['state'] as String? ?? '',
+                pincode: json['pincode'] as String? ?? '',
                 type: AddressType.other,
+                coordinates: (json['lat'] != null && json['lng'] != null)
+                    ? LatLng(
+                        latitude: _toDouble(json['lat']) ?? 0.0,
+                        longitude: _toDouble(json['lng']) ?? 0.0,
+                      )
+                    : null,
               ),
       );
 
-  ServiceModel _parseService(Map<String, dynamic> json) => ServiceModel(
-        id: json['id'] as String? ?? '',
-        vendorId: json['vendor_id'] as String? ?? json['vendorId'] as String? ?? '',
-        name: json['name'] as String? ?? '',
-        description: json['description'] as String? ?? '',
-        category: _parseServiceCategory(json['category'] as String?),
-        minWeightKg: (json['min_weight_kg'] as num?)?.toDouble() ??
-            (json['minWeightKg'] as num?)?.toDouble() ??
-            1.0,
-        isAvailable: json['is_available'] as bool? ??
-            json['isAvailable'] as bool? ??
-            true,
-        pricePerPiece: ((json['price_per_piece'] as num?)?.toDouble() ??
-                (json['pricePerPiece'] as num?)?.toDouble() ??
-                0.0) /
-            100.0,
-        tags: (json['tags'] as List<dynamic>?)
-                ?.map((e) => e.toString())
-                .toList() ??
-            [],
-      );
+  ServiceModel _parseService(Map<String, dynamic> json) {
+    final catEnum = _parseServiceCategory(
+        json['category_name'] as String? ?? json['category'] as String?);
+    return ServiceModel(
+      id: json['id'] as String? ?? '',
+      vendorId:
+          json['vendor_id'] as String? ?? json['vendorId'] as String? ?? '',
+      name: json['name'] as String? ?? json['category_name'] as String? ?? '',
+      description: json['description'] as String? ?? '',
+      category: catEnum,
+      categoryId: json['category_id'] as String? ??
+          json['categoryId'] as String? ??
+          catEnum.id,
+      minWeightKg: _toDouble(json['min_weight_kg']) ??
+          _toDouble(json['minWeightKg']) ??
+          1.0,
+      isAvailable: json['is_available'] as bool? ??
+          json['isAvailable'] as bool? ??
+          true,
+      pricePerPiece: (_toDouble(json['price_per_piece']) ??
+              _toDouble(json['pricePerPiece']) ??
+              0.0) /
+          100.0,
+      tags: (json['tags'] as List<dynamic>?)
+              ?.map((e) => e.toString())
+              .toList() ??
+          [],
+    );
+  }
 
   OrderModel _parseOrder(Map<String, dynamic> json) => OrderModel(
         id: json['id'] as String? ?? '',
         customerId: json['customer_id'] as String? ?? json['customerId'] as String? ?? '',
         vendorId: json['vendor_id'] as String? ?? json['vendorId'] as String? ?? '',
         status: _parseOrderStatus(json['status'] as String?),
-        total: ((json['total_amount_paise'] as num?)?.toDouble() ??
-                (json['totalAmountPaise'] as num?)?.toDouble() ??
+        total: (_toDouble(json['total_amount_paise']) ??
+                _toDouble(json['totalAmountPaise']) ??
                 0.0) /
             100.0,
         items: (json['items'] as List<dynamic>?)
-                ?.map((e) => OrderItem.fromJson(e as Map<String, dynamic>))
+                ?.map((e) {
+                  final m = e as Map<String, dynamic>;
+                  return OrderItem(
+                    serviceId: m['service_id'] as String? ?? m['serviceId'] as String? ?? '',
+                    serviceName: m['service_name'] as String? ?? m['serviceName'] as String? ?? 'Item',
+                    quantity: _toInt(m['quantity']) ?? 1,
+                    unitPrice: _toDouble(m['unit_price']) ?? _toDouble(m['unitPrice']) ?? 0.0,
+                    totalPrice: _toDouble(m['total_price']) ?? _toDouble(m['totalPrice']) ?? 0.0,
+                    notes: m['notes'] as String?,
+                  );
+                })
                 .toList() ??
             [],
         createdAt: DateTime.tryParse(
@@ -525,16 +645,32 @@ class ApiVendorRepository implements VendorRepository {
             DateTime.now(),
       );
 
+  @visibleForTesting
+  VendorModel parseVendorForTest(Map<String, dynamic> json) => _parseVendor(json);
+
+  @visibleForTesting
+  ServiceModel parseServiceForTest(Map<String, dynamic> json) => _parseService(json);
+
+  @visibleForTesting
+  OrderModel parseOrderForTest(Map<String, dynamic> json) => _parseOrder(json);
+
   ServiceCategory _parseServiceCategory(String? category) {
     if (category == null) return ServiceCategory.wash;
-    final lower = category.toLowerCase();
+    final lower = category.toLowerCase().trim();
     return switch (lower) {
+      // Canonical API values
       'wash' => ServiceCategory.wash,
-      'iron' => ServiceCategory.iron,
-      'wash_iron' || 'wash & iron' => ServiceCategory.washAndIron,
-      'dry_clean' || 'dry_cleaning' => ServiceCategory.dryClean,
-      'fold' || 'wash_fold' || 'wash & fold' => ServiceCategory.fold,
-      'premium' || 'premium_garment_care' => ServiceCategory.premium,
+      'iron' || 'ironing' => ServiceCategory.iron,
+      'wash_iron' || 'wash & iron' || 'wash and iron' => ServiceCategory.washAndIron,
+      'dry_clean' || 'dry_cleaning' || 'dry clean' => ServiceCategory.dryClean,
+      'fold' || 'wash_fold' || 'wash & fold' || 'wash and fold' => ServiceCategory.fold,
+      'premium' || 'premium_garment_care' || 'premium garment care' => ServiceCategory.premium,
+      // Additional backend category names from service_categories table
+      'blanket cleaning' || 'blanket_cleaning' || 'blanket' => ServiceCategory.premium,
+      'carpet cleaning' || 'carpet_cleaning' || 'carpet' => ServiceCategory.premium,
+      'curtain cleaning' || 'curtain_cleaning' || 'curtain' => ServiceCategory.premium,
+      'shoe care' || 'shoe_care' || 'shoe carejjjjjj' => ServiceCategory.premium,
+      // Unknown → default to wash
       _ => ServiceCategory.wash,
     };
   }
@@ -579,20 +715,73 @@ class ApiVendorRepository implements VendorRepository {
 
   @override
   Future<Map<int, Map<String, dynamic>>> getWorkingHours() async {
-    return {
-      0: {'isOpen': true, 'openTime': '08:00', 'closeTime': '20:00'},
-      1: {'isOpen': true, 'openTime': '08:00', 'closeTime': '20:00'},
-      2: {'isOpen': true, 'openTime': '08:00', 'closeTime': '20:00'},
-      3: {'isOpen': true, 'openTime': '08:00', 'closeTime': '20:00'},
-      4: {'isOpen': true, 'openTime': '08:00', 'closeTime': '20:00'},
-      5: {'isOpen': true, 'openTime': '08:00', 'closeTime': '20:00'},
-      6: {'isOpen': true, 'openTime': '08:00', 'closeTime': '20:00'},
-    };
+    final resp = await _dio.get('/vendor/profile');
+    final json = _extractData(resp.data as Map<String, dynamic>);
+
+    // operating_hours.schedule is stored as { "0": {...}, "1": {...}, ... }
+    final rawHours = json['operating_hours'] as Map<String, dynamic>?;
+    final schedule = rawHours?['schedule'] as Map<String, dynamic>? ?? {};
+
+    final result = <int, Map<String, dynamic>>{};
+    for (int day = 0; day < 7; day++) {
+      final dayData = schedule[day.toString()] as Map<String, dynamic>?;
+      result[day] = {
+        'isOpen': dayData?['isOpen'] as bool? ?? true,
+        'openTime': dayData?['openTime'] as String? ?? '08:00',
+        'closeTime': dayData?['closeTime'] as String? ?? '20:00',
+      };
+    }
+    return result;
   }
 
   @override
-  Future<void> updateWorkingHours(int dayOfWeek, {required bool isOpen, required String openTime, required String closeTime}) async {
-    // Stub for API
+  Future<void> updateWorkingHours(
+    int dayOfWeek, {
+    required bool isOpen,
+    required String openTime,
+    required String closeTime,
+  }) async {
+    // Fetch current operating_hours so we can merge just the one day
+    final profileResp = await _dio.get('/vendor/profile');
+    final profileJson = _extractData(profileResp.data as Map<String, dynamic>);
+    final rawHours = profileJson['operating_hours'] as Map<String, dynamic>? ?? {};
+    final schedule =
+        Map<String, dynamic>.from(rawHours['schedule'] as Map<String, dynamic>? ?? {});
+
+    schedule[dayOfWeek.toString()] = {
+      'isOpen': isOpen,
+      'openTime': openTime,
+      'closeTime': closeTime,
+    };
+
+    await _dio.patch('/vendor/profile', data: {
+      'operating_hours': {
+        ...rawHours,
+        'schedule': schedule,
+      },
+    });
+  }
+
+  // -- Support Tickets
+  @override
+  Future<Map<String, dynamic>> createSupportTicket({
+    required String title,
+    required String description,
+    required String category,
+  }) async {
+    final resp = await _dio.post('/vendor/support-tickets', data: {
+      'title': title,
+      'description': description,
+      'category': category,
+    });
+    return _extractData(resp.data as Map<String, dynamic>);
+  }
+
+  @override
+  Future<List<Map<String, dynamic>>> getSupportTickets() async {
+    final resp = await _dio.get('/vendor/support-tickets');
+    final list = _extractList(resp.data as Map<String, dynamic>);
+    return list.map((e) => Map<String, dynamic>.from(e as Map)).toList();
   }
 }
 

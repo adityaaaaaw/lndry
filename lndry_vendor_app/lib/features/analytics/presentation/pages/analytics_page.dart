@@ -95,18 +95,27 @@ class _AnalyticsContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final totalRevenue = (stats['total_revenue'] as num?)?.toDouble() ?? 0.0;
-    final totalOrders = (stats['total_orders'] as num?)?.toInt() ?? 0;
-    final deliveredOrders =
-        (stats['delivered_orders'] as num?)?.toInt() ?? 0;
-    final fulfillmentRate =
-        (stats['fulfillment_rate'] as num?)?.toDouble() ?? 0.0;
-    final avgTicket =
-        (stats['avg_ticket_size'] as num?)?.toDouble() ?? 0.0;
-    final repeatRate =
-        (stats['repeat_customer_rate'] as num?)?.toDouble() ?? 0.0;
-    final onTimeRate =
-        (stats['on_time_delivery_rate'] as num?)?.toDouble() ?? 0.0;
+    double toDouble(dynamic val) {
+      if (val == null) return 0.0;
+      if (val is num) return val.toDouble();
+      if (val is String) return double.tryParse(val) ?? 0.0;
+      return 0.0;
+    }
+
+    int toInt(dynamic val) {
+      if (val == null) return 0;
+      if (val is num) return val.toInt();
+      if (val is String) return int.tryParse(val) ?? 0;
+      return 0;
+    }
+
+    final totalRevenue = toDouble(stats['total_revenue']);
+    final totalOrders = toInt(stats['total_orders']);
+    final deliveredOrders = toInt(stats['delivered_orders']);
+    final fulfillmentRate = toDouble(stats['fulfillment_rate']);
+    final avgTicket = toDouble(stats['avg_ticket_size']);
+    final repeatRate = toDouble(stats['repeat_customer_rate']);
+    final onTimeRate = toDouble(stats['on_time_delivery_rate']);
     final dailyData =
         (stats['daily_data'] as List<dynamic>?)
             ?.cast<Map<String, dynamic>>() ??
@@ -119,8 +128,13 @@ class _AnalyticsContent extends StatelessWidget {
     final maxOrders = dailyData.isEmpty
         ? 1
         : dailyData
-            .map((d) => (d['orders'] as num).toInt())
+            .map((d) => toInt(d['orders']))
             .reduce((a, b) => a > b ? a : b);
+
+    final period = stats['period'] as String? ?? (dailyData.length > 7 ? 'month' : 'week');
+    final chartTitle = period == 'month' || dailyData.length > 7
+        ? 'Order Volume (Last ${dailyData.length} Days)'
+        : 'Order Volume (Last 7 Days)';
 
     return SingleChildScrollView(
       padding: EdgeInsets.all(16.r),
@@ -188,30 +202,73 @@ class _AnalyticsContent extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Order Volume (Last 7 Days)',
+                  chartTitle,
                   style: AppTypography.bodyLarge
                       .copyWith(fontWeight: FontWeight.bold),
                 ),
                 SizedBox(height: 24.h),
-                SizedBox(
-                  height: 160.h,
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceAround,
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: dailyData.map((d) {
-                      final label = d['label'] as String;
-                      final count = (d['orders'] as num).toInt();
-                      final heightFraction =
-                          maxOrders > 0 ? count / maxOrders : 0.0;
-                      return _BarColumn(
-                        label: label,
-                        count: count,
-                        heightFraction: heightFraction,
-                        color: AppColors.primary,
-                      );
-                    }).toList(),
+                if (dailyData.isEmpty || totalOrders == 0)
+                  Container(
+                    height: 160.h,
+                    alignment: Alignment.center,
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.bar_chart_rounded,
+                            size: 44.r, color: AppColors.outline),
+                        SizedBox(height: 8.h),
+                        Text(
+                          'No orders recorded in this period.',
+                          style: AppTypography.bodyMedium
+                              .copyWith(color: AppColors.textSecondary),
+                        ),
+                      ],
+                    ),
+                  )
+                else if (dailyData.length > 7)
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: SizedBox(
+                      height: 160.h,
+                      child: Row(
+                        children: dailyData.map((d) {
+                          final label = (d['label'] ?? '') as String;
+                          final count = toInt(d['orders']);
+                          final heightFraction =
+                              maxOrders > 0 ? count / maxOrders : 0.0;
+                          return SizedBox(
+                            width: 46.w,
+                            child: _BarColumn(
+                              label: label,
+                              count: count,
+                              heightFraction: heightFraction,
+                              color: AppColors.primary,
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                    ),
+                  )
+                else
+                  SizedBox(
+                    height: 160.h,
+                    child: Row(
+                      children: dailyData.map((d) {
+                        final label = (d['label'] ?? '') as String;
+                        final count = toInt(d['orders']);
+                        final heightFraction =
+                            maxOrders > 0 ? count / maxOrders : 0.0;
+                        return Expanded(
+                          child: _BarColumn(
+                            label: label,
+                            count: count,
+                            heightFraction: heightFraction,
+                            color: AppColors.primary,
+                          ),
+                        );
+                      }).toList(),
+                    ),
                   ),
-                ),
               ],
             ),
           ),
@@ -244,9 +301,8 @@ class _AnalyticsContent extends StatelessWidget {
                   ...List.generate(categoryBreakdown.length, (i) {
                     final cat = categoryBreakdown[i];
                     final name = cat['name'] as String;
-                    final revenue =
-                        (cat['revenue'] as num).toDouble();
-                    final pct = (cat['percentage'] as num).toDouble();
+                    final revenue = toDouble(cat['revenue']);
+                    final pct = toDouble(cat['percentage']);
                     final colors = [
                       AppColors.primary,
                       AppColors.secondary,
@@ -279,22 +335,27 @@ class _AnalyticsContent extends StatelessWidget {
                 ),
                 SizedBox(height: 20.h),
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceAround,
                   children: [
-                    _RadialKpi(
-                      value: onTimeRate,
-                      label: 'On-Time Delivery',
-                      color: AppColors.success,
+                    Expanded(
+                      child: _RadialKpi(
+                        value: onTimeRate,
+                        label: 'On-Time Delivery',
+                        color: AppColors.success,
+                      ),
                     ),
-                    _RadialKpi(
-                      value: repeatRate,
-                      label: 'Repeat Customers',
-                      color: AppColors.primary,
+                    Expanded(
+                      child: _RadialKpi(
+                        value: repeatRate,
+                        label: 'Repeat Customers',
+                        color: AppColors.primary,
+                      ),
                     ),
-                    _RadialKpi(
-                      value: fulfillmentRate,
-                      label: 'Fulfillment Rate',
-                      color: AppColors.warning,
+                    Expanded(
+                      child: _RadialKpi(
+                        value: fulfillmentRate,
+                        label: 'Fulfillment Rate',
+                        color: AppColors.warning,
+                      ),
                     ),
                   ],
                 ),
@@ -413,25 +474,34 @@ class _BarColumn extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       mainAxisAlignment: MainAxisAlignment.end,
+      mainAxisSize: MainAxisSize.min,
       children: [
-        Text('$count',
-            style: TextStyle(
-                fontSize: 10.sp, fontWeight: FontWeight.bold)),
+        Flexible(
+          child: Text('$count',
+              style: TextStyle(
+                  fontSize: 10.sp, fontWeight: FontWeight.bold),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis),
+        ),
         SizedBox(height: 4.h),
         AnimatedContainer(
           duration: const Duration(milliseconds: 600),
           curve: Curves.easeOut,
-          width: 20.w,
-          height: (heightFraction * 120).h.clamp(4.h, 120.h),
+          width: 18.w,
+          height: (heightFraction * 110).h.clamp(4.h, 110.h),
           decoration: BoxDecoration(
             color: count > 0 ? color : AppColors.outline.withValues(alpha: 0.2),
             borderRadius: BorderRadius.vertical(top: Radius.circular(4.r)),
           ),
         ),
         SizedBox(height: 6.h),
-        Text(label,
-            style: TextStyle(
-                fontSize: 10.sp, color: AppColors.textSecondary)),
+        Flexible(
+          child: Text(label,
+              style: TextStyle(
+                  fontSize: 10.sp, color: AppColors.textSecondary),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis),
+        ),
       ],
     );
   }
@@ -460,10 +530,15 @@ class _CategoryRow extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Flexible(
-                  child: Text(name,
-                      style: const TextStyle(fontWeight: FontWeight.bold),
-                      overflow: TextOverflow.ellipsis)),
+              Expanded(
+                child: Text(
+                  name,
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              SizedBox(width: 8.w),
               Text(
                 '₹${revenue.toStringAsFixed(0)} (${percentage.toStringAsFixed(0)}%)',
                 style: TextStyle(
@@ -475,7 +550,7 @@ class _CategoryRow extends StatelessWidget {
           ClipRRect(
             borderRadius: BorderRadius.circular(4.r),
             child: LinearProgressIndicator(
-              value: percentage / 100.0,
+              value: (percentage / 100.0).clamp(0.0, 1.0),
               minHeight: 8.h,
               backgroundColor: color.withValues(alpha: 0.1),
               valueColor: AlwaysStoppedAnimation<Color>(color),
@@ -501,13 +576,14 @@ class _RadialKpi extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Column(
+      mainAxisSize: MainAxisSize.min,
       children: [
         Stack(
           alignment: Alignment.center,
           children: [
             SizedBox(
-              width: 64.r,
-              height: 64.r,
+              width: 56.r,
+              height: 56.r,
               child: CircularProgressIndicator(
                 value: (value / 100.0).clamp(0.0, 1.0),
                 strokeWidth: 6.r,
@@ -518,18 +594,19 @@ class _RadialKpi extends StatelessWidget {
             Text(
               '${value.toStringAsFixed(0)}%',
               style: TextStyle(
-                  fontWeight: FontWeight.bold, fontSize: 13.sp),
+                  fontWeight: FontWeight.bold, fontSize: 12.sp),
             ),
           ],
         ),
         SizedBox(height: 10.h),
-        SizedBox(
-          width: 80.w,
+        Padding(
+          padding: EdgeInsets.symmetric(horizontal: 4.w),
           child: Text(
             label,
             style: TextStyle(fontSize: 10.sp, fontWeight: FontWeight.bold),
             textAlign: TextAlign.center,
             maxLines: 2,
+            overflow: TextOverflow.ellipsis,
           ),
         ),
       ],

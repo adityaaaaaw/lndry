@@ -111,7 +111,7 @@ export default async function discoveryRoutes(fastify) {
 
         const vendorsRes = await query(
           `SELECT v.id, v.name, v.slug, v.description, v.logo_url, v.banner_url,
-                  v.address_line1, v.city, v.lat, v.lng, v.operating_hours,
+                  v.address_line1, v.city, v.lat, v.lng, v.operating_hours, v.is_open,
                   (6371 * acos(
                     LEAST(1.0, GREATEST(-1.0,
                       cos(radians($1::float8)) * cos(radians(v.lat::float8))
@@ -280,7 +280,7 @@ export default async function discoveryRoutes(fastify) {
     const whereClause = conditions.join(' AND ')
     const listQuery = `
       SELECT v.id, v.name, v.slug, v.description, v.logo_url, v.banner_url,
-             v.address_line1, v.city, v.lat, v.lng, v.operating_hours,
+             v.address_line1, v.city, v.lat, v.lng, v.operating_hours, v.is_open,
              v.approved_service_radius_km,
              ${distanceSelect},
              COALESCE((SELECT AVG(vendor_rating) FROM reviews r WHERE r.vendor_id = v.id AND r.deleted_at IS NULL), 5.0)::numeric(2,1) AS rating
@@ -334,7 +334,7 @@ export default async function discoveryRoutes(fastify) {
 
     const vendorRes = await query(
       `SELECT v.id, v.name, v.slug, v.description, v.logo_url, v.banner_url,
-              v.address_line1, v.city, v.lat, v.lng, v.operating_hours, v.approved_service_radius_km,
+              v.address_line1, v.city, v.lat, v.lng, v.operating_hours, v.is_open, v.approved_service_radius_km,
               COALESCE((SELECT AVG(vendor_rating) FROM reviews r WHERE r.vendor_id = v.id AND r.deleted_at IS NULL), 5.0)::numeric(2,1) AS rating
        FROM vendors v
        WHERE ${conditions.join(' AND ')}`,
@@ -559,7 +559,7 @@ export default async function discoveryRoutes(fastify) {
 
     const vendorsRes = await query(
       `SELECT v.id, v.name, v.slug, v.description, v.logo_url, v.banner_url,
-              v.address_line1, v.city, v.lat, v.lng,
+              v.address_line1, v.city, v.lat, v.lng, v.is_open,
               v.approved_service_radius_km,
               ${distSelect},
               COALESCE((SELECT AVG(vendor_rating) FROM reviews r WHERE r.vendor_id = v.id AND r.deleted_at IS NULL), 5.0)::numeric(2,1) AS rating

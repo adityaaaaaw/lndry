@@ -151,7 +151,7 @@ class _SplashPageState extends ConsumerState<SplashPage>
                 ),
               ),
               child: Image.asset(
-                'assets/images/logo.png',
+                'assets/images/logo/lndry_logo.png',
                 width: 200.r,
                 fit: BoxFit.contain,
                 filterQuality: FilterQuality.high,
