@@ -6,6 +6,40 @@ import { logger } from './config/logger.js'
 import { runPermissionAudit } from './utils/permission-audit.js'
 import { startCampaignScheduler, stopCampaignScheduler } from './workers/campaign-scheduler.worker.js'
 import { startPaymentExpiryWorker, stopPaymentExpiryWorker } from './workers/payment-expiry.worker.js'
+import http from 'http'
+import { execSync } from 'child_process'
+
+const checkPortGracefully = (port, host) => {
+  return new Promise((resolve) => {
+    const clientRequest = http.get(`http://${host}:${port}/health`, (res) => {
+      let data = ''
+      res.on('data', (chunk) => { data += chunk })
+      res.on('end', () => {
+        try {
+          const parsed = JSON.parse(data)
+          if (res.statusCode === 200 && parsed.status === 'OK') {
+            resolve({ occupied: true, healthy: true })
+            return
+          }
+        } catch (_) {}
+        resolve({ occupied: true, healthy: false, status: res.statusCode, data })
+      })
+    })
+
+    clientRequest.on('error', (err) => {
+      if (err.code === 'ECONNREFUSED') {
+        resolve({ occupied: false })
+      } else {
+        resolve({ occupied: true, healthy: false, error: err.message })
+      }
+    })
+
+    clientRequest.setTimeout(2000, () => {
+      clientRequest.destroy()
+      resolve({ occupied: true, healthy: false, error: 'Timeout' })
+    })
+  })
+}
 
 const validateProductionConfig = () => {
   if (env.NODE_ENV === 'production') {
@@ -25,6 +59,50 @@ const validateProductionConfig = () => {
 // Trigger nodemon reload 2
 const start = async () => {
   try {
+    const port = env.PORT || 4500
+    const rawHost = env.HOST || '0.0.0.0'
+    const checkHost = rawHost === '0.0.0.0' ? '127.0.0.1' : rawHost
+
+    const checkResult = await checkPortGracefully(port, checkHost)
+    if (checkResult.occupied) {
+      if (checkResult.healthy) {
+        logger.info(`[PORT GUARD] Unified Backend is already running on port ${port}.`)
+        logger.info(`[PORT GUARD] Skipping startup to avoid duplicate Node/Nodemon instances.`)
+        process.exit(0)
+      } else {
+        logger.error(`❌ Port ${port} is occupied by another application or an unhealthy process.`)
+        try {
+          const netstatOutput = execSync(`netstat -ano | findstr :${port}`, { encoding: 'utf8' })
+          const lines = netstatOutput.trim().split('\n')
+          let pid = null
+          for (const line of lines) {
+            if (line.includes('LISTENING')) {
+              const parts = line.trim().split(/\s+/)
+              pid = parts[parts.length - 1]
+              break
+            }
+          }
+          if (pid) {
+            logger.error(`Occupying Process ID (PID): ${pid}`)
+            try {
+              const procOutput = execSync(
+                `powershell.exe -Command "Get-CimInstance Win32_Process -Filter 'ProcessId=${pid}' | Select-Object ProcessId, ExecutablePath, CommandLine | Format-List"`,
+                { encoding: 'utf8' }
+              )
+              logger.error(`Process details:\n${procOutput.trim()}`)
+            } catch (procErr) {
+              logger.error(`Failed to get process details: ${procErr.message}`)
+            }
+          }
+        } catch (netstatErr) {
+          logger.error(`Failed to run port diagnostics: ${netstatErr.message}`)
+        }
+        logger.fatal(`Health check result: ${checkResult.error || `HTTP ${checkResult.status}`}`)
+        logger.fatal(`👉 Please terminate the occupying process before retrying.`)
+        process.exit(1)
+      }
+    }
+
     validateProductionConfig()
 
     // Test database connection before starting

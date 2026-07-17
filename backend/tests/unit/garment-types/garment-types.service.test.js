@@ -469,7 +469,7 @@ describe('ProductsRepository — customer scoping SQL', () => {
     const repo = new ProductsRepository()
     await repo.findMany({ page: 1, limit: 20, allocatedShopIds: [SHOP_A, SHOP_B] })
 
-    const dataCall = query.mock.calls.find((c) => /SELECT[\s\S]+FROM garment_rates p/i.test(c[0]))
+    const dataCall = query.mock.calls.find((c) => /SELECT[\s\S]+FROM garment_types p/i.test(c[0]))
     expect(dataCall).toBeDefined()
     const [, params] = dataCall
     // params should contain the array as a single bound value, never inlined into SQL

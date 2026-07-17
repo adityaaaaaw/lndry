@@ -111,23 +111,30 @@ class HelpPage extends StatelessWidget {
                   final faq = faqs[idx];
 
                   return AppCard.outlined(
-                    padding:
-                        EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
-                    child: ExpansionTile(
-                      tilePadding: EdgeInsets.zero,
-                      title: Text(faq.q, style: AppTypography.labelLarge),
-                      children: [
-                        Padding(
-                          padding: EdgeInsets.symmetric(vertical: 8.h),
-                          child: Text(
-                            faq.a,
-                            style: AppTypography.bodySmall.copyWith(
-                              color: AppColors.onSurfaceVariant,
-                              height: 1.5,
+                    padding: EdgeInsets.zero,
+                    child: Material(
+                      color: isDark ? AppColors.darkSurface : AppColors.white,
+                      borderRadius: BorderRadius.circular(AppRadius.card.r),
+                      clipBehavior: Clip.antiAlias,
+                      child: Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
+                        child: ExpansionTile(
+                          tilePadding: EdgeInsets.zero,
+                          title: Text(faq.q, style: AppTypography.labelLarge),
+                          children: [
+                            Padding(
+                              padding: EdgeInsets.symmetric(vertical: 8.h),
+                              child: Text(
+                                faq.a,
+                                style: AppTypography.bodySmall.copyWith(
+                                  color: AppColors.onSurfaceVariant,
+                                  height: 1.5,
+                                ),
+                              ),
                             ),
-                          ),
+                          ],
                         ),
-                      ],
+                      ),
                     ),
                   );
                 },

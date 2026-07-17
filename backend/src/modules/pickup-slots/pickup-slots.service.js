@@ -46,7 +46,7 @@ export class SlotsService {
         maxOrders: slot.max_orders,
         remainingCapacity: remaining
       }
-    }).filter(slot => slot.remainingCapacity > 0)
+    })
   }
 
   async holdSlot(userId, vendorId, slotId, bookingDate, quoteId) {

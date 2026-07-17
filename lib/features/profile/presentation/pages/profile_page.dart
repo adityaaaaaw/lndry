@@ -221,73 +221,72 @@ class ProfilePage extends ConsumerWidget {
               // ── Menu tiles ─────────────────────────────────────────────────
               AppCard.outlined(
                 padding: EdgeInsets.zero,
-                child: Column(
-                  children: [
-                    _SettingsTile(
-                      icon: AppIcons.profile,
-                      label: 'Edit Profile',
-                      onTap: () => requireAuthenticated(
-                        context: context,
-                        ref: ref,
-                        returnTo: AppRoutes.editProfile,
-                        action: (context, _) =>
-                            context.push(AppRoutes.editProfile),
+                child: Material(
+                  color: isDark ? AppColors.darkSurface : AppColors.white,
+                  borderRadius: BorderRadius.circular(AppRadius.card.r),
+                  clipBehavior: Clip.antiAlias,
+                  child: Column(
+                    children: [
+                      _SettingsTile(
+                        icon: AppIcons.profile,
+                        label: 'Edit Profile',
+                        onTap: () => requireAuthenticated(
+                          context: context,
+                          ref: ref,
+                          returnTo: AppRoutes.editProfile,
+                          action: (context, _) =>
+                              context.push(AppRoutes.editProfile),
+                        ),
                       ),
-                    ),
-                    Divider(height: 1, color: AppColors.outline),
-                    _SettingsTile(
-                      icon: AppIcons.location,
-                      label: 'Saved Addresses',
-                      onTap: () => requireAuthenticated(
-                        context: context,
-                        ref: ref,
-                        returnTo: AppRoutes.address,
-                        action: (context, _) => context.push(AppRoutes.address),
+                      Divider(height: 1, color: AppColors.outline),
+                      _SettingsTile(
+                        icon: AppIcons.location,
+                        label: 'Saved Addresses',
+                        onTap: () => requireAuthenticated(
+                          context: context,
+                          ref: ref,
+                          returnTo: AppRoutes.address,
+                          action: (context, _) => context.push(AppRoutes.address),
+                        ),
                       ),
-                    ),
-                    Divider(height: 1, color: AppColors.outline),
-                    _SettingsTile(
-                      icon: AppIcons.notificationsOutlined,
-                      label: 'Notifications',
-                      onTap: () => requireAuthenticated(
-                        context: context,
-                        ref: ref,
-                        returnTo: AppRoutes.notifications,
-                        action: (context, _) =>
-                            context.push(AppRoutes.notifications),
+                      Divider(height: 1, color: AppColors.outline),
+                      _SettingsTile(
+                        icon: AppIcons.notificationsOutlined,
+                        label: 'Notifications',
+                        onTap: () => requireAuthenticated(
+                          context: context,
+                          ref: ref,
+                          returnTo: AppRoutes.notifications,
+                          action: (context, _) =>
+                              context.push(AppRoutes.notifications),
+                        ),
                       ),
-                    ),
-                    Divider(height: 1, color: AppColors.outline),
-                    _SettingsTile(
-                      icon: Icons.star_border_rounded,
-                      label: 'My Reviews',
-                      onTap: () => requireAuthenticated(
-                        context: context,
-                        ref: ref,
-                        returnTo: AppRoutes.myReviews,
-                        action: (context, _) =>
-                            context.push(AppRoutes.myReviews),
+                      Divider(height: 1, color: AppColors.outline),
+                      _SettingsTile(
+                        icon: Icons.star_border_rounded,
+                        label: 'My Reviews',
+                        onTap: () => requireAuthenticated(
+                          context: context,
+                          ref: ref,
+                          returnTo: AppRoutes.myReviews,
+                          action: (context, _) =>
+                              context.push(AppRoutes.myReviews),
+                        ),
                       ),
-                    ),
-                    Divider(height: 1, color: AppColors.outline),
-                    _SettingsTile(
-                      icon: AppIcons.settings,
-                      label: 'Settings',
-                      onTap: () => requireAuthenticated(
-                        context: context,
-                        ref: ref,
-                        returnTo: AppRoutes.settings,
-                        action: (context, _) =>
-                            context.push(AppRoutes.settings),
+                      Divider(height: 1, color: AppColors.outline),
+                      _SettingsTile(
+                        icon: AppIcons.settings,
+                        label: 'Settings',
+                        onTap: () => context.push(AppRoutes.settings),
                       ),
-                    ),
-                    Divider(height: 1, color: AppColors.outline),
-                    _SettingsTile(
-                      icon: AppIcons.info,
-                      label: 'Help & Support',
-                      onTap: () => context.push(AppRoutes.help),
-                    ),
-                  ],
+                      Divider(height: 1, color: AppColors.outline),
+                      _SettingsTile(
+                        icon: AppIcons.info,
+                        label: 'Help & Support',
+                        onTap: () => context.push(AppRoutes.help),
+                      ),
+                    ],
+                  ),
                 ),
               ),
               Gap(AppSpacing.sectionGap.h * 1.5),

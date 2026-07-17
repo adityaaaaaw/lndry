@@ -10,9 +10,7 @@ export class SlotsController {
     const date = request.query.date
     try {
       const slots = await this.service.getAvailableSlots(vendorId, date)
-      // Only return slots with remainingCapacity > 0
-      const activeSlots = slots.filter(s => s.remainingCapacity > 0)
-      return reply.send(success(activeSlots, 'Available slots fetched'))
+      return reply.send(success(slots, 'Available slots fetched'))
     } catch (err) {
       return reply.code(err.statusCode || 500).send(error(err.message || 'Failed to fetch slots'))
     }

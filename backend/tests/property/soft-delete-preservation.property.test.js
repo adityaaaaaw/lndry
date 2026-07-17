@@ -182,7 +182,7 @@ function makeFakeStore() {
     //   FROM vendor_services sp LEFT JOIN garment_rates p …
     //   WHERE … ORDER BY sp.created_at DESC LIMIT $N OFFSET $N+1
     if (
-      /^\s*SELECT[\s\S]+FROM\s+vendor_services\s+sp\s+LEFT\s+JOIN\s+garment_rates\s+p/i.test(
+      /^\s*SELECT[\s\S]+FROM\s+vendor_services\s+sp\s+LEFT\s+JOIN\s+garment_types\s+p/i.test(
         text
       )
     ) {

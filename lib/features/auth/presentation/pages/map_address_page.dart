@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -18,6 +19,7 @@ import '../../../../core/theme/theme.dart';
 import '../../../../core/widgets/app_button.dart';
 import '../../../../core/widgets/app_snackbar.dart';
 import '../../../../core/widgets/app_text_field.dart';
+import '../../../../features/home/presentation/providers/home_providers.dart';
 import '../../../../models/models.dart';
 import '../../../../providers/auth_provider.dart';
 import '../../../../config/env.dart';
@@ -53,6 +55,11 @@ class _MapAddressPageState extends ConsumerState<MapAddressPage> {
   bool _locationPermissionGranted = false;
   List<_PlaceSuggestion> _suggestions = const [];
 
+  // Editable city / state controllers — pre-filled by reverse geocoding but
+  // always editable so the user can correct auto-detection failures.
+  final _cityController = TextEditingController();
+  final _stateController = TextEditingController();
+
   @override
   void initState() {
     super.initState();
@@ -67,6 +74,8 @@ class _MapAddressPageState extends ConsumerState<MapAddressPage> {
     _addressLineController.dispose();
     _pincodeController.dispose();
     _landmarkController.dispose();
+    _cityController.dispose();
+    _stateController.dispose();
     super.dispose();
   }
 
@@ -231,15 +240,62 @@ class _MapAddressPageState extends ConsumerState<MapAddressPage> {
       if (places.isEmpty || !mounted) return;
 
       final place = places.first;
+
+      // ── Debug: log the raw geocoder response ──────────────────────────────
+      if (kDebugMode) {
+        debugPrint(
+          '[ReverseGeocode] Raw placemark for '
+          '(${position.latitude}, ${position.longitude}):\n'
+          '  name                  : ${place.name}\n'
+          '  street                : ${place.street}\n'
+          '  subLocality           : ${place.subLocality}\n'
+          '  locality              : ${place.locality}\n'
+          '  subAdministrativeArea : ${place.subAdministrativeArea}\n'
+          '  administrativeArea    : ${place.administrativeArea}\n'
+          '  postalCode            : ${place.postalCode}\n'
+          '  country               : ${place.country}',
+        );
+      }
+
+      // ── Robust city extraction: 4-level fallback chain ────────────────────
+      // Android/iOS geocoders differ in which fields they populate for Indian
+      // cities, so we try all meaningful fields before giving up.
+      final String resolvedCity = _firstNonEmpty([
+        place.locality,           // e.g. "Hyderabad", "Bengaluru"
+        place.subAdministrativeArea, // e.g. "Hyderabad", "Bangalore Urban"
+        place.administrativeArea, // e.g. "Telangana", "Karnataka" (last resort)
+        place.subLocality,        // e.g. "LB Nagar"
+      ]);
+
+      final String resolvedState = _firstNonEmpty([
+        place.administrativeArea, // e.g. "Telangana", "Karnataka"
+        place.subAdministrativeArea,
+        place.country,
+      ]);
+
+      if (kDebugMode) {
+        debugPrint(
+          '[ReverseGeocode] Resolved:\n'
+          '  city    : $resolvedCity\n'
+          '  state   : $resolvedState\n'
+          '  pincode : ${place.postalCode}',
+        );
+      }
+
       setState(() {
-        _selectedCity = place.locality?.isNotEmpty == true
-            ? place.locality!
-            : (place.subAdministrativeArea ?? '');
-        _selectedState = place.administrativeArea ?? '';
+        _selectedCity = resolvedCity;
+        _selectedState = resolvedState;
+        // Keep controller text in sync so the editable fields show the values.
+        _cityController.text = resolvedCity;
+        _stateController.text = resolvedState;
+
+        // Only auto-fill pincode if the user hasn't typed one yet.
         if (_pincodeController.text.trim().isEmpty &&
             place.postalCode?.isNotEmpty == true) {
           _pincodeController.text = place.postalCode!;
         }
+
+        // Build a human-readable formatted address from all available parts.
         if (_formattedAddress.isEmpty) {
           _formattedAddress = [
             place.name,
@@ -250,31 +306,133 @@ class _MapAddressPageState extends ConsumerState<MapAddressPage> {
           ].where((part) => part != null && part.trim().isNotEmpty).join(', ');
         }
       });
-    } catch (_) {
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('[ReverseGeocode] Error: $e');
+      }
       if (mounted) {
         AppSnackBar.showError(context, 'Could not read address from map pin.');
       }
     }
   }
 
-  Future<bool> _validateBackendServiceability(gm.LatLng position) async {
-    final locationResponse = await _dio.post<dynamic>(
-      ApiEndpoints.validateLocation,
-      data: {
+  /// Returns the first non-null, non-blank string from [candidates],
+  /// or empty string if all are null/blank.
+  static String _firstNonEmpty(List<String?> candidates) {
+    for (final c in candidates) {
+      if (c != null && c.trim().isNotEmpty) return c.trim();
+    }
+    return '';
+  }
+
+  /// Validates the selected coordinates and pincode against the backend.
+  /// Returns null if serviceable, or a human-readable error message explaining
+  /// exactly why the address was rejected.
+  Future<String?> _validateBackendServiceability(gm.LatLng position) async {
+    final pincode = _pincodeController.text.trim();
+
+    // ── Log what we're about to send ──────────────────────────────────────────
+    if (kDebugMode) {
+      debugPrint(
+        '[ServiceabilityCheck] Inputs:\n'
+        '  lat         : ${position.latitude}\n'
+        '  lng         : ${position.longitude}\n'
+        '  pincode     : $pincode\n'
+        '  city        : $_selectedCity\n'
+        '  state       : $_selectedState\n'
+        '  formatted   : $_formattedAddress',
+      );
+    }
+
+    // ── Step 1: coordinate-based vendor proximity check ───────────────────────
+    try {
+      final locationPayload = {
         'lat': position.latitude,
         'lng': position.longitude,
-      },
-    );
-    final locationData = _dataMap(locationResponse);
-    final serviceable = locationData['serviceable'] as bool? ?? false;
-    if (!serviceable) return false;
+      };
+      if (kDebugMode) {
+        debugPrint(
+          '[ServiceabilityCheck] POST ${ApiEndpoints.validateLocation} '
+          'payload: $locationPayload',
+        );
+      }
 
-    final pincodeResponse = await _dio.post<dynamic>(
-      ApiEndpoints.validatePincode,
-      data: {'pincode': _pincodeController.text.trim()},
-    );
-    final pincodeData = _dataMap(pincodeResponse);
-    return pincodeData['available'] as bool? ?? false;
+      final locationResponse = await _dio.post<dynamic>(
+        ApiEndpoints.validateLocation,
+        data: locationPayload,
+      );
+      final locationData = _dataMap(locationResponse);
+
+      if (kDebugMode) {
+        debugPrint(
+          '[ServiceabilityCheck] validate-location response:\n'
+          '  status      : ${locationResponse.statusCode}\n'
+          '  body        : ${locationResponse.data}\n'
+          '  serviceable : ${locationData["serviceable"]}\n'
+          '  vendor_count: ${locationData["eligible_vendor_count"]}',
+        );
+      }
+
+      final serviceable = locationData['serviceable'] as bool? ?? false;
+      final vendorCount =
+          (locationData['eligible_vendor_count'] as num?)?.toInt() ?? 0;
+
+      if (!serviceable || vendorCount == 0) {
+        return 'No laundry partners currently serve this location. '
+            'Try a nearby address or check back later.';
+      }
+    } on DioException catch (e) {
+      if (kDebugMode) {
+        debugPrint(
+          '[ServiceabilityCheck] validate-location FAILED: ${e.message}\n'
+          '  response: ${e.response?.data}',
+        );
+      }
+      return 'Serviceability check failed. Please check your connection and try again.';
+    }
+
+    // ── Step 2: pincode availability check ────────────────────────────────────
+    try {
+      final pincodePayload = {'pincode': pincode};
+      if (kDebugMode) {
+        debugPrint(
+          '[ServiceabilityCheck] POST ${ApiEndpoints.validatePincode} '
+          'payload: $pincodePayload',
+        );
+      }
+
+      final pincodeResponse = await _dio.post<dynamic>(
+        ApiEndpoints.validatePincode,
+        data: pincodePayload,
+      );
+      final pincodeData = _dataMap(pincodeResponse);
+
+      if (kDebugMode) {
+        debugPrint(
+          '[ServiceabilityCheck] validate-pincode response:\n'
+          '  status    : ${pincodeResponse.statusCode}\n'
+          '  body      : ${pincodeResponse.data}\n'
+          '  available : ${pincodeData["available"]}',
+        );
+      }
+
+      final available = pincodeData['available'] as bool? ?? false;
+      if (!available) {
+        return 'Delivery is not yet available in pincode $pincode. '
+            'We are expanding — please check back soon.';
+      }
+    } on DioException catch (e) {
+      if (kDebugMode) {
+        debugPrint(
+          '[ServiceabilityCheck] validate-pincode FAILED: ${e.message}\n'
+          '  response: ${e.response?.data}',
+        );
+      }
+      return 'Pincode check failed. Please check your connection and try again.';
+    }
+
+    // Both checks passed
+    return null;
   }
 
   Future<void> _onSaveAddress() async {
@@ -295,16 +453,43 @@ class _MapAddressPageState extends ConsumerState<MapAddressPage> {
       return;
     }
 
+    // If city wasn't auto-detected, use whatever the user has typed in the
+    // editable city field. Do NOT block saving — the user should always be
+    // able to complete an address manually.
+    final cityFromController = _cityController.text.trim();
+    if (_selectedCity.isEmpty && cityFromController.isNotEmpty) {
+      _selectedCity = cityFromController;
+    }
+    final stateFromController = _stateController.text.trim();
+    if (_selectedState.isEmpty && stateFromController.isNotEmpty) {
+      _selectedState = stateFromController;
+    }
+
+    if (_selectedCity.isEmpty) {
+      AppSnackBar.showError(
+        context,
+        'Please enter your city in the City field below.',
+      );
+      return;
+    }
+
     setState(() => _isLoading = true);
     try {
-      if (!Env.demoMode) {
-        final isServiceable = await _validateBackendServiceability(pin);
-        if (!isServiceable) {
+      if (Env.shouldBypassServiceability) {
+        // Development / QA bypass: skip the backend serviceability check so
+        // any location can be used for testing without needing vendors nearby.
+        // This branch is NEVER reached in release builds.
+        if (kDebugMode) {
+          debugPrint(
+            '[DEV MODE] Serviceability check bypassed. '
+            'Allowing address for testing.',
+          );
+        }
+      } else {
+        final error = await _validateBackendServiceability(pin);
+        if (error != null) {
           if (mounted) {
-            AppSnackBar.showError(
-              context,
-              'LNDRY is not serviceable at this address yet.',
-            );
+            AppSnackBar.showError(context, error);
           }
           return;
         }
@@ -316,8 +501,8 @@ class _MapAddressPageState extends ConsumerState<MapAddressPage> {
         userId: user?.id ?? '',
         line1: line1,
         line2: _formattedAddress.isNotEmpty ? _formattedAddress : null,
-        city: _selectedCity.isNotEmpty ? _selectedCity : 'Unknown',
-        state: _selectedState.isNotEmpty ? _selectedState : 'Unknown',
+        city: _selectedCity,
+        state: _selectedState.isNotEmpty ? _selectedState : _selectedCity,
         pincode: pincode,
         landmark: _landmarkController.text.trim().isEmpty
             ? null
@@ -332,6 +517,13 @@ class _MapAddressPageState extends ConsumerState<MapAddressPage> {
 
       final hasPendingAction = ref.read(pendingAuthActionProvider) != null;
       await ref.read(authProvider.notifier).completeAddressSelection(address);
+
+      // Invalidate every home-screen provider so the UI refreshes
+      // immediately without an app restart.
+      ref
+        ..invalidate(currentAddressProvider)
+        ..invalidate(homeVendorsProvider)
+        ..invalidate(homeCategoriesProvider);
 
       if (mounted) {
         AppSnackBar.showSuccess(context, 'Address saved as default.');
@@ -538,12 +730,16 @@ class _MapAddressPageState extends ConsumerState<MapAddressPage> {
               addressLineController: _addressLineController,
               pincodeController: _pincodeController,
               landmarkController: _landmarkController,
+              cityController: _cityController,
+              stateController: _stateController,
               selectedType: _selectedType,
               formattedAddress: _formattedAddress,
               city: _selectedCity,
               stateName: _selectedState,
               isLoading: _isLoading,
               onTypeChanged: (type) => setState(() => _selectedType = type),
+              onCityChanged: (v) => setState(() => _selectedCity = v),
+              onStateChanged: (v) => setState(() => _selectedState = v),
               onSave: _onSaveAddress,
             ),
           ],
@@ -558,24 +754,32 @@ class _AddressForm extends StatelessWidget {
     required this.addressLineController,
     required this.pincodeController,
     required this.landmarkController,
+    required this.cityController,
+    required this.stateController,
     required this.selectedType,
     required this.formattedAddress,
     required this.city,
     required this.stateName,
     required this.isLoading,
     required this.onTypeChanged,
+    required this.onCityChanged,
+    required this.onStateChanged,
     required this.onSave,
   });
 
   final TextEditingController addressLineController;
   final TextEditingController pincodeController;
   final TextEditingController landmarkController;
+  final TextEditingController cityController;
+  final TextEditingController stateController;
   final AddressType selectedType;
   final String formattedAddress;
   final String city;
   final String stateName;
   final bool isLoading;
   final ValueChanged<AddressType> onTypeChanged;
+  final ValueChanged<String> onCityChanged;
+  final ValueChanged<String> onStateChanged;
   final VoidCallback onSave;
 
   @override
@@ -652,6 +856,34 @@ class _AddressForm extends StatelessWidget {
                     hint: 'Near park',
                     controller: landmarkController,
                     textCapitalization: TextCapitalization.words,
+                  ),
+                ),
+              ],
+            ),
+            const Gap(12),
+            // City + State — pre-filled by reverse geocoding, always editable
+            // so the user can correct auto-detection failures.
+            Row(
+              children: [
+                Expanded(
+                  flex: 3,
+                  child: AppTextField(
+                    label: 'City *',
+                    hint: 'e.g. Hyderabad',
+                    controller: cityController,
+                    textCapitalization: TextCapitalization.words,
+                    onChanged: onCityChanged,
+                  ),
+                ),
+                const Gap(12),
+                Expanded(
+                  flex: 3,
+                  child: AppTextField(
+                    label: 'State',
+                    hint: 'e.g. Telangana',
+                    controller: stateController,
+                    textCapitalization: TextCapitalization.words,
+                    onChanged: onStateChanged,
                   ),
                 ),
               ],

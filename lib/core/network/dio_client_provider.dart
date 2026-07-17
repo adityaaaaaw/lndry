@@ -21,6 +21,7 @@ final dioClientProvider = Provider<Dio>((ref) {
 });
 
 Dio _createDio(StorageService storage, Ref ref) {
+  print('[DIO] Initialized with Base URL: ${Env.baseUrl}');
   final dio = Dio(
     BaseOptions(
       baseUrl: Env.baseUrl,
@@ -37,6 +38,8 @@ Dio _createDio(StorageService storage, Ref ref) {
   // ── Auth interceptor: inject Bearer token ──────────────────────────────────
   dio.interceptors.add(QueuedInterceptorsWrapper(
     onRequest: (options, handler) async {
+      final requestUrl = '${options.baseUrl}${options.path}';
+      print('[DIO REQUEST] ${options.method} -> $requestUrl');
       // Don't add auth header for auth endpoints
       final path = options.path;
       if (_isPublicEndpoint(path)) {
@@ -140,11 +143,11 @@ Dio _createDio(StorageService storage, Ref ref) {
   if (Env.enableNetworkLogging) {
     dio.interceptors.add(
       PrettyDioLogger(
-        requestHeader: false,
-        requestBody: false,
-        responseBody: false,
+        requestHeader: true,
+        requestBody: true,
+        responseBody: true,
         responseHeader: false,
-        compact: true,
+        compact: false,
       ),
     );
   }

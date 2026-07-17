@@ -295,7 +295,7 @@ export class AdminReportsRepository {
               sp.stock, sp.price
        FROM vendor_services sp
        JOIN vendors s ON s.id = sp.vendor_id
-       JOIN garment_rates p ON p.id = sp.garment_rate_id
+       JOIN garment_types p ON p.id = sp.garment_rate_id
        ${where}
        ORDER BY sp.stock ASC
        LIMIT $${nextIndex} OFFSET $${nextIndex + 1}`,

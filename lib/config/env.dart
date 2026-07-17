@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'flavors.dart';
 
 /// LNDRY Environment Configuration
@@ -42,9 +43,27 @@ abstract final class Env {
   // ── Demo Mode Toggle ──────────────────────────────────────────────────────
   /// Set this to true to enable local client-only Demo Mode.
   /// When true, the app will run entirely locally using mock repositories,
-  /// bypass backend network calls, and accept the 123456 OTP.
   /// When false, the app reverts to normal production behavior.
   static const bool demoMode = false;
+
+  // ── Auto-Fill OTP for Testing ─────────────────────────────────────────────
+  /// When true, the OTP verification screen automatically populates with 123456
+  /// and auto-submits the form. Only active in development/debug builds.
+  static const bool autoFillOtpForTesting = true;
+  static bool get shouldAutoFillOtp =>
+      !isReleaseBuild &&
+      !Platform.environment.containsKey('FLUTTER_TEST') &&
+      (isDebugBuild || demoMode || autoFillOtpForTesting);
+
+  // ── Bypass Serviceability for Testing ────────────────────────────────────
+  /// When true, the address selection flow skips the backend serviceability
+  /// check and allows any location to be saved.
+  /// MUST be false (or guarded by !isReleaseBuild) in production.
+  static const bool bypassServiceabilityForTesting = true;
+  static bool get shouldBypassServiceability =>
+      !isReleaseBuild &&
+      (isDebugBuild || demoMode || bypassServiceabilityForTesting);
+
 
   // Build mode flags.
   static const bool isReleaseBuild = bool.fromEnvironment('dart.vm.product');

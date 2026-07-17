@@ -36,7 +36,7 @@ function normalizeSearchTerms(q) {
  *
  * Implementation notes:
  *   - Uses idx_shop_products_shop_available (vendor_id, is_available)
- *     and the garment_rates PK on `id` for the EXISTS lookup.
+ *     and the garment_types PK on `id` for the EXISTS lookup.
  *   - Casts $N::uuid[] so PostgreSQL can use the GIN-friendly array path
  *     without per-row casts on the inner query.
  *   - Only $-placeholder *numbers* are spliced into the returned string;
@@ -75,7 +75,7 @@ function buildCustomerVisibilitySnippet(allocatedShopIds, params, startIdx) {
 }
 
 /**
- * Products repository — all SQL queries for garment_rates
+ * Products repository — all SQL queries for garment_types
  * NEVER uses SELECT * — always named columns
  *
  * Customer-facing read paths accept an optional `allocatedShopIds` array
@@ -85,11 +85,11 @@ function buildCustomerVisibilitySnippet(allocatedShopIds, params, startIdx) {
  */
 export class ProductsRepository {
   /**
-   * List garment_rates with filtering, sorting, pagination
+   * List garment_types with filtering, sorting, pagination
    *
    * @param {object} filters
    * @param {string[]|null} [filters.allocatedShopIds] - When set, restrict
-   *   results to garment_rates available in at least one allocated shop.
+   *   results to garment_types available in at least one allocated shop.
    */
   async findMany({
     page = 1,
@@ -119,7 +119,7 @@ export class ProductsRepository {
     } else if (status === 'low_stock') {
       conditions.push('p.stock_quantity > 0 AND p.stock_quantity <= p.low_stock_threshold')
     } else if (status === 'on_sale') {
-      conditions.push('p.sale_price IS NOT NULL AND p.sale_price < p.price')
+      conditions.push('p.cost_price IS NOT NULL AND p.cost_price < p.cost_price')
     }
 
     if (category) {
@@ -134,12 +134,12 @@ export class ProductsRepository {
     }
 
     if (minPrice !== undefined) {
-      conditions.push(`p.price >= $${paramIdx++}`)
+      conditions.push(`COALESCE(p.cost_price, 0) >= $${paramIdx++}`)
       params.push(minPrice)
     }
 
     if (maxPrice !== undefined) {
-      conditions.push(`p.price <= $${paramIdx++}`)
+      conditions.push(`COALESCE(p.cost_price, 0) <= $${paramIdx++}`)
       params.push(maxPrice)
     }
 
@@ -162,8 +162,8 @@ export class ProductsRepository {
     }
 
     const sortMap = {
-      price_asc: 'p.price ASC',
-      price_desc: 'p.price DESC',
+      price_asc: 'COALESCE(p.cost_price, 0) ASC',
+      price_desc: 'COALESCE(p.cost_price, 0) DESC',
       newest: 'p.created_at DESC',
       popular: 'p.total_sold DESC',
       name_asc: 'p.name ASC',
@@ -175,7 +175,7 @@ export class ProductsRepository {
 
     // option_count: number of active siblings in same family (or 1 if standalone)
     const optionCountExpr = `COALESCE(
-      (SELECT COUNT(*)::int FROM garment_rates sib
+      (SELECT COUNT(*)::int FROM garment_types sib
        WHERE sib.product_family_id = p.product_family_id
          AND sib.product_family_id IS NOT NULL
          AND sib.is_active = true), 1)`
@@ -183,12 +183,12 @@ export class ProductsRepository {
     if (groupOptions) {
       // When grouping, pick one representative per product_family_id:
       // prefer is_default_option, then lowest option_sort_order, then lowest price.
-      // Standalone garment_rates (NULL family) always appear.
+      // Standalone garment_types (NULL family) always appear.
       const { rows } = await query(
         `WITH ranked AS (
           SELECT
-            p.id, p.name, p.slug, p.price, p.sale_price,
-            p.stock_quantity, p.unit, p.thumbnail_url,
+            p.id, p.name, p.slug, COALESCE(p.cost_price, 0) AS price, COALESCE(p.cost_price, 0) AS sale_price,
+            p.stock_quantity, p.unit, COALESCE((p.images->>0), '') AS thumbnail_url,
             p.is_active, p.is_featured, p.total_sold,
             p.sku, p.barcode, p.low_stock_threshold, p.category_id,
             p.product_family_id, p.option_label, p.option_sort_order,
@@ -201,15 +201,14 @@ export class ProductsRepository {
             ${optionCountExpr} AS option_count,
             ROW_NUMBER() OVER (
               PARTITION BY COALESCE(p.product_family_id, p.id)
-              ORDER BY p.is_default_option DESC, p.option_sort_order ASC, p.price ASC
+              ORDER BY p.is_default_option DESC, p.option_sort_order ASC, COALESCE(p.cost_price, 0) ASC
             ) AS rn
-          FROM garment_rates p
-          LEFT JOIN categories c ON c.id = p.category_id
+          FROM garment_types p
+          LEFT JOIN service_categories c ON c.id = p.category_id
           LEFT JOIN product_families pf ON pf.id = p.product_family_id
           WHERE ${where}
         )
-        SELECT id, name, slug, price, sale_price,
-               stock_quantity, unit, thumbnail_url,
+        SELECT id, name, slug, COALESCE(cost_price, 0) AS price, COALESCE(cost_price, 0) AS sale_price, stock_quantity, unit, COALESCE((images->>0), '') AS thumbnail_url,
                is_active, is_featured, total_sold,
                sku, barcode, low_stock_threshold, category_id,
                product_family_id, option_label, option_sort_order,
@@ -229,9 +228,9 @@ export class ProductsRepository {
           SELECT p.id,
             ROW_NUMBER() OVER (
               PARTITION BY COALESCE(p.product_family_id, p.id)
-              ORDER BY p.is_default_option DESC, p.option_sort_order ASC, p.price ASC
+              ORDER BY p.is_default_option DESC, p.option_sort_order ASC, COALESCE(p.cost_price, 0) ASC
             ) AS rn
-          FROM garment_rates p
+          FROM garment_types p
           WHERE ${where}
         )
         SELECT COUNT(*)::int AS total FROM ranked WHERE rn = 1`,
@@ -251,8 +250,8 @@ export class ProductsRepository {
 
     const { rows } = await query(
       `SELECT
-        p.id, p.name, p.slug, p.price, p.sale_price,
-        p.stock_quantity, p.unit, p.thumbnail_url,
+        p.id, p.name, p.slug, COALESCE(p.cost_price, 0) AS price, COALESCE(p.cost_price, 0) AS sale_price,
+        p.stock_quantity, p.unit, COALESCE((p.images->>0), '') AS thumbnail_url,
         p.is_active, p.is_featured, p.total_sold,
         p.sku, p.barcode, p.low_stock_threshold, p.category_id,
         p.product_family_id, p.option_label, p.option_sort_order,
@@ -262,8 +261,8 @@ export class ProductsRepository {
         c.name AS category_name,
         pf.name AS family_name,
         ${optionCountExpr} AS option_count
-       FROM garment_rates p
-       LEFT JOIN categories c ON c.id = p.category_id
+       FROM garment_types p
+       LEFT JOIN service_categories c ON c.id = p.category_id
        LEFT JOIN product_families pf ON pf.id = p.product_family_id
        WHERE ${where}
        ORDER BY ${orderBy}
@@ -272,7 +271,7 @@ export class ProductsRepository {
     )
 
     const { rows: countRows } = await query(
-      `SELECT COUNT(*)::int AS total FROM garment_rates p WHERE ${where}`,
+      `SELECT COUNT(*)::int AS total FROM garment_types p WHERE ${where}`,
       params
     )
 
@@ -327,11 +326,11 @@ export class ProductsRepository {
           p.id,
           p.name,
           p.slug,
-          p.price,
-          p.sale_price,
+          COALESCE(p.cost_price, 0) AS price,
+          COALESCE(p.cost_price, 0) AS sale_price,
           p.stock_quantity,
           p.unit,
-          p.thumbnail_url,
+          COALESCE((p.images->>0), '') AS thumbnail_url,
           c.name AS category_name,
           p.is_featured,
           p.total_sold,
@@ -342,8 +341,8 @@ export class ProductsRepository {
           pf.name AS family_name,
           ts_rank(p.search_vector, to_tsquery('simple', $1)) AS rank,
           1 AS source
-        FROM garment_rates p
-        LEFT JOIN categories c ON c.id = p.category_id
+        FROM garment_types p
+        LEFT JOIN service_categories c ON c.id = p.category_id
         LEFT JOIN product_families pf ON pf.id = p.product_family_id
         WHERE p.is_active = true
           AND p.search_vector @@ to_tsquery('simple', $1)
@@ -354,11 +353,11 @@ export class ProductsRepository {
           p.id,
           p.name,
           p.slug,
-          p.price,
-          p.sale_price,
+          COALESCE(p.cost_price, 0) AS price,
+          COALESCE(p.cost_price, 0) AS sale_price,
           p.stock_quantity,
           p.unit,
-          p.thumbnail_url,
+          COALESCE((p.images->>0), '') AS thumbnail_url,
           c.name AS category_name,
           p.is_featured,
           p.total_sold,
@@ -369,8 +368,8 @@ export class ProductsRepository {
           pf.name AS family_name,
           0.1 AS rank,
           2 AS source
-        FROM garment_rates p
-        LEFT JOIN categories c ON c.id = p.category_id
+        FROM garment_types p
+        LEFT JOIN service_categories c ON c.id = p.category_id
         LEFT JOIN product_families pf ON pf.id = p.product_family_id
         WHERE p.is_active = true
           AND p.id NOT IN (SELECT id FROM fts)
@@ -390,11 +389,7 @@ export class ProductsRepository {
         id,
         name,
         slug,
-        price,
-        sale_price,
-        stock_quantity,
-        unit,
-        thumbnail_url,
+        COALESCE(cost_price, 0) AS price, COALESCE(cost_price, 0) AS sale_price, stock_quantity, unit, COALESCE((images->>0), '') AS thumbnail_url,
         category_name,
         is_featured,
         total_sold,
@@ -413,13 +408,13 @@ export class ProductsRepository {
       SELECT COUNT(DISTINCT id)::int AS total
       FROM (
         SELECT p.id
-        FROM garment_rates p
+        FROM garment_types p
         WHERE p.is_active = true
           AND p.search_vector @@ to_tsquery('simple', $1)
           ${visClause}
         UNION
         SELECT p.id
-        FROM garment_rates p
+        FROM garment_types p
         WHERE p.is_active = true
           AND (
             p.name ILIKE $2
@@ -439,7 +434,7 @@ export class ProductsRepository {
 
     // When no exact/prefix results, provide fuzzy nearest-match suggestions.
     // Suggestions inherit the same allocation scoping so customers never
-    // see suggestions for garment_rates outside their allocated vendors.
+    // see suggestions for garment_types outside their allocated vendors.
     let suggestions = []
     if (rows.length === 0 && trimmed.length >= 2) {
       suggestions = await this.fuzzySuggest(trimmed, 6, allocatedShopIds)
@@ -459,7 +454,7 @@ export class ProductsRepository {
 
   /**
    * Fuzzy suggestions using pg_trgm similarity.
-   * Returns nearest garment_rates when exact/prefix search finds nothing.
+   * Returns nearest garment_types when exact/prefix search finds nothing.
    * Requires: CREATE EXTENSION pg_trgm (migration 017)
    *
    * @param {string} q
@@ -478,13 +473,13 @@ export class ProductsRepository {
       const limitIdx = visibility.nextIdx
 
       const { rows } = await query(
-        `SELECT p.id, p.name, p.slug, p.price, p.sale_price,
-                p.stock_quantity, p.unit, p.thumbnail_url,
+        `SELECT p.id, p.name, p.slug, COALESCE(p.cost_price, 0) AS price, COALESCE(p.cost_price, 0) AS sale_price,
+                p.stock_quantity, p.unit, COALESCE((p.images->>0), '') AS thumbnail_url,
                 c.name AS category_name,
                 p.is_featured, p.total_sold,
                 similarity(p.name, $1) AS sim
-         FROM garment_rates p
-         LEFT JOIN categories c ON c.id = p.category_id
+         FROM garment_types p
+         LEFT JOIN service_categories c ON c.id = p.category_id
          WHERE p.is_active = true
            AND similarity(p.name, $1) > 0.08
            ${visibility.sql}
@@ -500,7 +495,7 @@ export class ProductsRepository {
   }
 
   /**
-   * Get featured/bestseller garment_rates
+   * Get featured/bestseller garment_types
    *
    * @param {number} [limit=20]
    * @param {string[]|null} [allocatedShopIds]
@@ -516,8 +511,8 @@ export class ProductsRepository {
     const limitIdx = visibility.nextIdx
 
     const { rows } = await query(
-      `SELECT p.id, p.name, p.slug, p.price, p.sale_price,
-              p.stock_quantity, p.unit, p.thumbnail_url,
+      `SELECT p.id, p.name, p.slug, COALESCE(p.cost_price, 0) AS price, COALESCE(p.cost_price, 0) AS sale_price,
+              p.stock_quantity, p.unit, COALESCE((p.images->>0), '') AS thumbnail_url,
               c.name AS category_name, p.total_sold,
               p.product_family_id, p.option_label, p.option_sort_order,
               p.is_default_option, p.food_type, p.origin_tag,
@@ -525,12 +520,12 @@ export class ProductsRepository {
               p.avg_rating, p.rating_count, p.net_quantity,
               pf.name AS family_name,
               COALESCE(
-                (SELECT COUNT(*)::int FROM garment_rates sib
+                (SELECT COUNT(*)::int FROM garment_types sib
                  WHERE sib.product_family_id = p.product_family_id
                    AND sib.product_family_id IS NOT NULL
                    AND sib.is_active = true), 1) AS option_count
-       FROM garment_rates p
-       LEFT JOIN categories c ON c.id = p.category_id
+       FROM garment_types p
+       LEFT JOIN service_categories c ON c.id = p.category_id
        LEFT JOIN product_families pf ON pf.id = p.product_family_id
        WHERE p.is_active = true AND p.is_featured = true
          ${visibility.sql}
@@ -618,9 +613,9 @@ export class ProductsRepository {
     )
 
     const { rows } = await query(
-      `SELECT p.id, p.name, p.slug, p.description, p.price, p.sale_price,
+      `SELECT p.id, p.name, p.slug, p.description, COALESCE(p.cost_price, 0) AS price, COALESCE(p.cost_price, 0) AS sale_price,
               p.cost_price, p.category_id, p.stock_quantity, p.unit,
-              p.thumbnail_url, p.images, p.tags, p.is_active,
+              COALESCE((p.images->>0), '') AS thumbnail_url, p.images, p.tags, p.is_active,
               p.is_featured, p.total_sold,
               p.sku, p.barcode, p.low_stock_threshold, p.max_order_qty,
               p.ingredients, p.allergen_info, p.shelf_life, p.storage_instructions,
@@ -635,14 +630,14 @@ export class ProductsRepository {
               c.name AS category_name,
               pf.name AS family_name,
               COALESCE(
-                (SELECT COUNT(*)::int FROM garment_rates sib
+                (SELECT COUNT(*)::int FROM garment_types sib
                  WHERE sib.product_family_id = p.product_family_id
                    AND sib.product_family_id IS NOT NULL
                    AND sib.is_active = true), 1) AS option_count,
               (SELECT json_agg(v) FROM product_variants v WHERE v.garment_rate_id = p.id) AS variants,
               p.created_at, p.updated_at
-       FROM garment_rates p
-       LEFT JOIN categories c ON c.id = p.category_id
+       FROM garment_types p
+       LEFT JOIN service_categories c ON c.id = p.category_id
        LEFT JOIN product_families pf ON pf.id = p.product_family_id
        WHERE p.id = $1
          ${visibility.sql}`,
@@ -666,9 +661,9 @@ export class ProductsRepository {
     )
 
     const { rows } = await query(
-      `SELECT p.id, p.name, p.slug, p.description, p.price, p.sale_price,
+      `SELECT p.id, p.name, p.slug, p.description, COALESCE(p.cost_price, 0) AS price, COALESCE(p.cost_price, 0) AS sale_price,
               p.cost_price, p.category_id, p.stock_quantity, p.unit,
-              p.thumbnail_url, p.images, p.tags, p.is_active,
+              COALESCE((p.images->>0), '') AS thumbnail_url, p.images, p.tags, p.is_active,
               p.is_featured, p.total_sold,
               p.sku, p.barcode, p.low_stock_threshold, p.max_order_qty,
               p.ingredients, p.allergen_info, p.shelf_life, p.storage_instructions,
@@ -683,14 +678,14 @@ export class ProductsRepository {
               c.name AS category_name,
               pf.name AS family_name,
               COALESCE(
-                (SELECT COUNT(*)::int FROM garment_rates sib
+                (SELECT COUNT(*)::int FROM garment_types sib
                  WHERE sib.product_family_id = p.product_family_id
                    AND sib.product_family_id IS NOT NULL
                    AND sib.is_active = true), 1) AS option_count,
               (SELECT json_agg(v) FROM product_variants v WHERE v.garment_rate_id = p.id) AS variants,
               p.created_at, p.updated_at
-       FROM garment_rates p
-       LEFT JOIN categories c ON c.id = p.category_id
+       FROM garment_types p
+       LEFT JOIN service_categories c ON c.id = p.category_id
        LEFT JOIN product_families pf ON pf.id = p.product_family_id
        WHERE p.slug = $1 AND p.is_active = true
          ${visibility.sql}`,
@@ -700,7 +695,7 @@ export class ProductsRepository {
   }
 
   /**
-   * Get related garment_rates (same category, excluding current)
+   * Get related garment_types (same category, excluding current)
    *
    * @param {string} productId
    * @param {string} categoryId
@@ -718,14 +713,14 @@ export class ProductsRepository {
     const limitIdx = visibility.nextIdx
 
     const { rows } = await query(
-      `SELECT p.id, p.name, p.slug, p.price, p.sale_price,
-              p.stock_quantity, p.unit, p.thumbnail_url, p.total_sold,
+      `SELECT p.id, p.name, p.slug, COALESCE(p.cost_price, 0) AS price, COALESCE(p.cost_price, 0) AS sale_price,
+              p.stock_quantity, p.unit, COALESCE((p.images->>0), '') AS thumbnail_url, p.total_sold,
               p.product_family_id, p.option_label, p.option_sort_order,
               p.is_default_option, p.food_type, p.origin_tag,
               p.custom_badges, p.display_delivery_minutes,
               p.avg_rating, p.rating_count, p.net_quantity,
               pf.name AS family_name
-       FROM garment_rates p
+       FROM garment_types p
        LEFT JOIN product_families pf ON pf.id = p.product_family_id
        WHERE p.is_active = true
          AND p.category_id = $1
@@ -749,8 +744,8 @@ export class ProductsRepository {
     const limitIdx = visibility.nextIdx
 
     const { rows } = await query(
-      `SELECT p.id, p.name, p.slug, p.price, p.sale_price,
-              p.stock_quantity, p.unit, p.thumbnail_url,
+      `SELECT p.id, p.name, p.slug, COALESCE(p.cost_price, 0) AS price, COALESCE(p.cost_price, 0) AS sale_price,
+              p.stock_quantity, p.unit, COALESCE((p.images->>0), '') AS thumbnail_url,
               p.brand, p.total_sold, p.avg_rating, p.rating_count,
               c.name AS category_name,
               p.product_family_id, p.option_label, p.option_sort_order,
@@ -758,8 +753,8 @@ export class ProductsRepository {
               p.custom_badges, p.display_delivery_minutes,
               p.net_quantity,
               pf.name AS family_name
-       FROM garment_rates p
-       LEFT JOIN categories c ON c.id = p.category_id
+       FROM garment_types p
+       LEFT JOIN service_categories c ON c.id = p.category_id
        LEFT JOIN product_families pf ON pf.id = p.product_family_id
        WHERE p.is_active = true
          AND p.category_id != $1
@@ -782,14 +777,14 @@ export class ProductsRepository {
   async findFamilyOptions(productId, allocatedShopIds = null) {
     // 1. Look up the product's family
     const { rows: productRows } = await query(
-      `SELECT p.id, p.name, p.slug, p.price, p.sale_price,
-              p.stock_quantity, p.unit, p.thumbnail_url,
+      `SELECT p.id, p.name, p.slug, COALESCE(p.cost_price, 0) AS price, COALESCE(p.cost_price, 0) AS sale_price,
+              p.stock_quantity, p.unit, COALESCE((p.images->>0), '') AS thumbnail_url,
               p.product_family_id, p.option_label, p.option_sort_order,
               p.is_default_option, p.food_type, p.origin_tag,
               p.custom_badges, p.display_delivery_minutes,
               p.avg_rating, p.rating_count, p.net_quantity,
               p.category_id, p.is_active
-       FROM garment_rates p
+       FROM garment_types p
        WHERE p.id = $1`,
       [productId]
     )
@@ -822,16 +817,16 @@ export class ProductsRepository {
     )
     const family = familyRows[0] || null
 
-    // 4. Get all active garment_rates in the family
+    // 4. Get all active garment_types in the family
     const { rows: options } = await query(
-      `SELECT p.id, p.name, p.slug, p.price, p.sale_price,
-              p.stock_quantity, p.unit, p.thumbnail_url,
+      `SELECT p.id, p.name, p.slug, COALESCE(p.cost_price, 0) AS price, COALESCE(p.cost_price, 0) AS sale_price,
+              p.stock_quantity, p.unit, COALESCE((p.images->>0), '') AS thumbnail_url,
               p.product_family_id, p.option_label, p.option_sort_order,
               p.is_default_option, p.food_type, p.origin_tag,
               p.custom_badges, p.display_delivery_minutes,
               p.avg_rating, p.rating_count, p.net_quantity,
               p.category_id
-       FROM garment_rates p
+       FROM garment_types p
        WHERE p.product_family_id = $1
          AND p.is_active = true
        ORDER BY p.is_default_option DESC, p.option_sort_order ASC, p.name ASC`,
@@ -902,7 +897,7 @@ export class ProductsRepository {
    */
   async create(data) {
     const { rows } = await query(
-      `INSERT INTO garment_rates
+      `INSERT INTO garment_types
         (name, slug, description, price, sale_price, cost_price,
          category_id, stock_quantity, unit, thumbnail_url, images, tags,
          is_featured, is_active, sku, barcode, low_stock_threshold, max_order_qty,
@@ -914,8 +909,7 @@ export class ProductsRepository {
          product_family_id, option_label, option_sort_order, is_default_option,
          food_type, origin_tag, custom_badges, display_delivery_minutes)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$35,$36,$37,$38,$39,$40,$41,$42,$43,$44,$45,$46)
-       RETURNING id, name, slug, price, sale_price, stock_quantity, unit,
-                 thumbnail_url, category_id, is_featured, is_active, sku, created_at`,
+       RETURNING id, name, slug, COALESCE(cost_price, 0) AS price, COALESCE(cost_price, 0) AS sale_price, stock_quantity, unit, COALESCE((images->>0), '') AS thumbnail_url, category_id, is_featured, is_active, sku, created_at`,
       [
         data.name, data.slug, data.description || null,
         data.price, data.salePrice || null, data.costPrice || null,
@@ -959,7 +953,7 @@ export class ProductsRepository {
       name: 'name', description: 'description', price: 'price',
       salePrice: 'sale_price', costPrice: 'cost_price',
       categoryId: 'category_id', stock: 'stock_quantity',
-      unit: 'unit', thumbnailUrl: 'thumbnail_url',
+      unit: 'unit', thumbnailUrl: "COALESCE((images->>0), '')",
       isFeatured: 'is_featured', isActive: 'is_active', slug: 'slug',
       sku: 'sku', barcode: 'barcode',
       lowStockThreshold: 'low_stock_threshold', maxOrderQty: 'max_order_qty',
@@ -1026,9 +1020,8 @@ export class ProductsRepository {
     params.push(id)
 
     const { rows } = await query(
-      `UPDATE garment_rates SET ${fields.join(', ')} WHERE id = $${idx}
-       RETURNING id, name, slug, price, sale_price, stock_quantity, unit,
-                 thumbnail_url, category_id, is_featured, is_active, updated_at`,
+      `UPDATE garment_types SET ${fields.join(', ')} WHERE id = $${idx}
+       RETURNING id, name, slug, COALESCE(cost_price, 0) AS price, COALESCE(cost_price, 0) AS sale_price, stock_quantity, unit, COALESCE((images->>0), '') AS thumbnail_url, category_id, is_featured, is_active, updated_at`,
       params
     )
     return rows[0]
@@ -1071,7 +1064,7 @@ export class ProductsRepository {
    */
   async updateStock(id, stock) {
     const { rows } = await query(
-      `UPDATE garment_rates SET stock_quantity = $1, updated_at = NOW() WHERE id = $2
+      `UPDATE garment_types SET stock_quantity = $1, updated_at = NOW() WHERE id = $2
        RETURNING id, name, stock_quantity`,
       [stock, id]
     )
@@ -1083,13 +1076,13 @@ export class ProductsRepository {
    */
   async delete(id) {
     await query(
-      `UPDATE garment_rates SET is_active = false, updated_at = NOW() WHERE id = $1`,
+      `UPDATE garment_types SET is_active = false, updated_at = NOW() WHERE id = $1`,
       [id]
     )
   }
 
   /**
-   * Find garment_rates with active price drops (sale_price < price)
+   * Find garment_types with active price drops (sale_price < price)
    * Used in cart "Price Drop Alert" section
    *
    * @param {number} [limit=10]
@@ -1106,12 +1099,12 @@ export class ProductsRepository {
     const limitIdx = visibility.nextIdx
 
     const { rows } = await query(
-      `SELECT p.id, p.name, p.thumbnail_url, p.price, p.sale_price, p.unit, p.stock_quantity,
-              (p.price - p.sale_price) AS discount
-       FROM garment_rates p
+      `SELECT p.id, p.name, COALESCE((p.images->>0), '') AS thumbnail_url, COALESCE(p.cost_price, 0) AS price, COALESCE(p.cost_price, 0) AS sale_price, p.unit, p.stock_quantity,
+              (0) AS discount
+       FROM garment_types p
        WHERE p.is_active = true
-         AND p.sale_price IS NOT NULL
-         AND p.sale_price < p.price
+         AND p.cost_price IS NOT NULL
+         AND p.cost_price < p.cost_price
          ${visibility.sql}
        ORDER BY discount DESC
        LIMIT $${limitIdx}`,
@@ -1121,7 +1114,7 @@ export class ProductsRepository {
   }
 
   /**
-   * Find last-minute / cafe / snack garment_rates
+   * Find last-minute / cafe / snack garment_types
    * Used in cart "Last-Minute Cravings" section
    *
    * @param {number} [limit=10]
@@ -1138,16 +1131,16 @@ export class ProductsRepository {
     const limitIdx = visibility.nextIdx
 
     const { rows } = await query(
-      `SELECT p.id, p.name, p.thumbnail_url, p.price, p.sale_price, p.unit
-       FROM garment_rates p
-       JOIN categories c ON p.category_id = c.id
+      `SELECT p.id, p.name, COALESCE((p.images->>0), '') AS thumbnail_url, COALESCE(p.cost_price, 0) AS price, COALESCE(p.cost_price, 0) AS sale_price, p.unit
+       FROM garment_types p
+       JOIN service_categories c ON p.category_id = c.id
        WHERE p.is_active = true
-         AND p.price <= 150
+         AND COALESCE(p.cost_price, 0) <= 150
          AND (c.slug IN ('snacks','cafe','bakery','sweets','beverages')
               OR c.name ILIKE '%cafe%'
               OR c.name ILIKE '%snack%')
          ${visibility.sql}
-       ORDER BY p.sale_price ASC NULLS LAST
+       ORDER BY COALESCE(p.cost_price, 0) ASC NULLS LAST
        LIMIT $${limitIdx}`,
       params
     )

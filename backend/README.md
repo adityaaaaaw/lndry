@@ -50,3 +50,19 @@ Route → preHandler (auth/role) → JSON Schema Validation → Controller → S
 ```
 
 See `Backend system design/ARCHITECTURE.md` for full details.
+
+## Developer Workflow Protection (Port 4500)
+
+LNDRY has built-in port guard protection on port `4500` (default env port) to prevent duplicate startup crashes or resource exhaustion:
+1. **Auto-Reuse**: When starting the backend, it will automatically query `/health` on the configured port. If a healthy LNDRY server is already running, it logs a skipping message and exits gracefully (`0`) instead of crashing with `EADDRINUSE`. You can continue using your already-running backend instance safely!
+2. **Diagnostics**: If the port is occupied by another application or an unhealthy/unresponsive process, LNDRY runs automated system diagnostics. It reports:
+   - Occupying Process ID (PID)
+   - Executable path
+   - CommandLine command string
+   - Health check error status
+3. **Corrective Action**: If an unhealthy or foreign process is occupying the port, stop the occupying process before running the backend again:
+   ```powershell
+   # Kill the occupying process on Windows
+   taskkill /F /PID <PID>
+   ```
+

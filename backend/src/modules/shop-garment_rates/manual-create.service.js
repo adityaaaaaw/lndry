@@ -128,7 +128,7 @@ export class ManualCreateService {
       // IS NOT DISTINCT FROM for the comparison.
       const duplicateCheck = await client.query(
         `SELECT id, name, brand, unit
-           FROM garment_rates
+           FROM garment_types
           WHERE LOWER(TRIM(name)) = LOWER(TRIM($1))
             AND LOWER(COALESCE(TRIM(brand), '')) IS NOT DISTINCT FROM LOWER(COALESCE(TRIM($2), ''))
             AND LOWER(TRIM(unit)) = LOWER(TRIM($3))
@@ -146,24 +146,22 @@ export class ManualCreateService {
         }
       }
 
-      // ── Step 2: INSERT into garment_rates (master catalog) ───────
+      // ── Step 2: INSERT into garment_types (master catalog) ───────
       const slug = generateSlug(body.name)
       const imagesJson = JSON.stringify(body.image_ids || [])
 
       const productResult = await client.query(
-        `INSERT INTO garment_rates (
-           name, slug, description, price, sale_price, cost_price,
+        `INSERT INTO garment_types (
+           name, slug, meta_description, cost_price,
            category_id, stock_quantity, unit, images, brand, is_active
-         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::jsonb, $11, true)
-         RETURNING id, name, slug, description, price, sale_price,
+         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9, true)
+         RETURNING id, name, slug, meta_description as description,
                    cost_price, category_id, stock_quantity, unit,
                    images, brand, is_active, created_at, updated_at`,
         [
           body.name.trim(),
           slug,
           body.description || null,
-          body.price,
-          body.sale_price || null,
           body.cost_price || null,
           body.category_id || null,
           body.stock_quantity,

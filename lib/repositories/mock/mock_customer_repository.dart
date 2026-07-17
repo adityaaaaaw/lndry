@@ -321,9 +321,9 @@ class MockCustomerRepository implements CustomerRepository {
 
   UserModel _mockUser = const UserModel(
     id: 'usr_demo',
-    name: '',
+    name: 'Demo User',
     phone: '9876543210',
-    email: null,
+    email: 'demo@lndry.app',
     role: UserRole.customer,
     isVerified: true,
   );

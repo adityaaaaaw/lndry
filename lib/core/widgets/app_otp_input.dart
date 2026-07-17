@@ -15,6 +15,7 @@ class AppOtpInput extends StatefulWidget {
     this.length = 6,
     this.errorText,
     this.enabled = true,
+    this.initialValue,
   });
 
   final ValueChanged<String> onChanged;
@@ -22,6 +23,7 @@ class AppOtpInput extends StatefulWidget {
   final int length;
   final String? errorText;
   final bool enabled;
+  final String? initialValue;
 
   @override
   State<AppOtpInput> createState() => _AppOtpInputState();
@@ -49,6 +51,50 @@ class _AppOtpInputState extends State<AppOtpInput> {
       widget.length,
       (_) => FocusNode(),
     );
+
+    // Populate initialValue if provided
+    if (widget.initialValue != null && widget.initialValue!.isNotEmpty) {
+      final initialChars = widget.initialValue!.split('');
+      for (var i = 0; i < widget.length && i < initialChars.length; i++) {
+        _code[i] = initialChars[i];
+        _controllers[i].text = initialChars[i];
+      }
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          final finalCode = _code.join('');
+          widget.onChanged(finalCode);
+          if (finalCode.length == widget.length) {
+            widget.onCompleted(finalCode);
+          }
+        }
+      });
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant AppOtpInput oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.initialValue != oldWidget.initialValue && widget.initialValue != null) {
+      final initialChars = widget.initialValue!.split('');
+      for (var i = 0; i < widget.length; i++) {
+        if (i < initialChars.length) {
+          _code[i] = initialChars[i];
+          _controllers[i].text = initialChars[i];
+        } else {
+          _code[i] = '';
+          _controllers[i].clear();
+        }
+      }
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          final finalCode = _code.join('');
+          widget.onChanged(finalCode);
+          if (finalCode.length == widget.length) {
+            widget.onCompleted(finalCode);
+          }
+        }
+      });
+    }
   }
 
   @override

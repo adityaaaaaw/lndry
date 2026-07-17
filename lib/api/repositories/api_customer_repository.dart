@@ -1,6 +1,6 @@
 // ignore_for_file: inference_failure_on_function_invocation
 
-import 'dart:typed_data';
+import 'package:flutter/foundation.dart';
 
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -445,20 +445,39 @@ class ApiCustomerRepository implements CustomerRepository {
 
   @override
   Future<AddressModel> addAddress(AddressModel address) async {
+    final payload = <String, dynamic>{
+      'addressLine1': address.line1,
+      if (address.line2 != null && address.line2!.isNotEmpty)
+        'addressLine2': address.line2,
+      'city': address.city,
+      'state': address.state,
+      'pincode': address.pincode,
+      if (address.coordinates != null) 'lat': address.coordinates!.latitude,
+      if (address.coordinates != null) 'lng': address.coordinates!.longitude,
+      'label': address.type.label,
+      'isDefault': address.isDefault,
+      if (address.landmark != null && address.landmark!.isNotEmpty)
+        'landmark': address.landmark,
+    };
+
+    if (kDebugMode) {
+      debugPrint(
+        '[addAddress] POST ${ApiEndpoints.addresses}\n'
+        '  payload: $payload',
+      );
+    }
+
     final resp = await _dio.post(
       ApiEndpoints.addresses,
-      data: {
-        'addressLine1': address.line1,
-        'addressLine2': address.line2,
-        'city': address.city,
-        'state': address.state,
-        'pincode': address.pincode,
-        'lat': address.coordinates?.latitude,
-        'lng': address.coordinates?.longitude,
-        'label': address.type.label,
-        'isDefault': address.isDefault,
-      },
+      data: payload,
     );
+
+    if (kDebugMode) {
+      debugPrint(
+        '[addAddress] response ${resp.statusCode}: ${resp.data}',
+      );
+    }
+
     final json = _extractData(resp.data as Map<String, dynamic>);
     return _parseAddress(json);
   }
@@ -489,7 +508,14 @@ class ApiCustomerRepository implements CustomerRepository {
 
   @override
   Future<void> setDefaultAddress(String addressId) async {
-    await _dio.put(ApiEndpoints.defaultAddress(addressId));
+    // PUT /:id/default has no request body, but the global Dio BaseOptions set
+    // Content-Type: application/json on every request.  Fastify rejects an
+    // entirely absent body with "Body cannot be empty when content-type is
+    // application/json".  Sending an explicit empty object satisfies the parser.
+    await _dio.put(
+      ApiEndpoints.defaultAddress(addressId),
+      data: <String, dynamic>{},
+    );
   }
 
   // ── Search / Discovery ───────────────────────────────────────────────────────

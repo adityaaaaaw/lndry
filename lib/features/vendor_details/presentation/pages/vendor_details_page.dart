@@ -31,7 +31,6 @@ class _VendorDetailsPageState extends ConsumerState<VendorDetailsPage>
   bool _slotsLoading = false;
   List<PickupSlot> _availableSlots = [];
   PickupSlot? _selectedSlot;
-  String? _currentHoldId;
   String _selectedDate = '';
 
   // Service Type State
@@ -67,34 +66,7 @@ class _VendorDetailsPageState extends ConsumerState<VendorDetailsPage>
     }
   }
 
-  Future<void> _holdSlot(PickupSlot slot) async {
-    // Release previous hold if any
-    if (_currentHoldId != null) {
-      try {
-        await ref
-            .read(customerRepositoryProvider)
-            .releaseSlotHold(_currentHoldId!);
-      } catch (_) {}
-    }
 
-    try {
-      final result = await ref.read(customerRepositoryProvider).holdSlot(
-            vendorId: widget.vendorId,
-            slotId: slot.id,
-            date: _selectedDate,
-          );
-      if (mounted) {
-        setState(() {
-          _currentHoldId = result.holdId;
-        });
-      }
-    } catch (_) {
-      if (mounted) {
-        AppSnackBar.showError(context,
-            'This slot is no longer available. Please select another.');
-      }
-    }
-  }
 
   void _showPickupSlotSheet() {
     AppBottomSheet.show<void>(
@@ -125,11 +97,6 @@ class _VendorDetailsPageState extends ConsumerState<VendorDetailsPage>
                   onTap: () {
                     setState(() => _selectedSlot = slot);
                     Navigator.of(context).pop();
-                    requireAuthenticated(
-                      context: context,
-                      ref: ref,
-                      action: (_, __) => _holdSlot(slot),
-                    );
                   },
                   child: Row(
                     children: [
@@ -169,9 +136,6 @@ class _VendorDetailsPageState extends ConsumerState<VendorDetailsPage>
 
   @override
   void dispose() {
-    if (_currentHoldId != null) {
-      ref.read(customerRepositoryProvider).releaseSlotHold(_currentHoldId!);
-    }
     _tabController.dispose();
     super.dispose();
   }

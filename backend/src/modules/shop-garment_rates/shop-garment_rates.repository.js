@@ -298,13 +298,12 @@ export class ShopProductsRepository {
           sp.updated_at,
           p.name          AS product_name,
           p.sku           AS product_sku,
-          COALESCE(p.thumbnail_url, p.images->>0)
-                          AS product_image_url,
+          (p.images->>0)  AS product_image_url,
           p.category_id   AS product_category_id,
           c.name          AS product_category_name,
           s.name          AS shop_name
         FROM vendor_services sp
-        LEFT JOIN garment_rates p ON p.id = sp.garment_rate_id
+        LEFT JOIN garment_types p ON p.id = sp.garment_rate_id
         LEFT JOIN categories c ON c.id = p.category_id
         LEFT JOIN vendors s ON s.id = sp.vendor_id
         WHERE ${where}
@@ -315,7 +314,7 @@ export class ShopProductsRepository {
       query(
         `SELECT COUNT(*)::int AS total
         FROM vendor_services sp
-        LEFT JOIN garment_rates p ON p.id = sp.garment_rate_id
+        LEFT JOIN garment_types p ON p.id = sp.garment_rate_id
         WHERE ${where}`,
         params
       ),
@@ -443,7 +442,7 @@ export class ShopProductsRepository {
     const { rows } = await query(
       `SELECT sp.garment_rate_id, p.name AS product_name
         FROM vendor_services sp
-        LEFT JOIN garment_rates p ON p.id = sp.garment_rate_id
+        LEFT JOIN garment_types p ON p.id = sp.garment_rate_id
         WHERE sp.id = $1 AND sp.vendor_id = $2 AND sp.deleted_at IS NULL`,
       [id, shopId]
     )
@@ -908,7 +907,7 @@ export class ShopProductsRepository {
             sm.source, sm.metadata, sm.created_at,
             p.name AS product_name
            FROM stock_movements sm
-           LEFT JOIN garment_rates p ON p.id = sm.garment_rate_id
+           LEFT JOIN garment_types p ON p.id = sm.garment_rate_id
           WHERE ${where}
           ORDER BY sm.created_at DESC
           LIMIT $${idx} OFFSET $${idx + 1}`,

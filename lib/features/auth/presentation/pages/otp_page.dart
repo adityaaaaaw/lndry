@@ -13,6 +13,7 @@ import '../../../../core/widgets/app_snackbar.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/router/app_routes.dart';
 import '../../../../providers/auth_provider.dart';
+import '../../../../config/env.dart';
 
 class OtpPage extends ConsumerStatefulWidget {
   const OtpPage({super.key});
@@ -38,6 +39,13 @@ class _OtpPageState extends ConsumerState<OtpPage> {
   void initState() {
     super.initState();
     _startResendTimer();
+    if (Env.shouldAutoFillOtp) {
+      Future.delayed(const Duration(milliseconds: 400), () {
+        if (mounted) {
+          _onVerify();
+        }
+      });
+    }
   }
 
   void _startResendTimer() {
@@ -69,9 +77,9 @@ class _OtpPageState extends ConsumerState<OtpPage> {
   }
 
   Future<void> _onVerify() async {
-    if (_otpCode.length < 4) {
+    if (_otpCode.length != 6) {
       setState(
-          () => _errorText = 'Please enter the complete verification code');
+          () => _errorText = 'Please enter the complete 6-digit verification code');
       return;
     }
 
@@ -198,6 +206,7 @@ class _OtpPageState extends ConsumerState<OtpPage> {
 
                     AppOtpInput(
                       length: AppConstants.otpLength,
+                      initialValue: Env.shouldAutoFillOtp ? '123456' : null,
                       errorText: _errorText,
                       onChanged: (val) => setState(() {
                         _otpCode = val;
@@ -245,6 +254,7 @@ class _OtpPageState extends ConsumerState<OtpPage> {
 
                     AppButton(
                       label: 'Verify & Continue',
+                      isDisabled: _otpCode.length != 6,
                       onPressed: _onVerify,
                     ),
                   ],

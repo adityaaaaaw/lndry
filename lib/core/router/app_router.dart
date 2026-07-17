@@ -112,7 +112,6 @@ String? _globalRedirect(
   final returnTo = state.uri.queryParameters['returnTo'];
 
   const protectedPaths = [
-    AppRoutes.profile,
     AppRoutes.profileSetup,
     AppRoutes.locationPermission,
     AppRoutes.mapAddress,
@@ -124,7 +123,6 @@ String? _globalRedirect(
     AppRoutes.address,
     AppRoutes.notifications,
     AppRoutes.myReviews,
-    AppRoutes.settings,
   ];
 
   final isProtectedPath = (protectedPaths.contains(path) ||
@@ -543,15 +541,6 @@ class _NavItem extends ConsumerWidget {
               context: context,
               ref: ref,
               returnTo: AppRoutes.orders,
-              action: (_, __) => goToBranch(),
-            );
-            return;
-          }
-          if (index == 4) {
-            requireAuthenticated(
-              context: context,
-              ref: ref,
-              returnTo: AppRoutes.profile,
               action: (_, __) => goToBranch(),
             );
             return;

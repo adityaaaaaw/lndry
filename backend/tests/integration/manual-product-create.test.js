@@ -221,12 +221,12 @@ function setupHappyPathMocks() {
       if (sql === 'ROLLBACK') return { rows: [] }
 
       // Step 1: Duplicate check — no collision
-      if (sql.includes('LOWER(TRIM(name))') && sql.includes('garment_rates')) {
+      if (sql.includes('LOWER(TRIM(name))') && sql.includes('garment_types')) {
         return { rows: [] }
       }
 
       // Step 2: INSERT into garment_rates
-      if (sql.includes('INSERT INTO garment_rates')) {
+      if (sql.includes('INSERT INTO garment_types')) {
         return {
           rows: [{
             id: PRODUCT_ID,
@@ -364,7 +364,7 @@ function setupCollisionMocks() {
       if (sql === 'ROLLBACK') return { rows: [] }
 
       // Step 1: Duplicate check — COLLISION found
-      if (sql.includes('LOWER(TRIM(name))') && sql.includes('garment_rates')) {
+      if (sql.includes('LOWER(TRIM(name))') && sql.includes('garment_types')) {
         return {
           rows: [{
             id: EXISTING_PRODUCT_ID,
@@ -419,7 +419,7 @@ describe('POST /api/v1/vendors/:shopId/garment_rates/manual — Manual Product C
       expect(body.data).toHaveProperty('movement')
     })
 
-    it('creates exactly one row in garment_rates table', async () => {
+    it('creates exactly one row in garment_types table', async () => {
       const mockClient = setupHappyPathMocks()
 
       const token = signTestToken({
@@ -440,7 +440,7 @@ describe('POST /api/v1/vendors/:shopId/garment_rates/manual — Manual Product C
 
       // Count INSERT INTO garment_rates calls on the transaction client
       const productInserts = mockClient.query.mock.calls.filter(
-        (call) => call[0]?.includes?.('INSERT INTO garment_rates')
+        (call) => call[0]?.includes?.('INSERT INTO garment_types')
       )
       expect(productInserts).toHaveLength(1)
     })
@@ -606,7 +606,7 @@ describe('POST /api/v1/vendors/:shopId/garment_rates/manual — Manual Product C
 
       // No INSERT into garment_rates should have happened
       const productInserts = mockClient.query.mock.calls.filter(
-        (call) => call[0]?.includes?.('INSERT INTO garment_rates')
+        (call) => call[0]?.includes?.('INSERT INTO garment_types')
       )
       expect(productInserts).toHaveLength(0)
 
